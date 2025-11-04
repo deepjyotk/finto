@@ -1,0 +1,23 @@
+[project]
+name = "finto"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.121.0",
+    "gradio>=5.49.1",
+    "httpx>=0.28.1",
+    "langchain>=1.0.3",
+    "langgraph>=1.0.2",
+    "python-json-logger>=3.2.1",
+    "uvicorn>=0.38.0",
+]
+
+[dependency-groups]
+dev = [
+    "autoflake>=2.3.1",
+    "black>=25.9.0",
+    "flake8>=7.3.0",
+    "isort>=7.0.0",
+]

@@ -1,0 +1,31 @@
+[flake8]
+# Exclude UI folder from flake8 checks
+exclude =
+    .git,
+    __pycache__,
+    .venv,
+    venv,
+    *.egg-info,
+    .pytest_cache,
+    src/ui/
+
+# Maximum line length
+max-line-length = 100
+
+# Ignore specific error codes if needed
+# E203: whitespace before ':'
+# W503: line break before binary operator
+ignore = E203, W503
+
+# Show source code for errors
+show-source = True
+
+# Show the error codes
+show-pep8 = True
+
+# Count errors
+count = True
+
+# Set complexity threshold
+max-complexity = 10
+

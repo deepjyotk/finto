@@ -1,0 +1,27 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "API (FastAPI)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": [
+        "src.api.chat:app",
+        "--reload",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000"
+      ],
+      "justMyCode": true
+    },
+    {
+      "name": "UI (Gradio)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "src.ui.chat_app",
+      "justMyCode": true
+    }
+  ]
+}

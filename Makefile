@@ -33,7 +33,7 @@ setup:
 
 run-apis:
 	@echo "🚀 Starting FastAPI backend on http://localhost:8000..."
-	@uv run uvicorn src.api.chat:app --host 0.0.0.0 --port 8000 --reload
+	@uv run uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
 
 run-ui:
 	@echo "🎨 Starting Gradio UI on http://localhost:7860..."

@@ -24,8 +24,21 @@ def setup_json_logging(level: str | int | None = None, app_name: str = "finto") 
     ):
         return
 
+    class ColoredFormatter(jsonlogger.JsonFormatter):
+        COLORS = {
+            'ERROR': '\033[91m',    # Red
+            'CRITICAL': '\033[91m', # Red
+            'RESET': '\033[0m'
+        }
+        
+        def format(self, record):
+            log_message = super().format(record)
+            if record.levelname in self.COLORS:
+                return f"{self.COLORS[record.levelname]}{log_message}{self.COLORS['RESET']}"
+            return log_message
+    
     handler = logging.StreamHandler(sys.stdout)
-    formatter = jsonlogger.JsonFormatter(
+    formatter = ColoredFormatter(
         "%(asctime)s %(levelname)s %(name)s %(module)s %(funcName)s %(lineno)d %(message)s",
         rename_fields={
             "asctime": "timestamp",

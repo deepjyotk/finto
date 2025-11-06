@@ -3,10 +3,9 @@ name = "finto"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.13,<4.0.0"
 dependencies = [
     "fastapi>=0.121.0",
-    "gradio>=5.49.1",
     "httpx>=0.28.1",
     "langchain>=1.0.3",
     "langgraph>=1.0.2",
@@ -24,6 +23,7 @@ dependencies = [
     "pydantic-settings>=2.0.0",
     "psycopg2-binary>=2.9.9,<3.0.0",
     "greenlet>=3.0.0,<4.0.0",
+    "langchain-openai>=1.0.2",
 ]
 
 [dependency-groups]

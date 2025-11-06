@@ -1,6 +1,7 @@
 from typing import Optional
-from pydantic import BaseModel, EmailStr, Field
 from uuid import UUID
+
+from pydantic import BaseModel, EmailStr, Field
 
 
 class UserBase(BaseModel):
@@ -10,7 +11,12 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
-    password: str = Field(..., min_length=8, description="User password (min 8 characters)", example="SecurePass123!")
+    password: str = Field(
+        ...,
+        min_length=8,
+        description="User password (min 8 characters)",
+        example="SecurePass123!",
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -18,7 +24,7 @@ class UserCreate(UserBase):
                 "username": "johndoe",
                 "email": "john@example.com",
                 "full_name": "John Doe",
-                "password": "SecurePass123!"
+                "password": "SecurePass123!",
             }
         }
     }
@@ -29,12 +35,7 @@ class UserLogin(BaseModel):
     password: str = Field(..., description="User password", example="SecurePass123!")
 
     model_config = {
-        "json_schema_extra": {
-            "example": {
-                "username": "johndoe",
-                "password": "SecurePass123!"
-            }
-        }
+        "json_schema_extra": {"example": {"username": "johndoe", "password": "SecurePass123!"}}
     }
 
 
@@ -48,13 +49,12 @@ class UserResponse(UserBase):
                 "user_id": "123e4567-e89b-12d3-a456-426614174000",
                 "username": "johndoe",
                 "email": "john@example.com",
-                "full_name": "John Doe"
+                "full_name": "John Doe",
             }
-        }
+        },
     }
 
 
 class TokenData(BaseModel):
     username: Optional[str] = None
     user_id: Optional[str] = None
-

@@ -35,15 +35,14 @@ ALTER TABLE f_users ENABLE ROW LEVEL SECURITY;
 
 -- Create policy: Users can read their own data
 DROP POLICY IF EXISTS "Users can view own data" ON f_users;
-CREATE POLICY "Users can view own data" 
-    ON f_users FOR SELECT 
+CREATE POLICY "Users can view own data"
+    ON f_users FOR SELECT
     USING (auth.uid()::text = user_id::text);
 
 -- Create policy: Users can update their own data
 DROP POLICY IF EXISTS "Users can update own data" ON f_users;
-CREATE POLICY "Users can update own data" 
-    ON f_users FOR UPDATE 
+CREATE POLICY "Users can update own data"
+    ON f_users FOR UPDATE
     USING (auth.uid()::text = user_id::text);
 
 -- Note: INSERT policy is handled by service role (backend creates users)
-

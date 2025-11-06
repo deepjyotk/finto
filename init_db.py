@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-import os, sys
+import os
+import sys
 from pathlib import Path
+
 import psycopg
-from psycopg.rows import tuple_row
-
-import sqlparse 
+import sqlparse
 from dotenv import load_dotenv
-
+from psycopg.rows import tuple_row
 
 load_dotenv()
 # Expect DATABASE_URL in env, e.g.:
@@ -20,6 +20,7 @@ def get_migration_files() -> list[Path]:
         print(f"❌ Migrations directory not found: {d}")
         return []
     return sorted(d.glob("*.sql"))
+
 
 def run_sql_file(conn: psycopg.Connection, path: Path) -> None:
     print(f"📄 Running migration: {path.name}")
@@ -38,6 +39,7 @@ def run_sql_file(conn: psycopg.Connection, path: Path) -> None:
             raise
     print(f"✅ Migration {path.name} completed")
 
+
 def verify_table_exists(conn: psycopg.Connection, table: str) -> bool:
     try:
         with conn.cursor(row_factory=tuple_row) as cur:
@@ -54,6 +56,7 @@ def verify_table_exists(conn: psycopg.Connection, table: str) -> bool:
     except Exception as e:
         print(f"❌ Verification error for '{table}': {e}")
         return False
+
 
 def main():
     print("=" * 60)
@@ -87,9 +90,12 @@ def main():
                 print("  make run-apis  # Start the backend")
                 print("  make run-ui    # Start the frontend")
             else:
-                print("❌ Database initialization incomplete"); sys.exit(1)
+                print("❌ Database initialization incomplete")
+                sys.exit(1)
     except Exception as e:
-        print(f"❌ Failed: {e}"); sys.exit(1)
+        print(f"❌ Failed: {e}")
+        sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

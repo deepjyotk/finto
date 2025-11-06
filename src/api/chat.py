@@ -1,21 +1,23 @@
-from typing import List
+from typing import List, Optional
+import asyncio
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from src.utils.json_logging import logger_for
+from .llm import query
 
 logger = logger_for("api.chat")
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 
 class ChatRequest(BaseModel):
-    message: str = Field(..., description="User message to send", example="Hello, how are you?")
-    file: str | None = Field(None, description="Optional file path or identifier", example=None)
+    message: str = Field(..., description="User message to send", examples=["Hello, how are you?"])
+    file: Optional[str] = Field(None, description="Optional file path or identifier", examples=[None])
     conversation_history: List[str] = Field(
-        default=[],
+        default_factory=list,
         description="Previous messages in the conversation",
-        example=["Hello", "Hi there!"]
+        examples=[["Hello", "Hi there!"]]
     )
 
     model_config = {
@@ -30,7 +32,7 @@ class ChatRequest(BaseModel):
 
 
 class ChatResponse(BaseModel):
-    response: str = Field(..., description="AI response message", example="Hello! How can I help you?")
+    response: str = Field(..., description="AI response message", examples=["Hello! How can I help you?"])
 
     model_config = {
         "json_schema_extra": {
@@ -57,12 +59,21 @@ async def chat(request: ChatRequest):
     
     Returns a chat response message.
     """
+    # Call the LLM query; run in a thread to avoid blocking the event loop
+    response_text = await asyncio.to_thread(query, request.message)
+    # Ensure non-None string for response model
+    if response_text is None:
+        response_text = ""
+    else:
+        response_text = str(response_text)
     logger.info(
         "chat_request",
         extra={
             "message_text": request.message,
             "has_file": bool(request.file),
             "conversation_history_length": len(request.conversation_history),
+            "response_length": len(response_text) if isinstance(response_text, str) else None,
         },
     )
-    return ChatResponse(response="hello")
+    return ChatResponse(response=response_text)
+    

@@ -1,8 +1,8 @@
 """Database session management with async SQLAlchemy 2.x"""
+
 from typing import AsyncIterator
 
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from src.core.settings import settings
 
@@ -32,7 +32,7 @@ SessionLocal = async_sessionmaker(
 async def get_session() -> AsyncIterator[AsyncSession]:
     """
     Dependency that provides a database session.
-    
+
     The session is automatically rolled back on exit if not committed.
     This ensures clean state even if exceptions occur.
     """
@@ -42,4 +42,3 @@ async def get_session() -> AsyncIterator[AsyncSession]:
         finally:
             # Rollback any uncommitted work on exit
             await session.rollback()
-

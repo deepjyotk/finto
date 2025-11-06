@@ -4,7 +4,7 @@ from pathlib import Path
 import psycopg
 from psycopg.rows import tuple_row
 
-import sqlparse 
+import sqlparse
 from dotenv import load_dotenv
 
 
@@ -20,6 +20,7 @@ def get_migration_files() -> list[Path]:
         print(f"❌ Migrations directory not found: {d}")
         return []
     return sorted(d.glob("*.sql"))
+
 
 def run_sql_file(conn: psycopg.Connection, path: Path) -> None:
     print(f"📄 Running migration: {path.name}")
@@ -38,10 +39,13 @@ def run_sql_file(conn: psycopg.Connection, path: Path) -> None:
             raise
     print(f"✅ Migration {path.name} completed")
 
+
 def verify_table_exists(conn: psycopg.Connection, table: str) -> bool:
     try:
         with conn.cursor(row_factory=tuple_row) as cur:
-            cur.execute("select 1 from information_schema.tables where table_name=%s", (table,))
+            cur.execute(
+                "select 1 from information_schema.tables where table_name=%s", (table,)
+            )
             exists = cur.fetchone() is not None
         if exists:
             # Also check SELECT permission
@@ -55,6 +59,7 @@ def verify_table_exists(conn: psycopg.Connection, table: str) -> bool:
         print(f"❌ Verification error for '{table}': {e}")
         return False
 
+
 def main():
     print("=" * 60)
     print("🚀 Finto Database Initialization (Direct Postgres)")
@@ -62,8 +67,12 @@ def main():
 
     if not DATABASE_URL:
         print("\n❌ ERROR: DATABASE_URL not set.")
-        print("Get it from Supabase → Project → Settings → Database → Connection string")
-        print("Use the Postgres URI and include your Database Password, plus `?sslmode=require`.")
+        print(
+            "Get it from Supabase → Project → Settings → Database → Connection string"
+        )
+        print(
+            "Use the Postgres URI and include your Database Password, plus `?sslmode=require`."
+        )
         sys.exit(1)
 
     try:
@@ -87,9 +96,12 @@ def main():
                 print("  make run-apis  # Start the backend")
                 print("  make run-ui    # Start the frontend")
             else:
-                print("❌ Database initialization incomplete"); sys.exit(1)
+                print("❌ Database initialization incomplete")
+                sys.exit(1)
     except Exception as e:
-        print(f"❌ Failed: {e}"); sys.exit(1)
+        print(f"❌ Failed: {e}")
+        sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

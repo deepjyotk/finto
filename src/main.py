@@ -14,7 +14,8 @@ app = FastAPI(
     openapi_tags=[
         {
             "name": "authentication",
-            "description": "User authentication operations including register, login, and token management",
+            "description": "User authentication operations including register, login, and \
+            token management",
         },
         {
             "name": "chat",
@@ -29,4 +30,3 @@ app.include_router(chat_router)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
-

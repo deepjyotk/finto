@@ -1,9 +1,9 @@
 """Dependency injection providers - thin wiring layer only"""
 
 from typing import Annotated
-
-from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import Depends
+
 
 from src.core.db import get_session
 from src.core.settings import settings
@@ -30,3 +30,18 @@ def get_auth_service(
     return AuthService(
         repo=repo, secret_key=settings.secret_key, algorithm=settings.algorithm
     )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

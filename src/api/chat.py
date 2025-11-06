@@ -1,30 +1,61 @@
 from typing import List
 
-from fastapi import FastAPI
-from pydantic import BaseModel
+from fastapi import APIRouter
+from pydantic import BaseModel, Field
 
-from src.utils.json_logging import logger_for, setup_json_logging
+from src.utils.json_logging import logger_for
 
-setup_json_logging()
 logger = logger_for("api.chat")
-app = FastAPI()
+router = APIRouter(prefix="/chat", tags=["chat"])
 
 
 class ChatRequest(BaseModel):
-    message: str
-    file: str | None = None
-    conversation_history: List[str] = []
+    message: str = Field(..., description="User message to send", example="Hello, how are you?")
+    file: str | None = Field(None, description="Optional file path or identifier", example=None)
+    conversation_history: List[str] = Field(
+        default=[],
+        description="Previous messages in the conversation",
+        example=["Hello", "Hi there!"]
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "message": "What is the weather today?",
+                "file": None,
+                "conversation_history": ["Hello", "Hi! How can I help you?"]
+            }
+        }
+    }
 
 
 class ChatResponse(BaseModel):
-    response: str
+    response: str = Field(..., description="AI response message", example="Hello! How can I help you?")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "response": "Hello! How can I help you today?"
+            }
+        }
+    }
 
 
-@app.post("/chat", response_model=ChatResponse)
+@router.post(
+    "",
+    response_model=ChatResponse,
+    summary="Send a chat message",
+    description="Send a message to the chat system and receive a response. Supports conversation history and optional file attachments.",
+)
 async def chat(request: ChatRequest):
     """
-    Chat endpoint that will be improved later.
-    For now, it just returns 'hello'.
+    Process a chat message and return a response.
+    
+    - **message**: The user's message text (required)
+    - **file**: Optional file identifier or path
+    - **conversation_history**: List of previous messages for context
+    
+    Returns a chat response message.
     """
     logger.info(
         "chat_request",
@@ -35,9 +66,3 @@ async def chat(request: ChatRequest):
         },
     )
     return ChatResponse(response="hello")
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(app, host="0.0.0.0", port=8000)

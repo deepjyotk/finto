@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from src.utils.json_logging import logger_for
 from .llm import query
+from .schema import AgentMessage
 
 logger = logger_for("api.chat")
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -57,12 +58,14 @@ async def chat(request: ChatRequest):
     Returns a chat response message.
     """
     # Call the LLM query; run in a thread to avoid blocking the event loop
-    response_text = await asyncio.to_thread(query, request.message)
-    # Ensure non-None string for response model
-    if response_text is None:
+    response = await asyncio.to_thread(query, request.message)
+    # If we received an AgentMessage, use its content; otherwise stringify
+    if isinstance(response, AgentMessage):
+        response_text = response.content
+    elif response is None:
         response_text = ""
     else:
-        response_text = str(response_text)
+        response_text = str(response)
     logger.info(
         "chat_request",
         extra={

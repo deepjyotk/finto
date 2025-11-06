@@ -27,6 +27,4 @@ def get_auth_service(
         Configured AuthService instance
     """
     repo = UserRepository(session)
-    return AuthService(
-        repo=repo, secret_key=settings.secret_key, algorithm=settings.algorithm
-    )
+    return AuthService(repo=repo, secret_key=settings.secret_key, algorithm=settings.algorithm)

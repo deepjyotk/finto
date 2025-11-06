@@ -45,9 +45,7 @@ async def register(
 
     Returns the created user information.
     """
-    logger.info(
-        "register_attempt", extra={"username": user.username, "email": user.email}
-    )
+    logger.info("register_attempt", extra={"username": user.username, "email": user.email})
 
     # Create user
     created_user = await svc.register(user)

@@ -10,12 +10,8 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 
 
 class ChatRequest(BaseModel):
-    message: str = Field(
-        ..., description="User message to send", example="Hello, how are you?"
-    )
-    file: str | None = Field(
-        None, description="Optional file path or identifier", example=None
-    )
+    message: str = Field(..., description="User message to send", example="Hello, how are you?")
+    file: str | None = Field(None, description="Optional file path or identifier", example=None)
     conversation_history: List[str] = Field(
         default=[],
         description="Previous messages in the conversation",
@@ -39,9 +35,7 @@ class ChatResponse(BaseModel):
     )
 
     model_config = {
-        "json_schema_extra": {
-            "example": {"response": "Hello! How can I help you today?"}
-        }
+        "json_schema_extra": {"example": {"response": "Hello! How can I help you today?"}}
     }
 
 

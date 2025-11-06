@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-import os, sys
+import os
+import sys
 from pathlib import Path
-import psycopg
-from psycopg.rows import tuple_row
 
+import psycopg
 import sqlparse
 from dotenv import load_dotenv
-
+from psycopg.rows import tuple_row
 
 load_dotenv()
 # Expect DATABASE_URL in env, e.g.:
@@ -43,9 +43,7 @@ def run_sql_file(conn: psycopg.Connection, path: Path) -> None:
 def verify_table_exists(conn: psycopg.Connection, table: str) -> bool:
     try:
         with conn.cursor(row_factory=tuple_row) as cur:
-            cur.execute(
-                "select 1 from information_schema.tables where table_name=%s", (table,)
-            )
+            cur.execute("select 1 from information_schema.tables where table_name=%s", (table,))
             exists = cur.fetchone() is not None
         if exists:
             # Also check SELECT permission
@@ -67,12 +65,8 @@ def main():
 
     if not DATABASE_URL:
         print("\n❌ ERROR: DATABASE_URL not set.")
-        print(
-            "Get it from Supabase → Project → Settings → Database → Connection string"
-        )
-        print(
-            "Use the Postgres URI and include your Database Password, plus `?sslmode=require`."
-        )
+        print("Get it from Supabase → Project → Settings → Database → Connection string")
+        print("Use the Postgres URI and include your Database Password, plus `?sslmode=require`.")
         sys.exit(1)
 
     try:

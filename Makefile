@@ -37,7 +37,7 @@ setup:
 
 init-db:
 	@echo "🗄️  Initializing database..."
-	@uv run python scripts/init_db.py
+	@uv run python init_db.py
 
 run-apis:
 	@echo "🚀 Starting FastAPI backend on http://localhost:8000..."

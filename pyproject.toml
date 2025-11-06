@@ -13,10 +13,17 @@ dependencies = [
     "python-json-logger>=3.2.1",
     "uvicorn>=0.38.0",
     "pyjwt>=2.10.1",
-    "supabase>=2.11.0",
     "passlib[bcrypt]>=1.7.4",
     "python-multipart>=0.0.20",
     "email-validator>=2.2.0",
+    "psycopg>=3.2.0",
+    "sqlparse>=0.5.0",
+    "python-dotenv>=1.0.0",
+    "sqlalchemy>=2.0.0",
+    "asyncpg>=0.29.0,<1.0.0",
+    "pydantic-settings>=2.0.0",
+    "psycopg2-binary>=2.9.9,<3.0.0",
+    "greenlet>=3.0.0,<4.0.0",
 ]
 
 [dependency-groups]

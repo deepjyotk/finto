@@ -1,4 +1,4 @@
-.PHONY: setup run-apis run-ui clean lint help
+.PHONY: setup init-db run-apis run-ui clean lint help
 
 # Detect operating system
 ifeq ($(OS),Windows_NT)
@@ -14,6 +14,7 @@ endif
 help:
 	@echo "Available commands:"
 	@echo "  make setup     - Setup the project (create .venv and install dependencies)"
+	@echo "  make init-db   - Initialize the database (create tables)"
 	@echo "  make run-apis  - Run the FastAPI backend server"
 	@echo "  make run-ui    - Run the Gradio UI server"
 	@echo "  make lint      - Run code linting and formatting (autoflake, isort, black, flake8)"
@@ -27,9 +28,16 @@ setup:
 	@uv sync
 	@echo "✅ Setup complete!"
 	@echo ""
-	@echo "To run the application:"
-	@echo "  - Backend API: make run-apis"
-	@echo "  - Frontend UI: make run-ui"
+	@echo "Next steps:"
+	@echo "  1. Copy .env.example to .env and configure your Supabase credentials"
+	@echo "  2. Initialize the database: make init-db"
+	@echo "  3. Run the application:"
+	@echo "     - Backend API: make run-apis"
+	@echo "     - Frontend UI: make run-ui"
+
+init-db:
+	@echo "🗄️  Initializing database..."
+	@uv run python scripts/init_db.py
 
 run-apis:
 	@echo "🚀 Starting FastAPI backend on http://localhost:8000..."

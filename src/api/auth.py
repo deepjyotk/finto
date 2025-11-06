@@ -12,7 +12,7 @@ from src.schemas.auth import UserCreate, UserLogin, UserResponse
 from src.services.auth_service import AuthService
 from src.utils.json_logging import logger_for
 
-logger = logger_for("api.auth")
+logger = logger_for(__name__)
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 

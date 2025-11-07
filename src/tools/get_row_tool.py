@@ -1,17 +1,12 @@
-import dotenv
-from langchain_openai import ChatOpenAI
-from langchain.agents import create_agent
 import pandas as pd
-from pydantic import BaseModel, Field
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
-from langchain_core.tools import tool
 from dotenv import load_dotenv
-from regex import D
+from langchain_core.tools import tool
 
 load_dotenv()
 
 # 1️⃣ Load your Excel file
 df = pd.read_excel("portfolio.xlsx")
+
 
 @tool
 def get_entire_row(symbol_name: str) -> dict:
@@ -31,4 +26,3 @@ def get_entire_row(symbol_name: str) -> dict:
 #     "messages": [HumanMessage(content="I want to calculate the total value of my holdings in adani green")],
 # })
 # print("Agent Response:", raw)
-

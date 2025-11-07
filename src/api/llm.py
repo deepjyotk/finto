@@ -3,16 +3,17 @@
 Provides a simple `query(question: str) -> str` function that runs the
 agent (which has access to a `get_ticker_price` tool).
 """
-import os
-from dotenv import load_dotenv
 
-from langchain_openai.chat_models import ChatOpenAI
-from langchain.agents import create_agent
-from pydantic import BaseModel, Field
-from langchain.agents.structured_output import ToolStrategy
+import os
 
 import yfinance as yf
-from .schema import AgentMessage, AgentResponse
+from dotenv import load_dotenv
+from langchain.agents import create_agent
+from langchain.agents.structured_output import ToolStrategy
+from langchain_openai.chat_models import ChatOpenAI
+from pydantic import BaseModel, Field
+
+from .schema import AgentMessage
 
 # load environment
 load_dotenv()
@@ -21,9 +22,9 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 DEFAULT_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
 
-
 class StockDescription(BaseModel):
     """A stock with details."""
+
     symbol: str = Field(..., description="The stock symbol")
     name: str = Field(..., description="The name of the company")
     sector: str = Field(..., description="The sector the company belongs to")
@@ -53,11 +54,8 @@ def get_ticker_price(ticker: str) -> str:
 # is not set. We still allow import, but will raise if query() is called without a key.
 _llm = ChatOpenAI(model=DEFAULT_MODEL, temperature=0)
 _agent = create_agent(
-    model=DEFAULT_MODEL,
-    tools=[get_ticker_price],
-    response_format=ToolStrategy(StockDescription)
+    model=DEFAULT_MODEL, tools=[get_ticker_price], response_format=ToolStrategy(StockDescription)
 )
-
 
 
 def query(question: str) -> AgentMessage:
@@ -89,6 +87,6 @@ def query(question: str) -> AgentMessage:
         #     return ai_messages[-1]
         # # fallback to the last message
         return output
-        #return messages[-1]
+        # return messages[-1]
     except Exception as e:
         raise RuntimeError(f"Agent run failed: {e}") from e

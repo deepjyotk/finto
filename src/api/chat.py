@@ -1,10 +1,11 @@
-from typing import List, Optional
 import asyncio
+from typing import List, Optional
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from src.utils.json_logging import logger_for
+
 from .computation_agent import query
 from .schema import AgentMessage
 
@@ -14,11 +15,13 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 
 class ChatRequest(BaseModel):
     message: str = Field(..., description="User message to send", examples=["Hello, how are you?"])
-    file: Optional[str] = Field(None, description="Optional file path or identifier", examples=[None])
+    file: Optional[str] = Field(
+        None, description="Optional file path or identifier", examples=[None]
+    )
     conversation_history: List[str] = Field(
         default_factory=list,
         description="Previous messages in the conversation",
-        examples=[["Hello", "Hi there!"]]
+        examples=[["Hello", "Hi there!"]],
     )
 
     model_config = {
@@ -33,7 +36,9 @@ class ChatRequest(BaseModel):
 
 
 class ChatResponse(BaseModel):
-    response: str = Field(..., description="AI response message", examples=["Hello! How can I help you?"])
+    response: str = Field(
+        ..., description="AI response message", examples=["Hello! How can I help you?"]
+    )
 
     model_config = {
         "json_schema_extra": {"example": {"response": "Hello! How can I help you today?"}}
@@ -76,4 +81,3 @@ async def chat(request: ChatRequest):
         },
     )
     return ChatResponse(response=response_text)
-    

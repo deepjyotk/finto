@@ -59,7 +59,7 @@ def setup_json_logging(level: str | int | None = None, app_name: str = "finto") 
     for name in ("uvicorn", "uvicorn.error", "uvicorn.access", "fastapi", "httpx"):
         logging.getLogger(name).handlers = []
         logging.getLogger(name).propagate = True
-    
+
     # Add filter to upgrade log level for HTTP errors
     class HTTPErrorFilter(logging.Filter):
         def filter(self, record):
@@ -67,11 +67,11 @@ def setup_json_logging(level: str | int | None = None, app_name: str = "finto") 
             parts = msg.split('" ')
             if len(parts) > 1:
                 status_part = parts[1].split()[0]
-                if status_part.startswith(('4', '5')):
+                if status_part.startswith(("4", "5")):
                     record.levelno = logging.ERROR
-                    record.levelname = 'ERROR'
+                    record.levelname = "ERROR"
             return True
-    
+
     logging.getLogger("uvicorn.access").addFilter(HTTPErrorFilter())
 
 

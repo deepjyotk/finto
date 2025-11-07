@@ -4,12 +4,12 @@
 from __future__ import annotations
 
 import logging
-from typing import List, Optional, Literal, Dict, Any
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from tavily import TavilyClient
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 try:
     from langchain.tools import StructuredTool
@@ -36,8 +36,11 @@ class TavilySettings(BaseSettings):
 
     # India finance authoritative domains (adjust as needed)
     TAVILY_FINANCE_WHITELIST: List[str] = [
-        "nseindia.com", "bseindia.com", "sebi.gov.in",
-        "rbi.org.in", "mca.gov.in"
+        "nseindia.com",
+        "bseindia.com",
+        "sebi.gov.in",
+        "rbi.org.in",
+        "mca.gov.in",
     ]
 
     model_config = {
@@ -51,6 +54,7 @@ class TavilySettings(BaseSettings):
 # Models
 # -----------------------------
 Topic = Literal["finance", "general", "news", "technology", "science"]
+
 
 class TavilySearchParams(BaseModel):
     query: str = Field(..., description="Natural language search query.")
@@ -92,20 +96,36 @@ class TavilySearchTool:
 
     def _defaulted_params(self, p: TavilySearchParams) -> Dict[str, Any]:
         # Apply opinionated defaults if caller omitted fields
-        include_domains = p.include_domains or self.settings.TAVILY_FINANCE_WHITELIST if p.topic == "finance" else None
+        include_domains = (
+            p.include_domains or self.settings.TAVILY_FINANCE_WHITELIST
+            if p.topic == "finance"
+            else None
+        )
         return {
             "query": p.query,
             "topic": p.topic,
             "max_results": p.max_results or self.settings.TAVILY_DEFAULT_MAX_RESULTS,
-            "include_answer": p.include_answer if p.include_answer is not None else self.settings.TAVILY_DEFAULT_INCLUDE_ANSWER,
-            "include_raw_content": p.include_raw_content if p.include_raw_content is not None else self.settings.TAVILY_DEFAULT_INCLUDE_RAW,
+            "include_answer": (
+                p.include_answer
+                if p.include_answer is not None
+                else self.settings.TAVILY_DEFAULT_INCLUDE_ANSWER
+            ),
+            "include_raw_content": (
+                p.include_raw_content
+                if p.include_raw_content is not None
+                else self.settings.TAVILY_DEFAULT_INCLUDE_RAW
+            ),
             "search_depth": p.search_depth or self.settings.TAVILY_DEFAULT_SEARCH_DEPTH,
             "time_range": p.time_range or self.settings.TAVILY_DEFAULT_TIME_RANGE,
             "include_domains": include_domains,
             "exclude_domains": p.exclude_domains,
             "country": p.country,
             "language": p.language,
-            "auto_parameters": p.auto_parameters if p.auto_parameters is not None else self.settings.TAVILY_DEFAULT_AUTO_PARAMETERS,
+            "auto_parameters": (
+                p.auto_parameters
+                if p.auto_parameters is not None
+                else self.settings.TAVILY_DEFAULT_AUTO_PARAMETERS
+            ),
         }
 
     @retry(

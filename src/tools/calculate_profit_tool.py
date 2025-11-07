@@ -1,20 +1,12 @@
-import dotenv
-from langchain_openai import ChatOpenAI
-from langchain.agents import create_agent
 import pandas as pd
-from pydantic import BaseModel, Field
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
-from langchain_core.tools import tool
-from .get_row_tool import get_entire_row
-from .get_symbol_name import get_symbol_name
-from .get_ticker_price import get_ticker_price
 from dotenv import load_dotenv
-from regex import D
+from langchain_core.tools import tool
 
 load_dotenv()
 
 # 1️⃣ Load your Excel file
 df = pd.read_excel("portfolio.xlsx")
+
 
 @tool
 def calculate_profit(quantity: float, average_price: float, current_price: float) -> dict:
@@ -35,4 +27,3 @@ def calculate_profit(quantity: float, average_price: float, current_price: float
 #     "messages": [HumanMessage(content="I want to calculate the total profit in adani green")],
 # })
 # print("Agent Response:", raw)
-

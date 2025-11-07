@@ -5,7 +5,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from src.utils.json_logging import logger_for
-from .llm import query
+from .computation_agent import query
 from .schema import AgentMessage
 
 logger = logger_for("api.chat")

@@ -51,7 +51,7 @@ async def register(
     created_user = await svc.register(user)
 
     if not created_user:
-        logger.warning("register_failed", extra={"username": user.username})
+        logger.error("register_failed", extra={"username": user.username})
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Username or email already exists",

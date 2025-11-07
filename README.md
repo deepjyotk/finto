@@ -58,12 +58,6 @@ make run-apis
 ```
 Backend will be available at: http://localhost:8000
 
-**Terminal 2 - Run the Gradio UI:**
-```bash
-make run-ui
-```
-UI will be available at: http://localhost:7860
-
 ## 📋 Available Commands
 
 - `make setup` - Setup the project (create .venv and install dependencies)

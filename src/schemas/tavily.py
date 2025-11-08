@@ -6,7 +6,7 @@ from typing import Any, Dict, Final, List, Literal, TypedDict
 from pydantic import BaseModel, ConfigDict, Field
 
 # ---------- Types ----------
-TimeRange = Literal["1d", "3d", "7d", "30d"]
+TimeRange = Literal["d", "w", "m", "y", "day", "week", "month", "year"]
 Depth = Literal["basic", "advanced"]
 
 class ResultItem(TypedDict, total=False):
@@ -15,6 +15,7 @@ class ResultItem(TypedDict, total=False):
     source: str
     published_date: str
     snippet: str
+    content: str
     score: float
 
 class SearchInput(BaseModel):
@@ -22,9 +23,11 @@ class SearchInput(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     q: str = Field(..., description="Natural language query (tickers/sectors/macro).")
-    time_range: TimeRange = "1d"
+    time_range: TimeRange = "d"
     max_results: int = Field(6, ge=1, le=20)
     depth: Depth = "basic"
+    include_raw_content: bool = Field(default=True, description="Whether to include raw content in the search results")
+
 
 class SearchOutput(BaseModel):
     """Normalized search output (stable surface for the rest of the graph)."""

@@ -1,48 +1,15 @@
 import asyncio
-from typing import List, Optional
 
-from fastapi import APIRouter
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends
 
-from src.utils.json_logging import logger_for
-
-from .computation_agent import query
-from .schema import AgentMessage
+from src.api.schemas.chat import ChatRequest, ChatResponse
+from src.core.json_logging import logger_for
+from src.core.schema import AgentMessage
+from src.dependencies import get_chat_service
+from src.services.chat import ChatService
 
 logger = logger_for("api.chat")
 router = APIRouter(prefix="/chat", tags=["chat"])
-
-
-class ChatRequest(BaseModel):
-    message: str = Field(..., description="User message to send", examples=["Hello, how are you?"])
-    file: Optional[str] = Field(
-        None, description="Optional file path or identifier", examples=[None]
-    )
-    conversation_history: List[str] = Field(
-        default_factory=list,
-        description="Previous messages in the conversation",
-        examples=[["Hello", "Hi there!"]],
-    )
-
-    model_config = {
-        "json_schema_extra": {
-            "example": {
-                "message": "What is the weather today?",
-                "file": None,
-                "conversation_history": ["Hello", "Hi! How can I help you?"],
-            }
-        }
-    }
-
-
-class ChatResponse(BaseModel):
-    response: str = Field(
-        ..., description="AI response message", examples=["Hello! How can I help you?"]
-    )
-
-    model_config = {
-        "json_schema_extra": {"example": {"response": "Hello! How can I help you today?"}}
-    }
 
 
 @router.post(
@@ -52,7 +19,10 @@ class ChatResponse(BaseModel):
     description="Send a message to the chat system and receive a \
     response. Supports conversation history and optional file attachments.",
 )
-async def chat(request: ChatRequest):
+async def chat(
+    request: ChatRequest,
+    chat_service: ChatService = Depends(get_chat_service),
+):
     """
     Process a chat message and return a response.
 
@@ -63,7 +33,7 @@ async def chat(request: ChatRequest):
     Returns a chat response message.
     """
     # Call the LLM query; run in a thread to avoid blocking the event loop
-    response = await asyncio.to_thread(query, request.message)
+    response = await asyncio.to_thread(chat_service.query, request)
     # If we received an AgentMessage, use its content; otherwise stringify
     if isinstance(response, AgentMessage):
         response_text = response.content

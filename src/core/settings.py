@@ -1,3 +1,6 @@
+from typing import List, Literal
+
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -21,6 +24,40 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
     )
+
+
+class LLMSettings(BaseSettings):
+    """LLM settings loaded from environment variables"""
+
+    temperature: float = 0
+    openai_api_key: str
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
+    )
+
+
+class TavilySettings(BaseSettings):
+    TAVILY_API_KEY: str = Field(..., description="Tavily API key")
+    TAVILY_DEFAULT_MAX_RESULTS: int = 5
+    TAVILY_DEFAULT_SEARCH_DEPTH: Literal["basic", "advanced"] = "basic"
+    TAVILY_DEFAULT_TIME_RANGE: str = "w"
+    TAVILY_DEFAULT_INCLUDE_ANSWER: bool = True
+    TAVILY_DEFAULT_INCLUDE_RAW: bool = True
+    TAVILY_DEFAULT_AUTO_PARAMETERS: bool = False
+
+    TAVILY_FINANCE_WHITELIST: List[str] = [
+        "nseindia.com",
+        "bseindia.com",
+        "sebi.gov.in",
+        "rbi.org.in",
+        "mca.gov.in",
+    ]
+
+    model_config = {
+        "env_file": ".env",
+        "case_sensitive": True,
+        "extra": "ignore",
+    }
 
 
 settings = Settings()

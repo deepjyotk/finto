@@ -1,4 +1,5 @@
 import uvicorn
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,7 +7,9 @@ from fastapi.responses import JSONResponse
 
 from src.api.auth import router as auth_router
 from src.api.chat import router as chat_router
-from src.utils.json_logging import logger_for, setup_json_logging
+from src.core.json_logging import logger_for, setup_json_logging
+
+load_dotenv()
 
 setup_json_logging()
 logger = logger_for(__name__)

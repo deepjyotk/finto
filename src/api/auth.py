@@ -5,12 +5,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
+from src.api.schemas.auth import UserCreate, UserLogin, UserResponse
+from src.core.json_logging import logger_for
 from src.core.middleware import get_current_user_optional, require_auth
 from src.core.settings import settings
-from src.deps.providers import get_auth_service
-from src.schemas.auth import UserCreate, UserLogin, UserResponse
-from src.services.auth_service import AuthService
-from src.utils.json_logging import logger_for
+from src.dependencies import get_auth_service
+from src.services.auth import AuthService
 
 logger = logger_for(__name__)
 

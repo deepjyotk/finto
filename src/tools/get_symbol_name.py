@@ -1,12 +1,9 @@
 import pandas as pd
-from dotenv import load_dotenv
 from langchain.agents import create_agent
 from langchain_core.messages import HumanMessage
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
-
-load_dotenv()
 
 
 class SymbolQuery(BaseModel):
@@ -25,8 +22,9 @@ print("Portfolio Data:", df.head())
 # 2️⃣ Initialize an OpenAI chat model
 llm = ChatOpenAI(model="gpt-4o", temperature=0)
 system_prompt = (
-    f"You are a financial assistant that answers questions about the provided portfolio data.\n{df.to_markdown()}\n"
-    "Output the symbol name"
+    "You are a financial assistant that answers questions about the provided portfolio data.\n"
+    f"{df.to_markdown()}\n"
+    "Output the symbol name."
 )
 
 # 3️⃣ Create a Pandas DataFrame agent

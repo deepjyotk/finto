@@ -87,7 +87,7 @@ finto/
 │   ├── repositories/
 │   │   └── user_repo.py      # User repository (data access layer)
 │   ├── services/
-│   │   └── auth_service.py   # Auth service (business logic layer)
+│   │   └── auth.py   # Auth service (business logic layer)
 │   ├── deps/
 │   │   └── providers.py      # Dependency injection wiring
 │   ├── schemas/

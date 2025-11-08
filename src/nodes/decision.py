@@ -1,12 +1,9 @@
 from typing import Literal
 
-from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
-
-load_dotenv()
 
 
 class RouteQuery(BaseModel):
@@ -22,10 +19,14 @@ decision_prompt = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            "You are a helpful AI assistant that helps decide whether to use computation node or the analysis node based on user queries about stock prices and portfolio analysis."
-            "Computation node is for queries about current stock prices, gains, returns, and calculations."
-            "Analysis node is for queries about portfolio summaries, holdings, and counts from an Excel file."
-            "Given a user question, decide the appropriate route: 'computation' or 'analysis'.",
+            (
+                "You are a helpful AI assistant that decides whether to use the computation or "
+                "analysis node based on stock and portfolio questions. The computation node "
+                "handles current stock prices, gains, returns, and related calculations. The "
+                "analysis node covers portfolio summaries, holdings, and counts from the Excel "
+                "file. For each user question, choose the appropriate route: 'computation' or "
+                "'analysis'."
+            ),
         ),
         MessagesPlaceholder(variable_name="messages"),
     ]

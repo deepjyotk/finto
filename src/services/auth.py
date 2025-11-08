@@ -7,9 +7,9 @@ from uuid import uuid4
 import jwt
 from passlib.context import CryptContext
 
+from src.api.schemas.auth import TokenData, UserCreate, UserResponse
 from src.models.user import User
 from src.repositories.user_repo import UserRepository
-from src.schemas.auth import TokenData, UserCreate, UserResponse
 
 # Password hashing context
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")

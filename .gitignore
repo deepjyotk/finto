@@ -12,3 +12,4 @@ wheels/
 .env.docker
 .env.local
 .env
+uv.lock

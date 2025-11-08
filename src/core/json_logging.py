@@ -26,6 +26,7 @@ def setup_json_logging(level: str | int | None = None, app_name: str = "finto") 
 
     class ColoredFormatter(jsonlogger.JsonFormatter):
         COLORS = {
+            "WARNING": "\033[95m",  # Pink
             "ERROR": "\033[91m",  # Red
             "CRITICAL": "\033[91m",  # Red
             "RESET": "\033[0m",
@@ -58,6 +59,20 @@ def setup_json_logging(level: str | int | None = None, app_name: str = "finto") 
     for name in ("uvicorn", "uvicorn.error", "uvicorn.access", "fastapi", "httpx"):
         logging.getLogger(name).handlers = []
         logging.getLogger(name).propagate = True
+
+    # Add filter to upgrade log level for HTTP errors
+    class HTTPErrorFilter(logging.Filter):
+        def filter(self, record):
+            msg = record.getMessage()
+            parts = msg.split('" ')
+            if len(parts) > 1:
+                status_part = parts[1].split()[0]
+                if status_part.startswith(("4", "5")):
+                    record.levelno = logging.ERROR
+                    record.levelname = "ERROR"
+            return True
+
+    logging.getLogger("uvicorn.access").addFilter(HTTPErrorFilter())
 
 
 def logger_for(name: str) -> logging.Logger:

@@ -1,12 +1,18 @@
 import uvicorn
-from fastapi import FastAPI
+from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from src.api.auth import router as auth_router
 from src.api.chat import router as chat_router
-from src.utils.json_logging import setup_json_logging
+from src.core.json_logging import logger_for, setup_json_logging
+
+load_dotenv()
 
 setup_json_logging()
+logger = logger_for(__name__)
 
 app = FastAPI(
     title="Finto API",
@@ -24,6 +30,38 @@ app = FastAPI(
         },
     ],
 )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    logger.error(
+        "validation_error",
+        extra={"path": request.url.path, "method": request.method, "errors": exc.errors()},
+    )
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={"detail": exc.errors()},
+    )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(
+        "exception",
+        extra={
+            "path": request.url.path,
+            "method": request.method,
+            "error": str(exc),
+            "type": type(exc).__name__,
+        },
+    )
+    if isinstance(exc, HTTPException):
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"detail": "Internal server error"},
+    )
+
 
 # Configure CORS
 app.add_middleware(

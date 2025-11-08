@@ -5,10 +5,10 @@ from typing import Annotated, Optional
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer
 
+from src.api.schemas.auth import TokenData
 from src.core.settings import settings
-from src.deps.providers import get_auth_service
-from src.schemas.auth import TokenData
-from src.services.auth_service import AuthService
+from src.dependencies import get_auth_service
+from src.services.auth import AuthService
 
 security = HTTPBearer(auto_error=False)
 

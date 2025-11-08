@@ -1,6 +1,7 @@
 import yfinance as yf
 from langchain_core.tools import tool
 
+
 @tool
 def get_ticker_price(ticker: str) -> float:
     """Return the latest close price (float) for the given ticker symbol.

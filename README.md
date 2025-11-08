@@ -58,12 +58,6 @@ make run-apis
 ```
 Backend will be available at: http://localhost:8000
 
-**Terminal 2 - Run the Gradio UI:**
-```bash
-make run-ui
-```
-UI will be available at: http://localhost:7860
-
 ## 📋 Available Commands
 
 - `make setup` - Setup the project (create .venv and install dependencies)
@@ -93,7 +87,7 @@ finto/
 │   ├── repositories/
 │   │   └── user_repo.py      # User repository (data access layer)
 │   ├── services/
-│   │   └── auth_service.py   # Auth service (business logic layer)
+│   │   └── auth.py   # Auth service (business logic layer)
 │   ├── deps/
 │   │   └── providers.py      # Dependency injection wiring
 │   ├── schemas/

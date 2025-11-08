@@ -1,81 +1,46 @@
 # file: finto/search/tavily_tool.py
 from __future__ import annotations
 
-import logging
-import os
-from typing import Any, Dict, List, Literal, Optional
+import src.core.json_logging as logging
+from typing import Any, Dict, List, Mapping
 
-from langchain.tools import StructuredTool
-from langgraph.prebuilt import ToolNode
-from pydantic import BaseModel, Field
-from tavily import TavilyClient
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+from tavily import TavilyClient
+
+from src.core.settings import tavily_settings
+from src.schemas.tavily import (
+    DEFAULT_ALLOWLIST,
+    ResultItem,
+    SearchInput,
+    SearchOutput,
+)
 
 logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
-# --------- Opinionated finance/India allow-list ----------
-DEFAULT_ALLOWLIST: List[str] = [
-    "nseindia.com",
-    "bseindia.com",
-    "sebi.gov.in",
-    "reuters.com",
-    "economictimes.indiatimes.com",
-    "moneycontrol.com",
-    "livemint.com",
-    "business-standard.com",
-]
-
-# --------- Minimal, typed input/output ----------
-TimeRange = Literal["1d", "3d", "7d", "30d"]
-Depth = Literal["basic", "advanced"]
-
-
-class SearchInput(BaseModel):
-    q: str = Field(..., description="Natural language query (tickers/sectors/macro).")
-    time_range: TimeRange = "1d"
-    max_results: int = Field(6, ge=1, le=20)
-    depth: Depth = "basic"
-    sites_allow: Optional[List[str]] = None
-    sites_block: Optional[List[str]] = None
-
-
-class SearchOutput(BaseModel):
-    results: List[Dict[str, Any]] = Field(default_factory=list)
-    answer: Optional[str] = None
-    usage: Optional[Dict[str, Any]] = None
-
-
-# --------- Tool (thin, deterministic wrapper) ----------
+# ---------- Tool ----------
 class TavilySearchTool:
     """
     Finance-focused Tavily search with India-first defaults.
-    Keep it simple: choose a horizon, depth, and (optionally) tweak domain lists.
+    Deterministic, compact, and strictly typed.
     """
 
-    def __init__(
-        self,
-        api_key: Optional[str] = None,
-        default_allowlist: Optional[List[str]] = None,
-    ):
-        api_key = api_key or os.getenv("TAVILY_API_KEY")
-        if not api_key:
-            raise RuntimeError("Missing TAVILY_API_KEY")
-        self.client = TavilyClient(api_key=api_key)
-        self.default_allowlist = default_allowlist or DEFAULT_ALLOWLIST
+    __slots__ = ("_client", "_allow", "_settings")
 
-    def _params(self, inp: SearchInput) -> Dict[str, Any]:
-        # Favor official/regulatory + reputable finance sources by default
-        include_domains = inp.sites_allow or self.default_allowlist
+    def __init__(self, settings: TavilySettings) -> None:
+        """Initialize TavilySearchTool with injected settings."""
+        self._settings = settings
+        self._client = TavilyClient(api_key=settings.tavily_api_key)
+        self._allow: tuple[str, ...] = DEFAULT_ALLOWLIST
+
+    def _build_params(self, inp: SearchInput) -> Dict[str, Any]:
         params: Dict[str, Any] = {
             "query": inp.q,
             "time_range": inp.time_range,
             "search_depth": inp.depth,
             "max_results": inp.max_results,
-            "include_domains": include_domains,
-            "exclude_domains": inp.sites_block,
-            # Keep the API surface tiny; Tavily tolerates omitted extras.
+            "include_domains": list(self._allow),
         }
-        # Drop Nones
         return {k: v for k, v in params.items() if v is not None}
 
     @retry(
@@ -84,55 +49,43 @@ class TavilySearchTool:
         wait=wait_exponential(multiplier=0.4, min=0.4, max=3),
         retry=retry_if_exception_type(Exception),
     )
-    def _call(self, params: Dict[str, Any]) -> Dict[str, Any]:
+    def _call(self, params: Mapping[str, Any]) -> Dict[str, Any]:
         logger.debug("tavily.search params=%s", params)
-        return self.client.search(**params)
+        return self._client.search(**dict(params))
 
     def search(self, inp: SearchInput) -> SearchOutput:
-        raw = self._call(self._params(inp))
-        return SearchOutput(
-            results=raw.get("results", []),
-            answer=raw.get("answer"),
-            usage=raw.get("usage"),
-        )
+        raw = self._call(self._build_params(inp))
+        items: List[ResultItem] = []
+        for r in (raw.get("results", []) or []):
+            item: ResultItem = {
+                "title": str(r.get("title", "")),
+                "url": str(r.get("url", "")),
+                "source": str(r.get("source", "")),
+            }
+            if "published_date" in r:
+                item["published_date"] = str(r["published_date"])
+            if "content" in r:
+                item["snippet"] = str(r["content"])[:280]
+            if isinstance(r.get("score"), (int, float)):
+                item["score"] = float(r["score"])
+            items.append(item)
+        return SearchOutput(results=items, answer=raw.get("answer"), usage=raw.get("usage"))
 
-    # --------- LangChain adapter (optional) ----------
-    def as_langchain_tool(self) -> "StructuredTool":
-        if StructuredTool is None:
-            raise RuntimeError("langchain not installed")
-
-        def _fn(**kwargs) -> Dict[str, Any]:
-            out = self.search(SearchInput(**kwargs))
-            return out.model_dump()
-
-        return StructuredTool.from_function(
-            name="web_search",
-            description=(
-                "Finance-focused web search (India-first). "
-                "Use for timely news/circulars/events affecting NSE/BSE tickers or sectors."
-            ),
-            func=_fn,
-            args_schema=SearchInput,
-            return_direct=False,
-        )
-
-    # --------- LangGraph adapter (optional) ----------
-    def as_langgraph_node(self) -> "ToolNode":
-        if ToolNode is None:
-            raise RuntimeError("langgraph not installed")
-        return ToolNode(tools=[self.as_langchain_tool()])
-
-
-# --------- Example (manual run) ----------
+# ---------- Main (smoke test) ----------
 if __name__ == "__main__":
-    tool = TavilySearchTool()
-    out = tool.search(
-        SearchInput(
-            q="NSE circular index rebalancing this week site:nseindia.com",
-            time_range="7d",
-            depth="basic",
-            max_results=5,
-        )
-    )
-    for r in out.results[:3]:
-        print("-", r.get("title"), "|", r.get("url"))
+    
+    # Quick end-to-end sanity checks
+    tool = TavilySearchTool(settings=tavily_settings)
+
+    tests: list[SearchInput] = [
+        SearchInput(q="Any NSE circulars on NIFTY 50 rebalancing this week", time_range="7d", max_results=5),
+        SearchInput(q="RBI policy highlights impact on equities today", time_range="1d"),
+        SearchInput(q="Bulk or block deals for RELIANCE today", time_range="1d"),
+        SearchInput(q="ASM/GSM surveillance list updates affecting portfolio", time_range="7d"),
+    ]
+
+    for i, t in enumerate(tests, 1):
+        out = tool.search(t)
+        print(f"\n[{i}] Query: {t.q}  | results={len(out.results)}")
+        for r in out.results[:3]:
+            print(f"- {r.get('title','')} | {r.get('source','')} | {r.get('url','')}")

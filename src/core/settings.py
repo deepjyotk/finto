@@ -37,21 +37,8 @@ class LLMSettings(BaseSettings):
 
 
 class TavilySettings(BaseSettings):
-    TAVILY_API_KEY: str = Field(..., description="Tavily API key")
-    TAVILY_DEFAULT_MAX_RESULTS: int = 5
-    TAVILY_DEFAULT_SEARCH_DEPTH: Literal["basic", "advanced"] = "basic"
-    TAVILY_DEFAULT_TIME_RANGE: str = "w"
-    TAVILY_DEFAULT_INCLUDE_ANSWER: bool = True
-    TAVILY_DEFAULT_INCLUDE_RAW: bool = True
-    TAVILY_DEFAULT_AUTO_PARAMETERS: bool = False
-
-    TAVILY_FINANCE_WHITELIST: List[str] = [
-        "nseindia.com",
-        "bseindia.com",
-        "sebi.gov.in",
-        "rbi.org.in",
-        "mca.gov.in",
-    ]
+    tavily_api_key: str = Field(default=..., description="Tavily API key")
+    tavily_finance_whitelist: str = Field(default="nseindia.com,bseindia.com,sebi.gov.in,rbi.org.in,mca.gov.in", description="Tavily finance whitelist")
 
     model_config = {
         "env_file": ".env",
@@ -59,5 +46,7 @@ class TavilySettings(BaseSettings):
         "extra": "ignore",
     }
 
-
+settings = Settings()
+llm_settings = LLMSettings()
+tavily_settings = TavilySettings()
 settings = Settings()

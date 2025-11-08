@@ -6,11 +6,12 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.db import get_session
-from src.core.settings import settings
+from src.core.settings import settings, tavily_settings
 from src.nodes.computation import ComputationNode
 from src.repositories.user_repo import UserRepository
 from src.services.auth import AuthService
 from src.services.chat import ChatService
+from src.tools.tavily_web_search import TavilySearchTool
 
 
 def _get_auth_repository(session: Annotated[AsyncSession, Depends(get_session)]) -> UserRepository:
@@ -67,3 +68,16 @@ def get_chat_service(
         Configured ChatService instance
     """
     return ChatService(computation_node=computation_node)
+
+
+def get_tavily_search_tool() -> TavilySearchTool:
+    """
+    Provide TavilySearchTool with its dependencies.
+
+    This is the only place where we wire together:
+    TavilySettings → TavilySearchTool
+
+    Returns:
+        Configured TavilySearchTool instance
+    """
+    return TavilySearchTool(settings=tavily_settings)

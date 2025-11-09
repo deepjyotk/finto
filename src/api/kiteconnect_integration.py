@@ -26,7 +26,7 @@ logging.basicConfig(level=logging.INFO)
 
 # Load keys from environment where possible. Default API key set to the one
 # provided in the request. IMPORTANT: do NOT commit your API secret to source.
-KITE_API_KEY = os.getenv("KITE_API_KEY", "kny8o170oddwv4o2")
+KITE_API_KEY = os.getenv("KITE_API_KEY")
 KITE_API_SECRET = os.getenv("KITE_API_SECRET")  # TODO: set this in your .env or secure vault
 
 # Frontend base to redirect the user back to after successful/failed auth.

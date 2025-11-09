@@ -2,16 +2,16 @@ import yfinance as yf
 from langchain_core.tools import tool
 
 
-@tool
-def get_ticker_price(ticker: str) -> float:
+@tool("get_ticker_price")
+def get_ticker_price(ticker_symbol: str) -> float:
     """Return the latest close price (float) for the given ticker symbol.
 
     Input: ticker symbol string like 'AAPL' or 'BTC-USD'.
     Returns a float price on success or raises on error.
     """
-    if not ticker:
+    if not ticker_symbol:
         raise ValueError("no ticker provided")
-    t = ticker.strip().upper()
+    t = ticker_symbol.strip().upper()
     try:
         hist = yf.Ticker(t).history(period="1d")
         if hist.empty:

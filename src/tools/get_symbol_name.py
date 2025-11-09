@@ -43,11 +43,17 @@ print("Agent Response:", raw["structured_response"].symbol_name)
 # 4️⃣ Ask your question
 
 
-@tool
-def get_symbol_name(message: str) -> str:
-    """Extract the stock symbol from the user's message."""
-    return agent.invoke(
+@tool("get_symbol_name")
+def get_symbol_name(user_query: str) -> str:
+    """Extracts the stock symbol from the user's query and returns the symbol name.
+
+    Input: user's query string like "I want to calculate the total value of my holdings in adani green"
+    Returns: symbol name string like "ADANIGREEN"
+    """
+    raw = agent.invoke(
         {
-            "messages": [HumanMessage(content=message)],
+            "messages": [HumanMessage(content=user_query)],
         }
-    )["structured_response"].symbol_name
+    )
+    symbol_name = raw["structured_response"].symbol_name
+    return symbol_name

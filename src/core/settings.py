@@ -38,14 +38,15 @@ class LLMSettings(BaseSettings):
 
 class TavilySettings(BaseSettings):
     tavily_api_key: str = Field(default=..., description="Tavily API key")
-    tavily_finance_whitelist: str = Field(default="nseindia.com,bseindia.com,sebi.gov.in,rbi.org.in,mca.gov.in", description="Tavily finance whitelist")
+    tavily_finance_whitelist: str = Field(
+        default="nseindia.com,bseindia.com,sebi.gov.in,rbi.org.in,mca.gov.in",
+        description="Tavily finance whitelist",
+    )
 
     model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        case_sensitive=False,
-        extra="ignore"
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
     )
+
 
 settings = Settings()
 llm_settings = LLMSettings()

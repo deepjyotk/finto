@@ -74,6 +74,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# Health check endpoint
+@app.get("/healthz", tags=["health"])
+async def health_check():
+    """Health check endpoint for container orchestration"""
+    return {"status": "healthy", "service": "finto-api"}
+
+
 # Include routers
 app.include_router(auth_router)
 app.include_router(chat_router)

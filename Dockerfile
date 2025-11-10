@@ -1,46 +1,37 @@
-# Use Python 3.13 slim image as base
-FROM python:3.13-slim
+# syntax=docker/dockerfile:1
 
-# Set environment variables
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+FROM python:3.13-slim AS runtime
 
-# Set working directory
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app \
+    UV_LINK_MODE=copy \
+    PORT=8000
+
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpq-dev \
-    curl \
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user
-RUN groupadd -r appuser && useradd -r -g appuser appuser
+RUN pip install --no-cache-dir uv
 
-# Copy application code
-COPY pyproject.toml ./
-COPY src/ ./src/
-COPY scripts/ ./scripts/
-COPY init_db.py ./
+COPY pyproject.toml uv.lock README.md ./
 
-# Install dependencies using pip
-RUN pip install --no-cache-dir .
+RUN uv sync --frozen --no-dev
 
-# Change ownership to non-root user
-RUN chown -R appuser:appuser /app
+COPY . .
 
-# Switch to non-root user
-USER appuser
+RUN uv sync --frozen --no-dev
 
-# Expose port
+RUN groupadd --system app \
+    && useradd --system --gid app --home /app app \
+    && chown -R app:app /app
+
+ENV PATH="/app/.venv/bin:${PATH}"
+
+USER app
+
 EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz').read()"
-
-# Run the application
-CMD ["python", "-m", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
-
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]

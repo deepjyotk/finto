@@ -1,0 +1,31 @@
+substitutions:
+  _REGION: "us-central1"
+  _REPO: "apps"
+  _SERVICE: "fastapi"
+  _PROJECT_ID: "finto-477800"
+  _RUNTIME_SA: "cr-fastapi-run@finto-477800.iam.gserviceaccount.com"
+  _IMAGE: "${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPO}/${_SERVICE}:$SHORT_SHA"
+
+# Choose ONE of these:
+options:
+  logging: CLOUD_LOGGING_ONLY
+# logsBucket: gs://finto-477800-cloudbuild-logs-us-central1
+
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ["build", "-t", "${_IMAGE}", "."]
+  - name: gcr.io/cloud-builders/docker
+    args: ["push", "${_IMAGE}"]
+  - name: gcr.io/cloud-builders/gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image=${_IMAGE}
+      - --region=${_REGION}
+      - --service-account=${_RUNTIME_SA}
+      - --allow-unauthenticated       # remove if private
+      # - --port=8080                  # set if your app doesn't use 8080
+      # - --min-instances=0            # optional scaling flags
+      # - --max-instances=10
+      # - --cpu=1 --memory=512Mi

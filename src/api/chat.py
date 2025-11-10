@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 
 from src.api.schemas.chat import ChatRequest, ChatResponse
 from src.core.json_logging import logger_for
+from src.core.middleware import require_auth
 from src.core.schema import AgentMessage
 from src.dependencies import get_chat_service
 from src.services.chat import ChatService
@@ -22,6 +23,7 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 async def chat(
     request: ChatRequest,
     chat_service: ChatService = Depends(get_chat_service),
+    user: dict = Depends(require_auth),
 ):
     """
     Process a chat message and return a response.

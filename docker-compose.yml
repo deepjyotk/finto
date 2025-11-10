@@ -1,21 +1,4 @@
 services:
-  db:
-    image: postgres:16-alpine
-    container_name: finto-db
-    environment:
-      POSTGRES_USER: finto
-      POSTGRES_PASSWORD: finto
-      POSTGRES_DB: finto
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U finto"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   app:
     build:
       context: .
@@ -24,16 +7,13 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql+asyncpg://finto:finto@db:5432/finto
+      - DATABASE_URL=${DATABASE_URL}
       - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-in-production}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - TAVILY_API_KEY=${TAVILY_API_KEY}
       - WA_VERIFY_TOKEN=${WA_VERIFY_TOKEN}
       - WA_USER_OR_SYSTEM_TOKEN=${WA_USER_OR_SYSTEM_TOKEN}
       - WA_PHONE_NUMBER_ID=${WA_PHONE_NUMBER_ID}
-    depends_on:
-      db:
-        condition: service_healthy
     volumes:
       - ./src:/app/src:ro
     healthcheck:
@@ -43,7 +23,3 @@ services:
       start_period: 40s
       retries: 3
     restart: unless-stopped
-
-volumes:
-  postgres_data:
-

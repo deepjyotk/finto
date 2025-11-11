@@ -35,6 +35,7 @@ dependencies = [
     "langchain-tavily>=0.2.13",
     "kiteconnect>=5.0.1",
     "langchain-experimental>=0.4.0",
+    "alembic>=1.17.1",
 ]
 
 [dependency-groups]

@@ -35,20 +35,15 @@ python -c "import secrets; print(secrets.token_urlsafe(32))"
 
 **Note**: The app now uses direct PostgreSQL connection via SQLAlchemy instead of the Supabase client.
 
-### 3. Initialize the database
+### 3. Run database migrations
 
-Run the database initialization script:
+Apply database schema using Alembic:
 
 ```bash
-make init-db
+alembic upgrade head
 ```
 
-This will:
-- Display the SQL migration scripts
-- Provide instructions to run them in your Supabase Dashboard
-- Verify that tables were created successfully
-
-**Note**: Due to Supabase client limitations, you'll need to manually copy the SQL to your Supabase Dashboard's SQL Editor and execute it.
+This will create/update all database tables based on your SQLAlchemy models.
 
 ### 4. Run the application
 
@@ -61,12 +56,19 @@ Backend will be available at: http://localhost:8000
 ## 📋 Available Commands
 
 - `make setup` - Setup the project (create .venv and install dependencies)
-- `make init-db` - Initialize the database (create tables)
 - `make run-apis` - Run the FastAPI backend server
 - `make run-ui` - Run the Gradio UI server
 - `make lint` - Run code linting and formatting
 - `make clean` - Clean .venv and uv cache
 - `make help` - Show available commands
+
+### Database Migrations (Alembic)
+
+- `alembic revision -m "message" --autogenerate` - Generate new migration
+- `alembic upgrade head` - Apply all pending migrations
+- `alembic downgrade -1` - Rollback last migration
+- `alembic current` - Show current migration version
+- `alembic history` - Show migration history
 
 ## 🏗️ Project Structure
 
@@ -75,33 +77,23 @@ The project follows a clean architecture pattern: **API → Service → Reposito
 ```
 finto/
 ├── src/
-│   ├── api/
-│   │   ├── auth.py           # Authentication endpoints (API layer)
-│   │   └── chat.py           # Chat endpoints
-│   ├── core/
-│   │   ├── settings.py       # Application settings (pydantic-settings)
-│   │   ├── db.py             # Database session management (SQLAlchemy)
-│   │   └── middleware.py     # Auth middleware
-│   ├── models/
-│   │   └── user.py           # SQLAlchemy User model
-│   ├── repositories/
-│   │   └── user_repo.py      # User repository (data access layer)
-│   ├── services/
-│   │   └── auth.py   # Auth service (business logic layer)
-│   ├── deps/
-│   │   └── providers.py      # Dependency injection wiring
-│   ├── schemas/
-│   │   └── auth.py           # Pydantic schemas
-│   ├── ui/
-│   │   └── chat_app.py       # Gradio chat interface
-│   └── main.py               # FastAPI application
-├── scripts/
-│   └── migrations/
-│       └── 001_create_f_users_table.sql  # Database schema
-├── init_db.py                # Database initialization script
-├── Makefile                  # Build automation
-├── pyproject.toml            # Project dependencies
-└── .env.example              # Example environment variables
+│   ├── api/              # FastAPI endpoints
+│   ├── core/             # Settings, DB, middleware
+│   ├── models/           # SQLAlchemy models
+│   │   ├── base.py       # Declarative base
+│   │   └── user.py       # User model
+│   ├── migrations/       # Alembic migrations
+│   │   ├── env.py        # Alembic environment
+│   │   ├── versions/     # Migration versions
+│   │   └── script.py.mako
+│   ├── repositories/     # Data access layer
+│   ├── services/         # Business logic
+│   ├── schemas/          # Pydantic schemas
+│   └── main.py           # FastAPI app
+├── alembic.ini           # Alembic config
+├── Makefile              # Build automation
+├── pyproject.toml        # Dependencies
+└── .env.example          # Environment template
 ```
 
 ### Architecture Layers
@@ -112,19 +104,64 @@ finto/
 4. **Database Layer** (`src/core/db.py`): SQLAlchemy session management
 5. **Dependency Injection** (`src/deps/`): Wires together Session → Repo → Service
 
-## 🗄️ Database Schema
+## 🗄️ Database Migrations
 
-### `f_users` Table
+This project uses **Alembic** for database schema management with **SQLAlchemy** models.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `user_id` | UUID | Primary key |
-| `username` | TEXT | Unique username |
-| `email` | TEXT | Unique email address |
-| `full_name` | TEXT | User's full name |
-| `password_hash` | TEXT | Bcrypt hashed password |
-| `created_at` | TIMESTAMPTZ | Account creation timestamp |
-| `updated_at` | TIMESTAMPTZ | Last update timestamp |
+### Quick Migration Workflow
+
+1. **Modify/Add a model** in `src/models/`
+2. **Generate migration**: `alembic revision -m "add table_name" --autogenerate`
+3. **Review** the generated file in `src/migrations/versions/`
+4. **Apply**: `alembic upgrade head`
+
+### Adding a New Table
+
+**Example**: Add a `posts` table
+
+1. **Create model** in `src/models/post.py`:
+```python
+from sqlalchemy import Text, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column
+from src.models.base import Base
+
+class Post(Base):
+    __tablename__ = "posts"
+    
+    id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("f_users.user_id"))
+```
+
+2. **Import model** in `src/migrations/env.py`:
+```python
+from src.models.post import Post  # noqa: F401
+```
+
+3. **Generate migration**:
+```bash
+alembic revision -m "add posts table" --autogenerate
+```
+
+4. **Review & apply**:
+```bash
+# Review: src/migrations/versions/xxxx_add_posts_table.py
+alembic upgrade head
+```
+
+### Database Schema
+
+**Current Tables:**
+
+#### `f_users`
+- `user_id` (UUID, PK)
+- `username` (TEXT, unique)
+- `email` (TEXT, unique)
+- `full_name` (TEXT)
+- `password_hash` (TEXT)
+- `created_at` (TIMESTAMPTZ)
+- `updated_at` (TIMESTAMPTZ)
 
 ## 🔒 Authentication
 

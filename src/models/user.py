@@ -5,11 +5,9 @@ from uuid import UUID
 
 from sqlalchemy import DateTime, Text, func
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column
 
-
-class Base(DeclarativeBase):
-    """Base class for all SQLAlchemy models"""
+from src.models.base import Base
 
 
 class User(Base):

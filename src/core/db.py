@@ -1,5 +1,6 @@
 """Database session management with async SQLAlchemy 2.x"""
 
+import ssl
 from typing import AsyncIterator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -13,11 +14,18 @@ def _ensure_async_driver(url: str) -> str:
     return url
 
 
+# Create SSL context that accepts self-signed certificates
+# For production, use proper certificate verification
+ssl_context = ssl.create_default_context()
+ssl_context.check_hostname = False
+ssl_context.verify_mode = ssl.CERT_NONE
+
 # Create async engine
 engine = create_async_engine(
     _ensure_async_driver(settings.database_url),
     pool_pre_ping=True,
     echo=False,  # Set to True for SQL query logging
+    connect_args={"ssl": ssl_context},
 )
 
 # Create session factory

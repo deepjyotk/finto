@@ -1,0 +1,31 @@
+services:
+  api:
+    container_name: finto-api
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      # Required
+      DATABASE_URL: ${DATABASE_URL}
+      SECRET_KEY: ${SECRET_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      TAVILY_API_KEY: ${TAVILY_API_KEY}
+      # Optional
+      ALGORITHM: ${ALGORITHM:-HS256}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      COOKIE_NAME: ${COOKIE_NAME:-access_token}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      COOKIE_HTTPONLY: ${COOKIE_HTTPONLY:-true}
+      COOKIE_SAMESITE: ${COOKIE_SAMESITE:-lax}
+      WA_VERIFY_TOKEN: ${WA_VERIFY_TOKEN:-}
+      WA_APP_SECRET: ${WA_APP_SECRET:-}
+      WA_USER_OR_SYSTEM_TOKEN: ${WA_USER_OR_SYSTEM_TOKEN:-}
+      WA_PHONE_NUMBER_ID: ${WA_PHONE_NUMBER_ID:-}
+      WA_API_VERSION: ${WA_API_VERSION:-v22.0}
+      KITE_API_KEY: ${KITE_API_KEY:-}
+      KITE_API_SECRET: ${KITE_API_SECRET:-}
+      FRONTEND_BASE: ${FRONTEND_BASE:-http://localhost:3000}
+      PORT: ${PORT:-8000}
+    ports:
+      - "8000:8000"

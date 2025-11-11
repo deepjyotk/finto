@@ -1,31 +1,47 @@
+# cloudbuild.yaml
 substitutions:
+  _PROJECT_ID: "finto-477904"
   _REGION: "us-central1"
   _REPO: "apps"
-  _SERVICE: "fastapi"
-  _PROJECT_ID: "finto-477800"
-  _RUNTIME_SA: "cr-fastapi-run@finto-477800.iam.gserviceaccount.com"
-  _IMAGE: "${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPO}/${_SERVICE}:$SHORT_SHA"
-
-# Choose ONE of these:
-options:
-  logging: CLOUD_LOGGING_ONLY
-# logsBucket: gs://finto-477800-cloudbuild-logs-us-central1
+  _IMAGE: "finto-service"        # image name in Artifact Registry
+  _SERVICE: "finto-service"      # Cloud Run service name
+  _RUNTIME_SA: "run-runtime@finto-477904.iam.gserviceaccount.com"
 
 steps:
+  # optional: echo resolved values for debugging
+  - name: gcr.io/cloud-builders/gcloud
+    entrypoint: bash
+    args: ["-lc", "echo TAG=${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPO}/${_IMAGE}:${COMMIT_SHA}"]
+
   - name: gcr.io/cloud-builders/docker
-    args: ["build", "-t", "${_IMAGE}", "."]
+    args:
+      ["build",
+       "-t","${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPO}/${_IMAGE}:${COMMIT_SHA}",
+       "."]
+
   - name: gcr.io/cloud-builders/docker
-    args: ["push", "${_IMAGE}"]
+    args:
+      ["push",
+       "${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPO}/${_IMAGE}:${COMMIT_SHA}"]
+
   - name: gcr.io/cloud-builders/gcloud
     args:
       - run
       - deploy
       - ${_SERVICE}
-      - --image=${_IMAGE}
+      - --image=${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPO}/${_IMAGE}:${COMMIT_SHA}
       - --region=${_REGION}
       - --service-account=${_RUNTIME_SA}
-      - --allow-unauthenticated       # remove if private
-      # - --port=8080                  # set if your app doesn't use 8080
-      # - --min-instances=0            # optional scaling flags
-      # - --max-instances=10
-      # - --cpu=1 --memory=512Mi
+      - --allow-unauthenticated
+      - --port=8000
+      - --set-secrets=SECRET_KEY=SECRET_KEY:latest
+      - --set-secrets=DATABASE_URL=DATABASE_URL:latest
+      - --set-secrets=OPENAI_API_KEY=OPENAI_API_KEY:latest
+      - --set-secrets=TAVILY_API_KEY=TAVILY_API_KEY:latest
+      - --set-secrets=WA_APP_SECRET=WA_APP_SECRET:latest
+      - --set-secrets=WA_VERIFY_TOKEN=WA_VERIFY_TOKEN:latest
+      - --set-secrets=WA_PHONE_NUMBER_ID=WA_PHONE_NUMBER_ID:latest
+      - --set-secrets=WA_USER_OR_SYSTEM_TOKEN=WA_USER_OR_SYSTEM_TOKEN:latest
+
+images:
+  - "${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPO}/${_IMAGE}:${COMMIT_SHA}"

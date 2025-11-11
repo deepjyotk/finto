@@ -613,6 +613,7 @@ dependencies = [
     { name = "kiteconnect" },
     { name = "langchain" },
     { name = "langchain-community" },
+    { name = "langchain-experimental" },
     { name = "langchain-openai" },
     { name = "langchain-tavily" },
     { name = "langgraph" },
@@ -654,6 +655,7 @@ requires-dist = [
     { name = "kiteconnect", specifier = ">=5.0.1" },
     { name = "langchain", specifier = ">=1.0.3" },
     { name = "langchain-community", specifier = ">=0.4.1" },
+    { name = "langchain-experimental", specifier = ">=0.4.0" },
     { name = "langchain-openai", specifier = ">=1.0.2" },
     { name = "langchain-tavily", specifier = ">=0.2.13" },
     { name = "langgraph", specifier = ">=1.0.2" },
@@ -1069,6 +1071,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/41/15/dfe0c2af463d63296fe18608a06570ce3a4b245253d4f26c301481380f7d/langchain_core-1.0.3.tar.gz", hash = "sha256:10744945d21168fb40d1162a5f1cf69bf0137ff6ad2b12c87c199a5297410887", size = 770278 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f2/1b/b0a37674bdcbd2931944e12ea742fd167098de5212ee2391e91dce631162/langchain_core-1.0.3-py3-none-any.whl", hash = "sha256:64f1bd45f04b174bbfd54c135a8adc52f4902b347c15a117d6383b412bf558a5", size = 469927 },
+]
+
+[[package]]
+name = "langchain-experimental"
+version = "0.4.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "langchain-community" },
+    { name = "langchain-core" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c9/ed/7015b38cdc0c5b3c24d163217a6f557e876fe5f5de8b5780e260279c30da/langchain_experimental-0.4.0.tar.gz", hash = "sha256:16bb5c9810e1908c0e2d82cd000bb434bb437b8977507e4dbfe5f25800f431fd", size = 169936 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3a/37/1a87bc4374a00dfdc73ff5b2d6bc63454421db280dc582cadd3c26dd92d3/langchain_experimental-0.4.0-py3-none-any.whl", hash = "sha256:50306e75218e3a3f002de3dd879d719addd6481284b1a282292fac46a130f4a1", size = 209615 },
 ]
 
 [[package]]

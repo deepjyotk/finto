@@ -1,4 +1,8 @@
 # cloudbuild.yaml
+# Sends build logs to Cloud Logging only (required when a build service account is set)
+options:
+  logging: CLOUD_LOGGING_ONLY
+
 substitutions:
   _PROJECT_ID: "finto-477904"
   _REGION: "us-central1"
@@ -8,7 +12,7 @@ substitutions:
   _RUNTIME_SA: "run-runtime@finto-477904.iam.gserviceaccount.com"
 
 steps:
-  # optional: echo resolved values for debugging
+  # (optional) quick sanity echo
   - name: gcr.io/cloud-builders/gcloud
     entrypoint: bash
     args: ["-lc", "echo TAG=${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPO}/${_IMAGE}:${COMMIT_SHA}"]
@@ -34,6 +38,7 @@ steps:
       - --service-account=${_RUNTIME_SA}
       - --allow-unauthenticated
       - --port=8000
+      # Secrets must exist in Secret Manager and the runtime SA must have secretAccessor
       - --set-secrets=SECRET_KEY=SECRET_KEY:latest
       - --set-secrets=DATABASE_URL=DATABASE_URL:latest
       - --set-secrets=OPENAI_API_KEY=OPENAI_API_KEY:latest

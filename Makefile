@@ -43,6 +43,13 @@ run-apis:
 	@echo "🚀 Starting FastAPI backend on http://localhost:8000..."
 	@uv run uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
 
+
+docker-build-and-run:
+	@echo "🐳 Building Docker image..."
+	@docker build -t finto-app:latest .
+	@echo "🐳 Starting Docker container..."
+	@docker run -d -p 8000:8000 --name finto-container --env-file .env finto-app:latest
+
 lint:
 	@echo "🔍 Running code linting and formatting..."
 	@echo "🧹 Removing unused imports with autoflake..."

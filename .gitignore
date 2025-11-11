@@ -12,5 +12,4 @@ wheels/
 .env.docker
 .env.local
 .env
-portfolio.xlsx
 kitchen-sink/*

@@ -51,7 +51,8 @@ def upgrade() -> None:
         sa.Column('broker_name', postgresql.ENUM('AngelOne', 'Zerodha', 'Grow', name='broker_name_enum', create_type=False), nullable=False),
         sa.Column('broker_type', postgresql.ENUM('Equity', 'Crypto', name='broker_type_enum', create_type=False), nullable=False),
         sa.Column('country', postgresql.ENUM('India', 'US', name='country_enum', create_type=False), nullable=False),
-        sa.PrimaryKeyConstraint('broker_id', name=op.f('pk_brokers'))
+        sa.PrimaryKeyConstraint('broker_id', name=op.f('pk_brokers')),
+        sa.UniqueConstraint('broker_name', name=op.f('uq_brokers_broker_name')),
     )
 
 

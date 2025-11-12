@@ -13,6 +13,7 @@ from src.models.base import Base
 
 # Import all models here to ensure they're registered with Base
 from src.models.broker import Broker  # noqa: F401
+from src.models.equity_holding import EquityHolding  # noqa: F401
 from src.models.user import User  # noqa: F401
 
 load_dotenv()

@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 
 from src.api.auth import router as auth_router
 from src.api.chat import router as chat_router
+from src.api.holdings import router as holdings_router
 from src.api.kiteconnect_integration import router as kite_router
 from src.api.whatsapp import router as whatsapp_router
 from src.core.json_logging import logger_for, setup_json_logging
@@ -29,6 +30,10 @@ app = FastAPI(
         {
             "name": "chat",
             "description": "Chat and conversation endpoints",
+        },
+        {
+            "name": "holdings",
+            "description": "Equity holdings management endpoints",
         },
     ],
 )
@@ -85,8 +90,10 @@ async def health_check():
 # Include routers
 app.include_router(auth_router)
 app.include_router(chat_router)
+app.include_router(holdings_router)
 app.include_router(kite_router)
 app.include_router(whatsapp_router)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
+

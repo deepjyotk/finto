@@ -12,9 +12,9 @@ from src.api.schemas.holdings import (
 )
 from src.core.json_logging import logger_for
 from src.core.middleware import require_auth
-from src.dependencies import get_holdings_service
+from src.dependencies import get_broker_service, get_holdings_service
+from src.services.broker import BrokerService
 from src.services.holdings import HoldingsService
-from src.utils.file_parser import parse_holdings_file
 
 logger = logger_for(__name__)
 
@@ -89,6 +89,7 @@ async def upload_holdings_file(
     broker_id: Annotated[UUID, Form(..., description="Broker ID")],
     file: Annotated[UploadFile, File(..., description="Excel or CSV file with holdings data")],
     svc: Annotated[HoldingsService, Depends(get_holdings_service)],
+    broker_svc: Annotated[BrokerService, Depends(get_broker_service)],
     user: dict = Depends(require_auth),
 ) -> BulkHoldingsUploadResponse:
     """
@@ -145,8 +146,8 @@ async def upload_holdings_file(
         # Read file content
         file_content = await file.read()
 
-        # Parse file to holdings list
-        holdings_list = parse_holdings_file(
+        # Parse file to holdings list using broker service
+        holdings_list = broker_svc.parse_holdings_file(
             file_content=file_content, filename=file.filename, broker_id=broker_id
         )
 

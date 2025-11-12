@@ -11,6 +11,7 @@ from src.nodes.portfolio import PortfolioNode
 from src.repositories.holdings_repo import HoldingsRepository
 from src.repositories.user_repo import UserRepository
 from src.services.auth import AuthService
+from src.services.broker import BrokerService
 from src.services.chat import ChatService
 from src.services.holdings import HoldingsService
 
@@ -80,3 +81,13 @@ def get_chat_service() -> ChatService:
         Configured ChatService instance
     """
     return ChatService()
+
+
+def get_broker_service() -> BrokerService:
+    """
+    Provide BrokerService instance.
+
+    Returns:
+        Configured BrokerService instance
+    """
+    return BrokerService()

@@ -203,4 +203,3 @@ async def upload_holdings_file(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to process file: {str(e)}",
         )
-

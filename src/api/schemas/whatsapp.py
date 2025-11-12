@@ -86,4 +86,3 @@ class SendTemplateResponse(BaseModel):
     messaging_product: str
     contacts: List[dict]
     messages: List[dict]
-

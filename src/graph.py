@@ -22,7 +22,6 @@ logger = logger_for(__name__)
 class Graph:
     """Main graph builder for the finance assistant."""
 
-
     # @staticmethod
     # def router_decision_wrapper(model: LLMModel):
     #     """
@@ -91,12 +90,11 @@ class Graph:
         builder.add_node(Nodes.router.get("name"), router_node)
         builder.add_node(Nodes.news.get("name"), news_node)
         builder.add_node(Nodes.portfolio.get("name"), portfolio_node)
-        builder.add_node(Nodes.news_tools.get("name"), news_agent_tools) 
+        builder.add_node(Nodes.news_tools.get("name"), news_agent_tools)
         builder.add_node(Nodes.portfolio_tools.get("name"), portfolio_agent_tools)
 
         # Add unknown node
         builder.add_node(Nodes.unknown.get("name"), Graph._handle_unknown_node)
-
 
         # Add edges
         builder.add_edge(Nodes.news.get("name"), Nodes.news_tools.get("name"))
@@ -117,23 +115,17 @@ class Graph:
 
         builder.add_conditional_edges(
             Nodes.portfolio.get("name"),
-            portfolio_node_instance.portfolio_agent_decision, # --> iske 2 output hoga END or Nodes.portfolio_tools.get("name")
-            {
-                END: END,
-                Nodes.portfolio_tools.get("name"): Nodes.portfolio_tools.get("name")
-            },
+            portfolio_node_instance.portfolio_agent_decision,  # --> iske 2 output hoga END or Nodes.portfolio_tools.get("name")
+            {END: END, Nodes.portfolio_tools.get("name"): Nodes.portfolio_tools.get("name")},
         )
 
         # Ending edges
         builder.add_edge(Nodes.unknown.get("name"), END)
         builder.add_edge(Nodes.news_tools.get("name"), END)
-        
-        
 
         logger.info("Agent graph built successfully")
         builder.set_entry_point(Nodes.router.get("name"))
         # builder.set_finish_point(END)
-        
+
         compiled_graph = builder.compile()
         return compiled_graph
-

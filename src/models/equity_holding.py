@@ -28,22 +28,26 @@ class EquityHolding(Base):
     symbol: Mapped[str] = mapped_column(Text, nullable=False)
     isin: Mapped[str] = mapped_column(Text, nullable=False)
     sector: Mapped[str] = mapped_column(Text, nullable=True)
-    
+
     # Quantities (integer values)
     qty_available: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     qty_discrepant: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     qty_long_term: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     qty_pledged_margin: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     qty_pledged_loan: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    
+
     # Prices (decimal with precision)
     avg_price: Mapped[Decimal] = mapped_column(Numeric(precision=20, scale=4), nullable=False)
-    prev_close_price: Mapped[Decimal] = mapped_column(Numeric(precision=20, scale=4), nullable=False)
-    
+    prev_close_price: Mapped[Decimal] = mapped_column(
+        Numeric(precision=20, scale=4), nullable=False
+    )
+
     # PnL values (can be negative)
     unrealized_pnl: Mapped[Decimal] = mapped_column(Numeric(precision=20, scale=4), nullable=False)
-    unrealized_pnl_pct: Mapped[Decimal] = mapped_column(Numeric(precision=10, scale=4), nullable=False)
-    
+    unrealized_pnl_pct: Mapped[Decimal] = mapped_column(
+        Numeric(precision=10, scale=4), nullable=False
+    )
+
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -60,4 +64,3 @@ class EquityHolding(Base):
             f"<EquityHolding(id={self.id}, user_id={self.user_id}, "
             f"symbol={self.symbol}, qty={self.qty_available})>"
         )
-

@@ -3,6 +3,7 @@ from langchain.tools import tool
 from pathlib import Path
 import pandas as pd
 
+
 def _df_to_dict_safe(df):
     """Helper to safely convert DataFrame to a dict (records)."""
     if df is None:
@@ -82,8 +83,10 @@ def get_insider_transactions(symbol_name: str) -> dict:
         return {"symbol": t, "insider_transactions": _df_to_dict_safe(df)}
     except Exception as e:
         raise RuntimeError(f"Error fetching insider transactions for '{t}': {e}") from e
-    
+
     # 1️⃣ Dividends
+
+
 @tool("get_dividends")
 def get_dividends(symbol_name: str, period: str = "max") -> dict:
     """Fetch dividend payment history for a given ticker."""
@@ -149,10 +152,12 @@ def get_income_statement(symbol_name: str, freq: str = "yearly", pretty: bool = 
     try:
         df = yf.Ticker(t).get_income_stmt(as_dict=True, pretty=pretty, freq=freq)
         cols_2022 = [c for c in df.columns if pd.to_datetime(str(c)).year == 2022]
-        pd.set_option('display.float_format', '{:,.0f}'.format)
+        pd.set_option("display.float_format", "{:,.0f}".format)
         df_2022 = df[cols_2022]
         if df is not None and not df.empty:
-            filepath = Path(__file__).parent.parent.parent / f"income_statement_{t}_{freq}_2022.xlsx"
+            filepath = (
+                Path(__file__).parent.parent.parent / f"income_statement_{t}_{freq}_2022.xlsx"
+            )
             df_2022.to_excel(filepath)
         return {"symbol": t, "income_statement": _df_to_dict_safe(df)}
     except Exception as e:

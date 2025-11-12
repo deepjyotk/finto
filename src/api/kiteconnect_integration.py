@@ -37,6 +37,7 @@ KITE_USER_TOKENS: dict[str, dict] = {}
 
 router = APIRouter(prefix="/kite", tags=["kite"])
 
+
 def _sanitize_session_data(session_data: dict) -> dict:
     """
     Convert non-JSON-native types (e.g., datetime) inside session_data to serializable values.
@@ -51,8 +52,7 @@ def _sanitize_session_data(session_data: dict) -> dict:
         elif isinstance(v, (list, tuple)):
             # Recursively sanitize elements
             sanitized[k] = [
-                (elem.isoformat() if isinstance(elem, datetime) else elem)
-                for elem in v
+                (elem.isoformat() if isinstance(elem, datetime) else elem) for elem in v
             ]
         elif isinstance(v, dict):
             sanitized[k] = _sanitize_session_data(v)
@@ -63,26 +63,28 @@ def _sanitize_session_data(session_data: dict) -> dict:
 
 @router.get("/login")
 async def kite_login(user: dict = Depends(require_auth)):
-	"""Redirect authenticated user to Kite login page.
+    """Redirect authenticated user to Kite login page.
 
-	The user must be logged into this application (JWT cookie). After a
-	successful login on Zerodha, Zerodha will redirect to the callback URL
-	configured in your Kite app settings with a request_token parameter.
+    The user must be logged into this application (JWT cookie). After a
+    successful login on Zerodha, Zerodha will redirect to the callback URL
+    configured in your Kite app settings with a request_token parameter.
 
-	TODO: Add state parameter handling to prevent CSRF and map request -> user.
-	"""
-	kite = KiteConnect(api_key=KITE_API_KEY)
+    TODO: Add state parameter handling to prevent CSRF and map request -> user.
+    """
+    kite = KiteConnect(api_key=KITE_API_KEY)
 
-	# KiteConnect.login_url constructs the standard login url with api_key and v=3
-	login_url = kite.login_url()
-	logger.info("kite_login_redirect", extra={"username": user.get("username"), "url": login_url})
+    # KiteConnect.login_url constructs the standard login url with api_key and v=3
+    login_url = kite.login_url()
+    logger.info("kite_login_redirect", extra={"username": user.get("username"), "url": login_url})
 
-	# Redirect the user's browser to Zerodha's login page
-	return RedirectResponse(login_url)
+    # Redirect the user's browser to Zerodha's login page
+    return RedirectResponse(login_url)
 
 
 @router.get("/callback")
-async def kite_callback(request: Request, user: Optional[dict] = Depends(get_current_user_optional)):
+async def kite_callback(
+    request: Request, user: Optional[dict] = Depends(get_current_user_optional)
+):
     # ...existing docstring...
     params = request.query_params
     status_param = params.get("status")
@@ -136,22 +138,25 @@ async def kite_token_info(current_user: dict = Depends(require_auth)):
     if not token_info:
         return JSONResponse({"connected": False})
     # jsonable_encoder handles datetime safely; our session_data already sanitized.
-    return JSONResponse({
-        "connected": True,
-        "session": jsonable_encoder(token_info.get("session_data")),
-        # TODO: Consider omitting sensitive fields (e.g., public_token) if not needed by frontend.
-    })
+    return JSONResponse(
+        {
+            "connected": True,
+            "session": jsonable_encoder(token_info.get("session_data")),
+            # TODO: Consider omitting sensitive fields (e.g., public_token) if not needed by frontend.
+        }
+    )
 
 
 @router.get("/status")
 async def kite_status(current_user: Optional[dict] = Depends(get_current_user_optional)):
-	"""Public status endpoint for debugging.
+    """Public status endpoint for debugging.
 
-	Returns whether the current user is connected and some non-sensitive metadata.
-	"""
-	user_id = current_user.get("user_id") if current_user else "anonymous"
-	connected = user_id in KITE_USER_TOKENS
-	return {"connected": connected, "user_id": user_id}
+    Returns whether the current user is connected and some non-sensitive metadata.
+    """
+    user_id = current_user.get("user_id") if current_user else "anonymous"
+    connected = user_id in KITE_USER_TOKENS
+    return {"connected": connected, "user_id": user_id}
+
 
 @router.get("/holdings")
 async def kite_holdings(current_user: dict = Depends(require_auth)):

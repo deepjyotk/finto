@@ -44,7 +44,7 @@ def get_auth_service(
 
 
 def _get_holdings_repository(
-    session: Annotated[AsyncSession, Depends(get_session)]
+    session: Annotated[AsyncSession, Depends(get_session)],
 ) -> HoldingsRepository:
     """
     Provide HoldingsRepository instance.

@@ -144,11 +144,11 @@ Step 3: Synthesize and present per "Output style".
         - Print the final result with `print(...)` so downstream components can capture it.
         - Output must be only executable Python code (no comments, no explanations, no markdown).
         """
-
-        )   
+        )
 
         def _prepare(inputs):
             """Extract the latest human/user message content robustly and preview the portfolio file."""
+
             def _get_text(content):
                 if isinstance(content, str):
                     return content
@@ -221,7 +221,9 @@ Step 3: Synthesize and present per "Output style".
         extracted_branch = prep | generate_code_chain | python_tool
 
         # Branch to pass through original messages for final answering
-        messages_branch = prep | RunnableLambda(lambda d: d["messages"])  # keep original conversation
+        messages_branch = prep | RunnableLambda(
+            lambda d: d["messages"]
+        )  # keep original conversation
 
         # Final prompt combines system template + extracted output + user messages
         # Ensure time variables required by SYSTEM_PROMPT are provided

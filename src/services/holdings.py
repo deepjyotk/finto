@@ -100,4 +100,3 @@ class HoldingsService:
         await self.repo.session.commit()
 
         return len(holdings)
-

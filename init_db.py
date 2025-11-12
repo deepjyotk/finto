@@ -33,19 +33,19 @@ def quote_ident(name: str) -> str:
 async def run_sql_file(conn: asyncpg.Connection, path: Path) -> None:
     print(f"📄 Running migration: {path.name}")
     sql = path.read_text(encoding="utf-8")
-    
+
     stmt_count = 0
     for stmt in sqlparse.split(sql):
         s = stmt.strip()
         # Skip empty statements and comment-only lines
         if not s or s.startswith("--"):
             continue
-        
+
         # Remove comments but keep the statement
         parsed = sqlparse.parse(s)
         if not parsed:
             continue
-            
+
         stmt_count += 1
         try:
             # asyncpg executes one statement per call; splitting is required for multi-stmt files.
@@ -98,7 +98,7 @@ async def amain() -> int:
         ssl_context = ssl.create_default_context()
         ssl_context.check_hostname = False
         ssl_context.verify_mode = ssl.CERT_NONE
-        
+
         conn = await asyncpg.connect(DATABASE_URL, ssl=ssl_context, timeout=60)
         print("✅ Connected")
     except Exception as e:

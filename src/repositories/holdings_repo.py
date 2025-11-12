@@ -136,4 +136,3 @@ class HoldingsRepository:
         self.session.add_all(holdings)
         await self.session.flush()  # Get all holdings with auto-generated fields
         return holdings
-

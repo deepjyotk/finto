@@ -46,9 +46,7 @@ class Broker(Base):
     broker_type: Mapped[BrokerType] = mapped_column(
         SQLEnum(BrokerType, name="broker_type_enum"), nullable=False
     )
-    country: Mapped[Country] = mapped_column(
-        SQLEnum(Country, name="country_enum"), nullable=False
-    )
+    country: Mapped[Country] = mapped_column(SQLEnum(Country, name="country_enum"), nullable=False)
 
     def __repr__(self) -> str:
         return (
@@ -56,4 +54,3 @@ class Broker(Base):
             f"name={self.broker_name.value}, "
             f"type={self.broker_type.value})>"
         )
-

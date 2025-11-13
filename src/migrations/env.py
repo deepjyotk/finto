@@ -3,11 +3,9 @@ import re
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlalchemy import pool
-from sqlalchemy import engine_from_config
-from sqlalchemy.engine import Connection
 from dotenv import load_dotenv
+from sqlalchemy import pool
+from sqlalchemy.ext.asyncio import create_async_engine
 
 # Import SQLAlchemy metadata for autogenerate
 from src.models.base import Base

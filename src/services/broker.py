@@ -30,7 +30,6 @@ class BrokerService:
 
     def __init__(self):
         """Initialize BrokerService."""
-        pass
 
     def parse_holdings_file(
         self, file_content: bytes, filename: str, broker_id: UUID

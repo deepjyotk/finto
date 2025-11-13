@@ -6,20 +6,18 @@ storage of tokens in-memory as a placeholder. See TODO comments for
 improvements (secure secrets, persistent storage, token refresh etc.).
 """
 
-import os
 import logging
+import os
+from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Request, HTTPException, status
-from fastapi.responses import RedirectResponse, JSONResponse
-
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse, RedirectResponse
 from kiteconnect import KiteConnect
 
 from src.core.json_logging import logger_for
-from src.core.middleware import require_auth, get_current_user_optional
-from fastapi.encoders import jsonable_encoder
-from datetime import datetime
-
+from src.core.middleware import get_current_user_optional, require_auth
 
 logger = logger_for(__name__)
 logging.basicConfig(level=logging.INFO)

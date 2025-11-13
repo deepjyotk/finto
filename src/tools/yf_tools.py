@@ -1,7 +1,8 @@
+from pathlib import Path
+
+import pandas as pd
 import yfinance as yf
 from langchain.tools import tool
-from pathlib import Path
-import pandas as pd
 
 
 def _df_to_dict_safe(df):

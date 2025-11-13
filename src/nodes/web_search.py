@@ -1,8 +1,6 @@
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Final
 
-from langchain.agents import create_agent
-from langchain.agents.structured_output import ToolStrategy
 from langchain_core.messages import AIMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableLambda, RunnableSequence
@@ -10,7 +8,6 @@ from langchain_openai import ChatOpenAI
 
 from src.core.enums import LLMModel
 from src.schemas.web_search import WebSearchResult
-from src.tools.tavily_web_search import tavily_web_search
 
 
 class WebSearchNode:

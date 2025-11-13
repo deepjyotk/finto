@@ -18,7 +18,10 @@ class WhatsAppMetadata(Base):
         PG_UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
     )
     user_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("f_users.user_id", ondelete="CASCADE"), nullable=False, index=True
+        PG_UUID(as_uuid=True),
+        ForeignKey("f_users.user_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     user_e164: Mapped[str] = mapped_column(Text, nullable=False, unique=True, index=True)
 
@@ -27,4 +30,3 @@ class WhatsAppMetadata(Base):
             f"<WhatsAppMetadata(id={self.id}, user_id={self.user_id}, "
             f"user_e164={self.user_e164})>"
         )
-

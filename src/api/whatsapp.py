@@ -1,22 +1,23 @@
+import hashlib
+import hmac
 from typing import Annotated
 from uuid import UUID
-import hmac
-import hashlib
-from fastapi import APIRouter, Depends, Query, Request, HTTPException
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse
 
-from src.core.middleware import require_auth
-from src.core.settings import whatsapp_settings
 from src.api.schemas.whatsapp import (
-    WhatsAppWebhook,
-    SendTextRequest,
-    SendTextResponse,
-    SendTemplateRequest,
-    SendTemplateResponse,
     ConnectIntentRequest,
     ConnectIntentResponse,
+    SendTemplateRequest,
+    SendTemplateResponse,
+    SendTextRequest,
+    SendTextResponse,
+    WhatsAppWebhook,
 )
 from src.core.json_logging import logger_for
+from src.core.middleware import require_auth
+from src.core.settings import whatsapp_settings
 from src.dependencies import get_whatsapp_service
 from src.services.whatsapp import WhatsAppService
 

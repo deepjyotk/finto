@@ -1,15 +1,17 @@
 # file: finto/search/tavily_tool.py
 from __future__ import annotations
-import sys
+
 import os
+import sys
 
 # Add project root to path (go up from tools -> src -> finto)
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from src.core.json_logging import logger_for
-from typing import Any, Dict, List, Optional, Literal
+from typing import Any, Dict, Literal, Optional
 
-from langchain_tavily import TavilySearch
 from langchain_core.tools import tool
+from langchain_tavily import TavilySearch
+
+from src.core.json_logging import logger_for
 from src.core.settings import tavily_settings
 
 # Set API key in environment for LangChain to pick up

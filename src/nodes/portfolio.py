@@ -3,8 +3,6 @@
 from datetime import datetime, timedelta, timezone
 from typing import Final, List
 
-from langchain.agents import create_agent
-from langchain.agents.structured_output import ToolStrategy
 from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableLambda
@@ -12,29 +10,28 @@ from langchain_openai import ChatOpenAI
 from langgraph.graph import END
 
 from src.core.enums import LLMModel, Nodes
-from src.schemas.portfolio import PortfolioQuery
+from src.core.json_logging import logger_for
 from src.tools.calculate_profit_tool import calculate_profit
 from src.tools.get_ticker_price import get_ticker_price
 from src.tools.yf_tools import (
-    get_major_holders,
-    get_institutional_holders,
-    get_mutualfund_holders,
+    get_balance_sheet,
+    get_capital_gains,
+    get_cash_flow,
+    get_dividends,
+    get_earnings,
+    get_earnings_estimate,
+    get_earnings_history,
+    get_eps_revisions,
+    get_eps_trend,
+    get_growth_estimates,
+    get_income_statement,
     get_insider_purchases,
     get_insider_transactions,
-    get_dividends,
-    get_capital_gains,
-    get_balance_sheet,
-    get_cash_flow,
-    get_income_statement,
-    get_earnings_estimate,
+    get_institutional_holders,
+    get_major_holders,
+    get_mutualfund_holders,
     get_revenue_estimate,
-    get_earnings_history,
-    get_eps_trend,
-    get_eps_revisions,
-    get_growth_estimates,
-    get_earnings,
 )
-from src.core.json_logging import logger_for
 
 logger = logger_for(__name__)
 
@@ -114,10 +111,10 @@ Step 3: Synthesize and present per "Output style".
         # Stage 1: Generate Python code to extract relevant portfolio data (pattern borrowed from code_generatio_testing.py)
         # Stage 2: Use extracted data + original messages with the financial tools to answer the user query.
 
-        from langchain_experimental.tools import PythonREPLTool  # lightweight runtime tool
+        import pandas as pd
         from langchain_core.prompts import ChatPromptTemplate
         from langchain_core.runnables import RunnableMap
-        import pandas as pd
+        from langchain_experimental.tools import PythonREPLTool  # lightweight runtime tool
 
         llm = ChatOpenAI(model=model.value, temperature=0)
         code_llm = llm  # reuse same model for code-gen for now

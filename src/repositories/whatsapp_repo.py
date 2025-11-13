@@ -55,9 +55,7 @@ class WhatsAppRepository:
         Args:
             cache_id: UUID of the cache entry to delete
         """
-        await self.session.execute(
-            delete(WhatsAppCache).where(WhatsAppCache.id == cache_id)
-        )
+        await self.session.execute(delete(WhatsAppCache).where(WhatsAppCache.id == cache_id))
 
     # WhatsAppMetadata methods
     async def get_metadata_by_e164(self, user_e164: str) -> Optional[WhatsAppMetadata]:

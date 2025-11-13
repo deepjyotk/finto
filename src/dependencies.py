@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.db import get_session
 from src.core.settings import settings
-from src.nodes.portfolio import PortfolioNode
 from src.repositories.holdings_repo import HoldingsRepository
 from src.repositories.user_repo import UserRepository
 from src.repositories.whatsapp_repo import WhatsAppRepository

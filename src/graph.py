@@ -1,13 +1,9 @@
 """Graph definition for the finance assistant agent."""
 
-from typing import Annotated, Final, List, TypedDict
+from typing import List
 
 from langchain_core.messages import BaseMessage
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.runnables import RunnableSequence
-from langchain_openai import ChatOpenAI
-from langgraph.graph import END, START, MessageGraph, StateGraph
-from langgraph.graph.message import add_messages
+from langgraph.graph import END, MessageGraph
 
 from src.core.enums import LLMModel, Nodes
 from src.core.json_logging import logger_for

@@ -2,16 +2,14 @@
 
 from typing import Final, List, Literal
 
-from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
+from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableLambda, RunnableSequence
 from langchain_openai import ChatOpenAI
-from langchain_core.output_parsers import PydanticToolsParser
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from src.core.enums import LLMModel, Nodes
 from src.core.json_logging import logger_for
-from pydantic import BaseModel, Field, AliasChoices, ConfigDict
 
 logger = logger_for(__name__)
 
@@ -57,7 +55,6 @@ class RouterNode:
 
     def __init__(self):
         """Initialize the RouterNode."""
-        pass
 
     def _router_prompt_template(self) -> ChatPromptTemplate:
         """

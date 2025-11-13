@@ -5,12 +5,12 @@ Revises: baabf7e08baf
 Create Date: 2025-11-12 19:03:12.464569
 
 """
+
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
-
 
 # revision identifiers, used by Alembic.
 revision: str = "26e16c887acd"
@@ -44,4 +44,3 @@ def upgrade() -> None:
 def downgrade() -> None:
     # Drop table
     op.drop_table("whatsapp_metadata")
-

@@ -1,14 +1,9 @@
 """Chat service - handles chat/agent query operations"""
 
-from typing import Optional
-
-from langchain_core.messages import HumanMessage
-from langgraph.graph import StateGraph
 from src.api.schemas.chat import ChatRequest
 from src.core.json_logging import logger_for
 from src.core.schema import AgentMessage
 from src.graph import Graph
-from src.nodes.web_search import WebSearchNode
 
 logger = logger_for(__name__)
 
@@ -18,7 +13,6 @@ class ChatService:
 
     def __init__(self):
         """Initialize ChatService."""
-        pass
 
     def query(self, request: ChatRequest) -> AgentMessage:
         """

@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Optional, Literal
 from pydantic import BaseModel, Field
 
@@ -86,3 +87,14 @@ class SendTemplateResponse(BaseModel):
     messaging_product: str
     contacts: List[dict]
     messages: List[dict]
+
+
+# Connect Intent Schemas
+class ConnectIntentRequest(BaseModel):
+    ttl_minutes: int | None = 10
+
+
+class ConnectIntentResponse(BaseModel):
+    code: str
+    deeplink: str
+    expires_at: datetime

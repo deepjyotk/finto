@@ -10,10 +10,12 @@ from src.core.settings import settings
 from src.nodes.portfolio import PortfolioNode
 from src.repositories.holdings_repo import HoldingsRepository
 from src.repositories.user_repo import UserRepository
+from src.repositories.whatsapp_repo import WhatsAppRepository
 from src.services.auth import AuthService
 from src.services.broker import BrokerService
 from src.services.chat import ChatService
 from src.services.holdings import HoldingsService
+from src.services.whatsapp import WhatsAppService
 
 
 def _get_auth_repository(session: Annotated[AsyncSession, Depends(get_session)]) -> UserRepository:
@@ -91,3 +93,33 @@ def get_broker_service() -> BrokerService:
         Configured BrokerService instance
     """
     return BrokerService()
+
+
+def _get_whatsapp_repository(
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> WhatsAppRepository:
+    """
+    Provide WhatsAppRepository instance.
+
+    Returns:
+        Configured WhatsAppRepository instance
+    """
+    return WhatsAppRepository(session)
+
+
+def get_whatsapp_service(
+    repo: Annotated[WhatsAppRepository, Depends(_get_whatsapp_repository)],
+) -> WhatsAppService:
+    """
+    Provide WhatsAppService with its dependencies.
+
+    This wires together:
+    Session → Repository → Service
+
+    Args:
+        repo: WhatsAppRepository from _get_whatsapp_repository dependency
+
+    Returns:
+        Configured WhatsAppService instance
+    """
+    return WhatsAppService(repo=repo)

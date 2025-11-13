@@ -61,7 +61,8 @@ class BrokerService:
                 df = pd.read_csv(io.BytesIO(file_content))
             else:
                 raise ValueError(
-                    f"Unsupported file format: {filename}. " "Please upload .xlsx, .xls, or .csv files."
+                    f"Unsupported file format: {filename}. "
+                    "Please upload .xlsx, .xls, or .csv files."
                 )
         except Exception as e:
             raise ValueError(f"Failed to read file: {str(e)}") from e
@@ -138,4 +139,3 @@ class BrokerService:
             raise ValueError("No valid holdings found in file")
 
         return holdings_list
-

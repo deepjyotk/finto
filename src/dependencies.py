@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.db import get_session
 from src.core.settings import settings
+from src.repositories.broker_repo import BrokerRepository
 from src.repositories.holdings_repo import HoldingsRepository
 from src.repositories.user_repo import UserRepository
 from src.repositories.whatsapp_repo import WhatsAppRepository
@@ -84,14 +85,34 @@ def get_chat_service() -> ChatService:
     return ChatService()
 
 
-def get_broker_service() -> BrokerService:
+def _get_broker_repository(
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> BrokerRepository:
     """
-    Provide BrokerService instance.
+    Provide BrokerRepository instance.
+
+    Returns:
+        Configured BrokerRepository instance
+    """
+    return BrokerRepository(session)
+
+
+def get_broker_service(
+    repo: Annotated[BrokerRepository, Depends(_get_broker_repository)],
+) -> BrokerService:
+    """
+    Provide BrokerService with its dependencies.
+
+    This wires together:
+    Session → Repository → Service
+
+    Args:
+        repo: BrokerRepository from _get_broker_repository dependency
 
     Returns:
         Configured BrokerService instance
     """
-    return BrokerService()
+    return BrokerService(repo=repo)
 
 
 def _get_whatsapp_repository(

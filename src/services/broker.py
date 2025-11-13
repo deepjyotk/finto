@@ -2,11 +2,13 @@
 
 import io
 from decimal import Decimal
+from typing import Any
 from uuid import UUID
 
 import pandas as pd
 
 from src.api.schemas.holdings import HoldingsRequestSchema
+from src.repositories.broker_repo import BrokerRepository
 
 
 class BrokerService:
@@ -28,8 +30,33 @@ class BrokerService:
         "Unrealized P&L Pct.": "unrealized_pnl_pct",
     }
 
-    def __init__(self):
-        """Initialize BrokerService."""
+    def __init__(self, repo: BrokerRepository):
+        """
+        Initialize BrokerService.
+
+        Args:
+            repo: BrokerRepository instance for data access
+        """
+        self.repo = repo
+
+    async def get_all_brokers(self) -> list[dict[str, Any]]:
+        """
+        Get all available brokers.
+
+        Returns:
+            List of broker dictionaries with broker information
+        """
+        brokers = await self.repo.get_all_brokers()
+        # Repository now returns dicts with string values, just convert UUIDs to strings
+        return [
+            {
+                "broker_id": str(broker["broker_id"]),
+                "broker_name": broker["broker_name"],
+                "broker_type": broker["broker_type"],
+                "country": broker["country"],
+            }
+            for broker in brokers
+        ]
 
     def parse_holdings_file(
         self, file_content: bytes, filename: str, broker_id: UUID

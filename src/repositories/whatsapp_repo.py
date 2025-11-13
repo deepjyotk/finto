@@ -73,6 +73,21 @@ class WhatsAppRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_metadata_by_user_id(self, user_id: UUID) -> Optional[WhatsAppMetadata]:
+        """
+        Find WhatsApp metadata by user ID.
+
+        Args:
+            user_id: UUID of the user
+
+        Returns:
+            WhatsAppMetadata object if found, None otherwise
+        """
+        result = await self.session.execute(
+            select(WhatsAppMetadata).where(WhatsAppMetadata.user_id == user_id)
+        )
+        return result.scalar_one_or_none()
+
     async def create_metadata(self, user_id: UUID, user_e164: str) -> WhatsAppMetadata:
         """
         Create a new WhatsApp metadata entry.

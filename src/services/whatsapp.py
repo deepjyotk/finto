@@ -170,6 +170,26 @@ class WhatsAppService:
             response.raise_for_status()
             return response.json()
 
+    async def get_whatsapp_data_by_user_id(self, user_id: UUID) -> dict[str, Any] | None:
+        """
+        Get WhatsApp metadata for a user.
+
+        Args:
+            user_id: UUID of the user
+
+        Returns:
+            Dictionary with WhatsApp data if found, None otherwise
+        """
+        metadata = await self.repo.get_metadata_by_user_id(user_id)
+        if not metadata:
+            return None
+
+        return {
+            "id": str(metadata.id),
+            "user_id": str(metadata.user_id),
+            "user_e164": metadata.user_e164,
+        }
+
     async def process_webhook(self, webhook_data: WhatsAppWebhook) -> dict[str, str]:
         """
         Process incoming WhatsApp webhook data.

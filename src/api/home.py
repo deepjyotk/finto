@@ -39,7 +39,6 @@ async def get_home_feed(
                 ChatIntegration(
                     whatsapp=WhatsAppPayload(
                         id=whatsapp_data["id"],
-                        user_id=whatsapp_data["user_id"],
                         user_e164=whatsapp_data["user_e164"],
                     )
                 )

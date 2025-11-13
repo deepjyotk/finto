@@ -7,7 +7,6 @@ class WhatsAppPayload(BaseModel):
     """WhatsApp integration payload"""
 
     id: str
-    user_id: str
     user_e164: str
 
 

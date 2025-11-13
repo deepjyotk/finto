@@ -186,7 +186,6 @@ class WhatsAppService:
 
         return {
             "id": str(metadata.id),
-            "user_id": str(metadata.user_id),
             "user_e164": metadata.user_e164,
         }
 

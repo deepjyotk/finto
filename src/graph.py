@@ -1,11 +1,10 @@
 # graph.py
 
-from typing import List
 
 import psycopg
-from langchain_core.messages import AIMessage, BaseMessage
+from langchain_core.messages import AIMessage
 from langgraph.checkpoint.postgres import PostgresSaver
-from langgraph.graph import END, MessageGraph
+from langgraph.graph import END, StateGraph
 from psycopg.rows import dict_row
 
 from src.core.enums import LLMModel, Nodes
@@ -14,6 +13,7 @@ from src.core.settings import settings
 from src.nodes.portfolio import PortfolioNode
 from src.nodes.router import RouterNode
 from src.nodes.web_search import WebSearchNode
+from src.schemas.agent_state import AgentState
 from src.tools.execute_tools import news_agent_tools, portfolio_agent_tools
 
 logger = logger_for(__name__)
@@ -29,22 +29,27 @@ class Graph:
     """Main graph builder for the finance assistant."""
 
     @staticmethod
-    def _handle_unknown_node(state: List[BaseMessage]) -> List[BaseMessage]:
+    def _handle_unknown_node(state: AgentState) -> AgentState:
         logger.warning("Unknown node reached - query could not be routed")
-        return state + [
-            AIMessage(
-                content=(
-                    "I'm sorry, I couldn't determine how to handle your request. "
-                    "Please try rephrasing your question."
+        messages = state.get("messages", [])
+        return {
+            **state,
+            "messages": messages
+            + [
+                AIMessage(
+                    content=(
+                        "I'm sorry, I couldn't determine how to handle your request. "
+                        "Please try rephrasing your question."
+                    )
                 )
-            )
-        ]
+            ],
+        }
 
     @staticmethod
-    def get_graph(model: LLMModel) -> MessageGraph:
+    def get_graph(model: LLMModel) -> StateGraph:
         logger.info("Building agent graph with model: %s", model.value)
 
-        builder = MessageGraph()
+        builder = StateGraph(AgentState)
 
         news_node_instance = WebSearchNode()
         news_node = news_node_instance.get_runnable_sequence(model)
@@ -71,6 +76,7 @@ class Graph:
             {
                 Nodes.portfolio.get("name"): Nodes.portfolio.get("name"),
                 Nodes.news.get("name"): Nodes.news.get("name"),
+                Nodes.unknown.get("name"): Nodes.unknown.get("name"),
             },
         )
 

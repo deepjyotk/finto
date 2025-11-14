@@ -1,9 +1,9 @@
 """Portfolio agent node for financial computations."""
 
 from datetime import datetime, timedelta, timezone
-from typing import Final, List
+from typing import Final
 
-from langchain_core.messages import AIMessage, BaseMessage
+from langchain_core.messages import AIMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableLambda
 from langchain_openai import ChatOpenAI
@@ -11,6 +11,7 @@ from langgraph.graph import END
 
 from src.core.enums import LLMModel, Nodes
 from src.core.json_logging import logger_for
+from src.schemas.agent_state import AgentState
 from src.tools.calculate_profit_tool import calculate_profit
 from src.tools.get_ticker_price import get_ticker_price
 from src.tools.yf_tools import (
@@ -105,7 +106,7 @@ Step 3: Synthesize and present per "Output style".
             model: The model to use for the agent
 
         Returns:
-            The initialized agent
+            A runnable that takes AgentState and returns AgentState
         """
         # ------------------ UPDATED CHAIN ------------------
         # Stage 1: Generate Python code to extract relevant portfolio data (pattern borrowed from code_generatio_testing.py)
@@ -162,6 +163,7 @@ Step 3: Synthesize and present per "Output style".
                     pass
                 return str(content) if content is not None else ""
 
+            # Accept either AgentState (dict with "messages") or raw list of messages
             if isinstance(inputs, list):
                 messages = inputs
             else:
@@ -290,16 +292,23 @@ Step 3: Synthesize and present per "Output style".
 
         # Complete chain: mapping -> answer
         chain = mapped_inputs | answer_chain
-        return chain
-        # self.agent = create_agent(
-        #     model=model.value,
-        #     tools=[get_ticker_price, get_symbol_name, calculate_profit, get_holding_by_ticker],
-        #     response_format=ToolStrategy(PortfolioQuery),
-        #     system_prompt=prompt,
-        # )
-        # return self.agent
 
-    def portfolio_agent_decision(self, state: List[BaseMessage]) -> str:
+        def portfolio_node_fn(state: AgentState) -> AgentState:
+            messages = state.get("messages", [])
+            result = chain.invoke(state)
+            # result is expected to be an AIMessage, but handle list defensively
+            if isinstance(result, list):
+                new_messages = messages + result
+            else:
+                new_messages = messages + [result]
+            return {
+                **state,
+                "messages": new_messages,
+            }
+
+        return RunnableLambda(portfolio_node_fn)
+
+    def portfolio_agent_decision(self, state: AgentState) -> str:
         """
         Return either the portfolio tools node name (to execute tools next)
         or the string "END" (to terminate the run).
@@ -307,8 +316,10 @@ Step 3: Synthesize and present per "Output style".
         Logic: look for the last AIMessage; if it requested any tool calls,
         route to the tools node; otherwise END.
         """
+        messages = state.get("messages", [])
+
         # count AI messages and check if has crossed the limit
-        ai_message_count = sum(isinstance(item, AIMessage) for item in state)
+        ai_message_count = sum(isinstance(item, AIMessage) for item in messages)
         max_allowed = Nodes.portfolio["max_ai_messages_allowed"]
         if ai_message_count > max_allowed:
             logger.warning(
@@ -316,11 +327,11 @@ Step 3: Synthesize and present per "Output style".
                 max_allowed,
             )
             return END
-        if not state:
+        if not messages:
             return END
 
         # Find the most recent AI turn (ignore trailing ToolMessage(s))
-        last_ai = next((m for m in reversed(state) if isinstance(m, AIMessage)), None)
+        last_ai = next((m for m in reversed(messages) if isinstance(m, AIMessage)), None)
         if not last_ai:
             return END
 

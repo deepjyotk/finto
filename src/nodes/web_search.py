@@ -7,6 +7,7 @@ from langchain_core.runnables import RunnableLambda, RunnableSequence
 from langchain_openai import ChatOpenAI
 
 from src.core.enums import LLMModel
+from src.schemas.agent_state import AgentState
 from src.schemas.web_search import WebSearchResult
 
 
@@ -62,9 +63,13 @@ Boundaries
         llm = ChatOpenAI(model=model.value, temperature=0)
         chain = self._agent_prompt_template() | llm.with_structured_output(WebSearchResult)
 
-        # Convert WebSearchResult to AIMessage for MessageGraph compatibility
-        return (
-            RunnableLambda(lambda msgs: {"messages": msgs})
-            | chain
-            | RunnableLambda(lambda ws_result: [AIMessage(content=ws_result.answer)])
-        )
+        def web_search_node_fn(state: AgentState) -> AgentState:
+            messages = state.get("messages", [])
+            ws_result = chain.invoke({"messages": messages})
+            ai_msg = AIMessage(content=ws_result.answer)
+            return {
+                **state,
+                "messages": messages + [ai_msg],
+            }
+
+        return RunnableLambda(web_search_node_fn)

@@ -1,15 +1,16 @@
 """Router node for deciding between portfolio and news nodes."""
 
-from typing import Final, List, Literal
+from typing import Final, Literal
 
-from langchain_core.messages import AIMessage, BaseMessage
+from langchain_core.messages import AIMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.runnables import RunnableLambda, RunnableSequence
+from langchain_core.runnables import RunnableLambda
 from langchain_openai import ChatOpenAI
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from src.core.enums import LLMModel, Nodes
 from src.core.json_logging import logger_for
+from src.schemas.agent_state import AgentState
 
 logger = logger_for(__name__)
 
@@ -74,39 +75,26 @@ class RouterNode:
         )
         return chat_template
 
-    # def get_runnable_sequence(self, model: LLMModel):
-    #     """
-    #     Create the router runnable chain with structured output.
-
-    #     Args:
-    #         model: The LLM model to use
-
-    #     Returns:
-    #         The runnable chain for router decision making
-    #     """
-    #     llm = ChatOpenAI(model=model.value, temperature=0)
-    #     parser = PydanticToolsParser(tools=[RouteResponse])
-    #     prompt_template = self._router_prompt_template()
-    #     runnable_sequence = RunnableSequence(prompt_template |  llm)
-    #     return runnable_sequence
-
-    def get_runnable_sequence(self, model: LLMModel) -> RunnableSequence:
+    def get_runnable_sequence(self, model: LLMModel):
         llm = ChatOpenAI(model=model.value, temperature=0)
         prompt = self._router_prompt_template()
         chain = prompt | llm.with_structured_output(RouteResponse)
 
-        # MessageGraph will pass List[BaseMessage]; map to the chain's expected input,
-        # then map the structured output to a named AIMessage.
-        # AIMessage(content={decision:"portfolio_node"}, name="router")
-        return (
-            RunnableLambda(lambda msgs: {"messages": msgs})
-            | chain
-            | RunnableLambda(lambda rr: [AIMessage(content=rr.model_dump_json(), name="router")])
-        )
+        def router_node_fn(state: AgentState) -> AgentState:
+            messages = state.get("messages", [])
+            rr = chain.invoke({"messages": messages})
+            router_msg = AIMessage(content=rr.model_dump_json(), name="router")
+            return {
+                **state,
+                "messages": messages + [router_msg],
+            }
 
-    def _get_router_decision(self, state: List[BaseMessage], name: str = "router") -> str:
-        ALLOWED = ["portfolio_node", "news_node"]
-        for m in reversed(state):
+        return RunnableLambda(router_node_fn)
+
+    def _get_router_decision(self, state: AgentState, name: str = "router") -> str:
+        ALLOWED = [Nodes.portfolio.get("name"), Nodes.news.get("name")]
+        messages = state.get("messages", [])
+        for m in reversed(messages):
             if isinstance(m, AIMessage) and getattr(m, "name", None) == name:
                 try:
                     if isinstance(m.content, str) and hasattr(RouteResponse, "model_validate_json"):
@@ -117,26 +105,28 @@ class RouterNode:
                         rr = RouteResponse.parse_raw(m.content)  # pydantic v1
                     else:
                         rr = RouteResponse.parse_obj(m.content)  # pydantic v1
-                except Exception:
+                except Exception as e:
+                    logger.error("Router decision failed: %s", str(e), exc_info=True)
                     break
-                return rr.decision if rr.decision in ALLOWED else "unknown_node"
-        return "unknown_node"
+                return rr.decision if rr.decision in ALLOWED else Nodes.unknown.get("name")
+        return Nodes.unknown.get("name")
 
-    def router_decision(self, state: List[BaseMessage]) -> str:
+    def router_decision(self, state: AgentState) -> str:
         """
         Make a routing decision based on the current state.
 
         Args:
-            state: List of messages representing the current conversation state
-            model: The LLM model to use for decision making
+            state: AgentState representing the current conversation state
 
         Returns:
             str: The node to route to ('portfolio_node', 'news_node', or 'unknown_node')
         """
 
+        messages = state.get("messages", [])
+
         # TODO: count the past ai messsage and check if has crossed the limit
         # count_tool_visits = sum(isinstance(item, ToolMessage) for item in state)
-        ai_message_count = sum(isinstance(item, AIMessage) for item in state)
+        ai_message_count = sum(isinstance(item, AIMessage) for item in messages)
         decision = self._get_router_decision(state)
 
         if ai_message_count > Nodes.router.get("max_ai_messages_allowed"):

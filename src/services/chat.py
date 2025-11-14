@@ -1,5 +1,6 @@
 """Chat service - handles chat/agent query operations"""
 
+from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 
 from src.api.schemas.chat import ChatRequest
@@ -41,8 +42,11 @@ class ChatService:
             # Create config with thread_id for persistence
             config: RunnableConfig = {"configurable": {"thread_id": thread_id}}
 
-            out = graph.invoke(question, config)
-            # MessageGraph.invoke() returns a list of messages directly
+            # StateGraph expects an AgentState with a messages key
+            initial_state = {"messages": [HumanMessage(content=question)]}
+
+            out = graph.invoke(initial_state, config)
+
             if isinstance(out, list):
                 # Get the last message's content
                 last_message = out[-1]
@@ -50,7 +54,7 @@ class ChatService:
                     last_message.content if hasattr(last_message, "content") else str(last_message)
                 )
             elif isinstance(out, dict):
-                # Handle dict case for backward compatibility
+                # StateGraph returns a state dict with "messages"
                 messages = out.get("messages", [])
                 content = messages[-1].content if messages else ""
             else:

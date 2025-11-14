@@ -49,14 +49,23 @@ class TavilySettings(BaseSettings):
 
 
 class WhatsAppSettings(BaseSettings):
-    wa_verify_token: str = Field(..., description="WhatsApp webhook verify token")
-    wa_app_secret: Optional[str] = Field(
-        None, description="WhatsApp app secret for signature verification"
+    wa_verify_token: str = Field(
+        default="changeme-verify-token", description="WhatsApp webhook verify token"
     )
-    wa_user_or_system_token: str = Field(..., description="WhatsApp user or system token")
-    wa_phone_number_id: str = Field(..., description="WhatsApp phone number ID")
+    wa_app_secret: Optional[str] = Field(
+        default=None, description="WhatsApp app secret for signature verification"
+    )
+    wa_user_or_system_token: str = Field(
+        default="changeme-user-token", description="WhatsApp user or system token"
+    )
+    wa_phone_number_id: str = Field(
+        default="changeme-phone-id", description="WhatsApp phone number ID"
+    )
     wa_api_version: str = Field(default="v22.0", description="WhatsApp API version")
-    wa_sender_e164: str = Field(..., description="WhatsApp sender phone number in E.164 format")
+    wa_sender_e164: str = Field(
+        default="+10000000000",
+        description="WhatsApp sender phone number in E.164 format",
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"

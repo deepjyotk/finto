@@ -30,4 +30,3 @@ class HomeFeedSchema(BaseModel):
 
     chat_integrations: list[ChatIntegration]
     available_brokers: list[BrokerPayload]
-

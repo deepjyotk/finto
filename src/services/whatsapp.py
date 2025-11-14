@@ -189,6 +189,32 @@ class WhatsAppService:
             "user_e164": metadata.user_e164,
         }
 
+    async def delete_integration(self, integration_id: UUID, user_id: UUID) -> None:
+        """
+        Delete a WhatsApp integration by ID.
+
+        Args:
+            integration_id: UUID of the WhatsApp metadata entry to delete
+            user_id: UUID of the user requesting the deletion
+
+        Raises:
+            ValueError: If the integration does not exist or does not belong to the user
+        """
+        # Check if the integration exists
+        metadata = await self.repo.get_metadata_by_id(integration_id)
+        if not metadata:
+            raise ValueError(f"WhatsApp integration with ID {integration_id} not found")
+
+        # Verify that the integration belongs to the user
+        if metadata.user_id != user_id:
+            raise ValueError(
+                f"WhatsApp integration with ID {integration_id} does not belong to the user"
+            )
+
+        # Delete the metadata entry
+        await self.repo.delete_metadata_by_id(integration_id)
+        await self.repo.session.commit()
+
     async def process_webhook(self, webhook_data: WhatsAppWebhook) -> dict[str, str]:
         """
         Process incoming WhatsApp webhook data.
@@ -260,6 +286,11 @@ class WhatsAppService:
                                                     text="Your registration code has expired. Please visit the website to generate a new code.",
                                                 )
                                             else:
+                                                # Send welcome message
+                                                await self.send_text(
+                                                    to=message_from_e164,
+                                                    text="Successfully registered! You can now start chatting with us.",
+                                                )
                                                 # Code is valid, create metadata entry to link user
                                                 await self.repo.create_metadata(
                                                     user_id=cache_entry.user_id,
@@ -268,12 +299,6 @@ class WhatsAppService:
                                                 # Delete the cache entry after successful registration
                                                 await self.repo.delete_cache_entry(cache_entry.id)
                                                 await self.repo.session.commit()
-
-                                                # Send welcome message
-                                                await self.send_text(
-                                                    to=message_from_e164,
-                                                    text="Successfully registered! You can now start chatting with us.",
-                                                )
                                         else:
                                             # Code not found
                                             await self.send_text(

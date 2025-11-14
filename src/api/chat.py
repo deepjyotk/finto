@@ -34,8 +34,10 @@ async def chat(
 
     Returns a chat response message.
     """
+    # Use user_id as thread_id for conversation persistence
+    thread_id = user["user_id"]
     # Call the LLM query; run in a thread to avoid blocking the event loop
-    response = await asyncio.to_thread(chat_service.query, request)
+    response = await asyncio.to_thread(chat_service.query, request, thread_id)
     # If we received an AgentMessage, use its content; otherwise stringify
     if isinstance(response, AgentMessage):
         response_text = response.content

@@ -143,3 +143,35 @@ async def create_connect_intent(
     except Exception as e:
         logger.error(f"Error creating connect intent: {e}")
         raise HTTPException(status_code=e.status_code, detail=str(e))
+
+
+@router.delete("/api/whatsapp/{integration_id}")
+async def delete_integration(
+    integration_id: UUID,
+    svc: Annotated[WhatsAppService, Depends(get_whatsapp_service)],
+    user: dict = Depends(require_auth),
+):
+    """
+    Delete a WhatsApp integration.
+
+    This endpoint deletes the WhatsApp metadata entry for the specified integration ID.
+    Only the owner of the integration can delete it.
+
+    **Authentication required**: Yes (JWT token in cookie)
+
+    Returns:
+        Success message upon successful deletion
+    """
+    user_id = UUID(user["user_id"])
+    try:
+        # Use service to delete integration
+        await svc.delete_integration(integration_id=integration_id, user_id=user_id)
+
+        logger.info(f"WhatsApp integration deleted successfully: {integration_id}")
+        return {"message": "WhatsApp integration deleted successfully"}
+    except ValueError as e:
+        logger.error(f"Error deleting integration: {e}")
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error deleting integration: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

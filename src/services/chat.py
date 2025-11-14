@@ -1,5 +1,7 @@
 """Chat service - handles chat/agent query operations"""
 
+from langchain_core.runnables import RunnableConfig
+
 from src.api.schemas.chat import ChatRequest
 from src.core.json_logging import logger_for
 from src.core.schema import AgentMessage
@@ -14,12 +16,13 @@ class ChatService:
     def __init__(self):
         """Initialize ChatService."""
 
-    def query(self, request: ChatRequest) -> AgentMessage:
+    def query(self, request: ChatRequest, thread_id: str) -> AgentMessage:
         """
         Run the agent on the provided question and return the AIMessage as AgentMessage.
 
         Args:
-            question: User's question string
+            request: Chat request containing message and model
+            thread_id: Thread ID for conversation persistence
 
         Returns:
             AgentMessage response from the agent
@@ -35,7 +38,10 @@ class ChatService:
 
             graph = Graph.get_graph(request.model)
 
-            out = graph.invoke(question)
+            # Create config with thread_id for persistence
+            config: RunnableConfig = {"configurable": {"thread_id": thread_id}}
+
+            out = graph.invoke(question, config)
             # MessageGraph.invoke() returns a list of messages directly
             if isinstance(out, list):
                 # Get the last message's content
@@ -51,14 +57,6 @@ class ChatService:
                 content = str(out)
 
             return AgentMessage(role="assistant", content=content)
-            # raw = self.computation_node.get_agent(request.model).invoke(
-            #     {"messages": [{"role": "user", "content": question}]}
-            # )
-            # structured_response = raw.get("structured_response")
-            # if structured_response and hasattr(structured_response, "computation"):
-            #     content = structured_response.computation
-            # else:
-            #     content = str(structured_response)
         except Exception as e:
             logger.error("Agent run failed: %s", str(e), exc_info=True)
             raise RuntimeError(f"Agent run failed: {e}") from e

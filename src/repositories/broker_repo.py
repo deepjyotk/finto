@@ -31,14 +31,15 @@ class BrokerRepository:
                 cast(Broker.country, String).label("country"),
             )
         )
-        
+
         brokers = []
         for row in result:
-            brokers.append({
-                "broker_id": row.broker_id,
-                "broker_name": row.broker_name,
-                "broker_type": row.broker_type,
-                "country": row.country,
-            })
+            brokers.append(
+                {
+                    "broker_id": row.broker_id,
+                    "broker_name": row.broker_name,
+                    "broker_type": row.broker_type,
+                    "country": row.country,
+                }
+            )
         return brokers
-

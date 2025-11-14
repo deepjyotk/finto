@@ -68,4 +68,3 @@ async def get_home_feed(
     except Exception as e:
         logger.error(f"Error getting home feed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-

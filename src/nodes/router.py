@@ -123,9 +123,6 @@ class RouterNode:
         """
 
         messages = state.get("messages", [])
-
-        # TODO: count the past ai messsage and check if has crossed the limit
-        # count_tool_visits = sum(isinstance(item, ToolMessage) for item in state)
         ai_message_count = sum(isinstance(item, AIMessage) for item in messages)
         decision = self._get_router_decision(state)
 

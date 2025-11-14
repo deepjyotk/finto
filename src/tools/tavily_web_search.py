@@ -3,9 +3,6 @@ from __future__ import annotations
 
 import os
 import sys
-
-# Add project root to path (go up from tools -> src -> finto)
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from typing import Any, Dict, Literal, Optional
 
 from langchain_core.tools import tool
@@ -13,6 +10,10 @@ from langchain_tavily import TavilySearch
 
 from src.core.json_logging import logger_for
 from src.core.settings import tavily_settings
+
+# Add project root to path (go up from tools -> src -> finto)
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
 
 # Set API key in environment for LangChain to pick up
 os.environ["TAVILY_API_KEY"] = tavily_settings.tavily_api_key

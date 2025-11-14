@@ -42,8 +42,7 @@ class PortfolioNode:
 
     _SYSTEM_PROMPT: Final[
         str
-    ] = """
-You are PortfolioAgent — a precise financial assistant focused on Indian equities (NSE/BSE) and the user's portfolio.
+    ] = """You are PortfolioAgent — a precise financial assistant focused on Indian equities (NSE/BSE) and the user's portfolio.
 
 Now (UTC): {today_utc_iso}
 Now (IST, UTC+5:30): {today_ist_iso}
@@ -77,9 +76,7 @@ POLICY
 WORKFLOW
 Step 1: get_symbol_name(user_query).  
 Step 2: Intelligently call relevant tools (fundamentals, ownership, earnings, portfolio, etc.).  
-Step 3: Synthesize and present per "Output style".
-
-    """
+Step 3: Synthesize and present per "Output style"."""
 
     def __init__(self):
         """
@@ -140,8 +137,7 @@ Step 3: Synthesize and present per "Output style".
         - Base the analysis strictly on the "User request". Do NOT default to computing sector summaries unless explicitly asked.
         - Choose appropriate operations (groupby/agg/sort/value_counts/percentages) depending on the request.
         - Print the final result with `print(...)` so downstream components can capture it.
-        - Output must be only executable Python code (no comments, no explanations, no markdown).
-        """
+        - Output must be only executable Python code (no comments, no explanations, no markdown)."""
         )
 
         def _prepare(inputs):

@@ -50,7 +50,8 @@ dev = [
     "mypy>=1.18.2",
     "pre-commit>=4.3.0",
     "ruff>=0.14.3",
-    "pygraphviz>=1.14",
+    # "pygraphviz>=1.14",  # Commented: requires Graphviz C libraries on Windows; use grandalf for LangGraph viz instead
+    "grandalf>=0.8",  # Alternative for LangGraph visualization without C dependencies
 ]
 
 [tool.black]

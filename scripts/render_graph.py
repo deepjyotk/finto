@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import os
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 from src.core.enums import LLMModel
 from src.core.settings import llm_settings
@@ -18,23 +18,20 @@ MERMAID_FILENAME = "langgraph-mermaid.mermaid"
 
 
 def _draw_png(graph, output: Path) -> None:
-    graph.draw_png(str(output))
-
-
-def _draw_svg(graph, output: Path) -> None:
-    graph.draw_svg(str(output))
+    """Render graph as PNG using grandalf-based draw_mermaid_png."""
+    png_bytes = graph.get_graph().draw_mermaid_png()
+    output.write_bytes(png_bytes)
 
 
 # We no longer pass output path into draw_mermaid; instead we capture the string
 def _draw_mermaid_to_file(graph, output: Path) -> None:
-    mermaid_str = graph.draw_mermaid()
+    mermaid_str = graph.get_graph().draw_mermaid()
     output.write_text(mermaid_str, encoding="utf-8")
 
 
-DRAWERS: dict[str, Callable[[Graph, Path], None]] = {
+DRAWERS: dict[str, Callable[[Any, Path], None]] = {
     "png": _draw_png,
-    "svg": _draw_svg,
-    # We do _draw_mermaid_to_file here in case user wants mermaid as “main” output
+    # Note: draw_mermaid_png is the only image format supported with grandalf; SVG removed
     "mermaid": _draw_mermaid_to_file,
 }
 
@@ -69,7 +66,7 @@ def main() -> None:
     os.environ.setdefault("OPENAI_API_KEY", llm_settings.openai_api_key)
 
     selected_model = LLMModel(args.model)
-    compiled_graph = Graph.get_graph(selected_model).get_graph()
+    compiled_graph = Graph.get_graph(selected_model)
 
     # render the main requested format
     drawer = DRAWERS[args.format]

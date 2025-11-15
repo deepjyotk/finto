@@ -1,0 +1,64 @@
+Determine which tools need to be called to answer the user's query.
+Return ONLY the sequence of tool calls in the specified JSON schema.
+Example: { "tool_sequence": { 1: "get_major_holders('USHAMART.NS')" } }
+
+User query: Who are the major shareholders of USHAMART.NS?
+
+Portfolio / Lookup Tools
+- get_symbol_name(message: str) -> str
+  Extract a ticker/symbol name from a user's natural-language message using portfolio context.
+- get_entire_row(symbol_name: str) -> dict
+  Return the normalized portfolio row for a symbol from `portfolio.xlsx`; returns {"symbol":..., "found": bool, "row": {...}}.
+
+Pricing & Computation Tools
+- get_ticker_price(ticker: str) -> float
+  Fetch the latest close price for a ticker using yfinance; returns a numeric price.
+- calculate_profit(quantity: float, average_price: float, current_price: float) -> {"profit": float}
+  Compute unrealized P&L for a single position.
+- calculate_total_investment_in_specific_stock(symbol_name: str) -> {"symbol": str, "total_investment": float}
+  Compute total invested amount for a symbol using portfolio Quantity and Average Price.
+- get_portfolio_weights() -> {"portfolio_weights": {symbol: weight_pct}}
+  Compute portfolio weight (%) per symbol using Quantity and Current Price.
+- calculate_roi(symbol_name: str) -> {"symbol": str, "ROI (%)": float}
+  Return ROI (%) for a symbol using Average Price and Current Price.
+
+Ownership / Holders Tools (yfinance wrappers)
+- get_major_holders(ticker: str) -> {"symbol": str, "major_holders": ...}
+  List major shareholders (top holders) for the stock.
+- get_institutional_holders(ticker: str) -> {"symbol": str, "institutional_holders": [...]} 
+  Institutional ownership records (funds, large investors).
+- get_mutualfund_holders(ticker: str) -> {"symbol": str, "mutualfund_holders": [...]} 
+  Mutual fund holders and their positions.
+- get_insider_purchases(ticker: str) -> {"symbol": str, "insider_purchases": [...]} 
+  Recent insider purchase transactions.
+- get_insider_transactions(ticker: str) -> {"symbol": str, "insider_transactions": [...]} 
+  All recent insider transactions (buy/sell/options).
+
+Fundamentals & Corporate Actions (yfinance wrappers)
+- get_dividends(ticker: str, period: str="max") -> {"symbol": str, "dividends": [...]} 
+  Historical dividend payments over the chosen period.
+- get_capital_gains(ticker: str, period: str="max") -> {"symbol": str, "capital_gains": [...]} 
+  Capital gains distributions (mainly for funds/ETFs).
+- get_balance_sheet(ticker: str, freq: str="yearly") -> {"symbol": str, "balance_sheet": [...]} 
+  Balance sheet data (assets, liabilities, equity) for the frequency.
+- get_cash_flow(ticker: str, freq: str="yearly") -> {"symbol": str, "cash_flow": [...]} 
+  Cash flow statement (operating, investing, financing) entries.
+- get_income_statement(ticker: str, freq: str="yearly") -> {"symbol": str, "income_statement": [...]} 
+  Income statement metrics (revenue, expenses, net income).
+
+Estimates & History (yfinance wrappers)
+- get_earnings_estimate(ticker: str) -> {"symbol": str, "earnings_estimate": ...} 
+  Forward-looking analyst EPS estimates.
+- get_revenue_estimate(ticker: str) -> {"symbol": str, "revenue_estimate": ...} 
+  Forward-looking analyst revenue estimates.
+- get_earnings_history(ticker: str) -> {"symbol": str, "earnings_history": ...} 
+  Historical earnings results vs estimates.
+- get_eps_trend(ticker: str) -> {"symbol": str, "eps_trend": ...} 
+  EPS trend series (current vs prior periods).
+- get_eps_revisions(ticker: str) -> {"symbol": str, "eps_revisions": ...} 
+  Recent analyst EPS up/down revisions.
+- get_growth_estimates(ticker: str) -> {"symbol": str, "growth_estimates": ...} 
+  Growth projections (stock vs sector/industry/index).
+- get_earnings(ticker: str, freq: str="yearly") -> {"symbol": str, "earnings": ...}
+  Reported earnings data for the selected frequency.
+

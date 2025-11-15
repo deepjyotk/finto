@@ -1,22 +1,26 @@
 import yfinance as yf
 from langchain_core.tools import tool
+import json
 
 
 @tool("get_ticker_price")
-def get_ticker_price(ticker_symbol: str) -> float:
-    """Return the latest close price (float) for the given ticker symbol.
+def get_ticker_price(ticker_symbol: str) -> str:
+    """Return latest close price for a ticker symbol.
 
-    Input: ticker symbol string like 'AAPL' or 'BTC-USD'.
-    Returns a float price on success or raises on error.
+    Input: ticker symbol like 'AAPL' or 'BTC-USD'.
+    Robust behavior: NEVER raises for missing/invalid tickers; instead returns a JSON string:
+      {"symbol": <str>, "price": <float|null>, "status": "ok|not_found|error", "reason": <str|optional>}.
     """
     if not ticker_symbol:
-        raise ValueError("no ticker provided")
+        return json.dumps({"symbol": None, "price": None, "status": "error", "reason": "no ticker provided"})
     t = ticker_symbol.strip().upper()
+    if t.startswith("$"):
+        t = t[1:]
     try:
         hist = yf.Ticker(t).history(period="1d")
-        if hist.empty:
-            raise RuntimeError(f"Ticker '{t}' not found or no recent data")
+        if hist.empty or "Close" not in hist.columns:
+            return json.dumps({"symbol": t, "price": None, "status": "not_found", "reason": "no recent data or delisted"})
         price = float(hist["Close"].iloc[-1])
-        return price
+        return json.dumps({"symbol": t, "price": price, "status": "ok"})
     except Exception as e:
-        raise RuntimeError(f"Error fetching ticker '{t}': {e}") from e
+        return json.dumps({"symbol": t, "price": None, "status": "error", "reason": str(e)})

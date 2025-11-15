@@ -6,6 +6,7 @@ from uuid import UUID
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.models.chat_session import ChatSession
 from src.models.whatsapp_cache import WhatsAppCache
 from src.models.whatsapp_metadata import WhatsAppMetadata
 
@@ -129,3 +130,37 @@ class WhatsAppRepository:
         await self.session.execute(
             delete(WhatsAppMetadata).where(WhatsAppMetadata.id == metadata_id)
         )
+
+    # ChatSession methods
+    async def get_active_session_by_user_id(self, user_id: UUID) -> Optional[ChatSession]:
+        """
+        Get the active chat session for a user.
+
+        Args:
+            user_id: UUID of the user
+
+        Returns:
+            ChatSession if found, None otherwise
+        """
+        result = await self.session.execute(
+            select(ChatSession).where(
+                ChatSession.user_id == user_id,
+                ChatSession.is_active.is_(True),
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def create_chat_session(self, user_id: UUID) -> ChatSession:
+        """
+        Create a new chat session for a user.
+
+        Args:
+            user_id: UUID of the user
+
+        Returns:
+            The created ChatSession object
+        """
+        session = ChatSession(user_id=user_id)
+        self.session.add(session)
+        await self.session.flush()
+        return session

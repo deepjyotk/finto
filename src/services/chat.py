@@ -1,5 +1,7 @@
 """Chat service - handles chat/agent query operations"""
 
+from uuid import UUID
+
 from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 
@@ -17,7 +19,7 @@ class ChatService:
     def __init__(self):
         """Initialize ChatService."""
 
-    def query(self, request: ChatRequest, thread_id: str) -> AgentMessage:
+    def query(self, request: ChatRequest, thread_id: UUID, user_id: UUID) -> AgentMessage:
         """
         Run the agent on the provided question and return the AIMessage as AgentMessage.
 
@@ -40,12 +42,14 @@ class ChatService:
             graph = Graph.get_graph(request.model)
 
             # Create config with thread_id for persistence
-            config: RunnableConfig = {"configurable": {"thread_id": thread_id}}
+            config: RunnableConfig = {"configurable": {"thread_id": str(thread_id)}}
 
             # StateGraph expects an AgentState with a messages key
             initial_state = {"messages": [HumanMessage(content=question)]}
 
-            out = graph.invoke(initial_state, config)
+            context = {"user_id": user_id}
+
+            out = graph.invoke(initial_state, config=config, context=context)
 
             if isinstance(out, list):
                 # Get the last message's content

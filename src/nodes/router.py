@@ -6,10 +6,12 @@ from langchain_core.messages import AIMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableLambda
 from langchain_openai import ChatOpenAI
+from langgraph.runtime import get_runtime  # 🔹 NEW
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from src.core.enums import LLMModel, Nodes
 from src.core.json_logging import logger_for
+from src.schemas.agent_state import AgentContext  # 🔹 make sure this path matches your project
 from src.schemas.agent_state import AgentState
 
 logger = logger_for(__name__)
@@ -58,12 +60,6 @@ class RouterNode:
         """Initialize the RouterNode."""
 
     def _router_prompt_template(self) -> ChatPromptTemplate:
-        """
-        Create the router prompt template.
-
-        Returns:
-            ChatPromptTemplate: The complete prompt template for routing
-        """
         router_prompt_template = self._ROUTER_PROMPT_TEMPLATE.format(
             portfolio_node=Nodes.portfolio.get("name"), news_node=Nodes.news.get("name")
         )
@@ -81,6 +77,11 @@ class RouterNode:
         chain = prompt | llm.with_structured_output(RouteResponse)
 
         def router_node_fn(state: AgentState) -> AgentState:
+            # 🔹 Access AgentContext via runtime
+            runtime = get_runtime(AgentContext)
+            user_id = runtime.context["user_id"]  # AgentContext is a TypedDict
+            logger.info("Router node invoked for user_id=%s", user_id)
+
             messages = state.get("messages", [])
             rr = chain.invoke({"messages": messages})
             router_msg = AIMessage(content=rr.model_dump_json(), name="router")
@@ -121,6 +122,10 @@ class RouterNode:
         Returns:
             str: The node to route to ('portfolio_node', 'news_node', or 'unknown_node')
         """
+        # 🔹 Access context again when computing the decision (used by conditional edge)
+        runtime = get_runtime(AgentContext)
+        user_id = runtime.context["user_id"]
+        logger.info("Router decision evaluated for user_id=%s", user_id)
 
         messages = state.get("messages", [])
         ai_message_count = sum(isinstance(item, AIMessage) for item in messages)
@@ -128,19 +133,28 @@ class RouterNode:
 
         if ai_message_count > Nodes.router.get("max_ai_messages_allowed"):
             logger.warning(
-                "Router max iterations (%d) exceeded, routing to unknown_node",
+                "Router max iterations (%d) exceeded for user_id=%s, routing to unknown_node",
                 Nodes.router.get("max_ai_messages_allowed"),
+                user_id,
             )
             return Nodes.unknown.get("name")
 
-        # Use the router runnable chain to make the decision
         try:
             valid_nodes = {Nodes.portfolio.get("name"), Nodes.news.get("name")}
             if decision in valid_nodes:
-                logger.info("Router decision: %s", decision)
+                logger.info("Router decision for user_id=%s: %s", user_id, decision)
                 return decision
-            logger.warning("Router returned unexpected decision: %s", decision)
+            logger.warning(
+                "Router returned unexpected decision for user_id=%s: %s",
+                user_id,
+                decision,
+            )
             return Nodes.unknown.get("name")
         except Exception as e:
-            logger.error("Router decision failed: %s", str(e), exc_info=True)
+            logger.error(
+                "Router decision failed for user_id=%s: %s",
+                user_id,
+                str(e),
+                exc_info=True,
+            )
             return Nodes.unknown.get("name")

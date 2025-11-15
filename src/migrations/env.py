@@ -12,8 +12,11 @@ from src.models.base import Base
 
 # Import all models here to ensure they're registered with Base
 from src.models.broker import Broker  # noqa: F401
+from src.models.chat_session import ChatSession  # noqa: F401
 from src.models.equity_holding import EquityHolding  # noqa: F401
 from src.models.user import User  # noqa: F401
+from src.models.whatsapp_cache import WhatsAppCache  # noqa: F401
+from src.models.whatsapp_metadata import WhatsAppMetadata  # noqa: F401
 
 load_dotenv()
 target_metadata = Base.metadata

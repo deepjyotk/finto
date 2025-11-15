@@ -1,5 +1,6 @@
 """WhatsApp service - pure class for business logic, no FastAPI imports"""
 
+import asyncio
 import secrets
 import string
 from datetime import datetime, timedelta, timezone
@@ -9,10 +10,14 @@ from uuid import UUID
 
 import httpx
 
+from src.api.schemas.chat import ChatRequest
 from src.api.schemas.whatsapp import WhatsAppWebhook
 from src.core.json_logging import logger_for
+from src.core.schema import AgentMessage
 from src.core.settings import whatsapp_settings
+from src.models.whatsapp_metadata import WhatsAppMetadata
 from src.repositories.whatsapp_repo import WhatsAppRepository
+from src.services.chat import ChatService
 
 logger = logger_for(__name__)
 
@@ -20,7 +25,7 @@ logger = logger_for(__name__)
 class WhatsAppService:
     """Service layer for WhatsApp operations"""
 
-    def __init__(self, repo: WhatsAppRepository):
+    def __init__(self, repo: WhatsAppRepository, chat_service: ChatService):
         """
         Initialize WhatsAppService.
 
@@ -28,6 +33,7 @@ class WhatsAppService:
             repo: WhatsAppRepository instance for data access
         """
         self.repo = repo
+        self.chat_service = chat_service
 
     @staticmethod
     def _rand_code(n: int = 6) -> str:
@@ -215,6 +221,107 @@ class WhatsAppService:
         await self.repo.delete_metadata_by_id(integration_id)
         await self.repo.session.commit()
 
+    async def _registered_user_message_handling(
+        self, metadata: WhatsAppMetadata, message_text: str, message_from_e164: str
+    ) -> None:
+        """Handle incoming messages for registered users."""
+        if not message_text.strip():
+            logger.debug("Skipping empty or non-text message for user %s", metadata.user_id)
+            await self.send_text(
+                to=message_from_e164,
+                text="I can currently process text messages only. Please send a new message.",
+            )
+            return
+
+        user_id = metadata.user_id
+        logger.debug(f"Registered user {user_id} sent: {message_text}")
+
+        session = await self.repo.get_active_session_by_user_id(user_id)
+        if session:
+            session_id = str(session.session_id)
+            logger.debug("Found active chat session %s for user %s", session_id, user_id)
+        else:
+            session = await self.repo.create_chat_session(user_id)
+            await self.repo.session.commit()
+            session_id = str(session.session_id)
+            logger.info("Created new chat session %s for user %s", session_id, user_id)
+
+        try:
+            chat_request = ChatRequest(message=message_text)
+            response = await asyncio.to_thread(
+                self.chat_service.query,
+                chat_request,
+                session_id,
+            )
+            if isinstance(response, AgentMessage):
+                response_text = response.content
+            elif response is None:
+                response_text = ""
+            else:
+                response_text = str(response)
+        except Exception as e:
+            logger.error(f"Error processing chat session: {e}")
+            response_text = "Sorry, I wasn't able to generate a response. Please try again."
+
+        if not response_text:
+            response_text = "Sorry, I wasn't able to generate a response. Please try again."
+
+        await self.send_text(
+            to=message_from_e164,
+            text=response_text,
+        )
+
+    async def _unregistered_user_message_handling(
+        self, message_text: str, message_from_e164: str
+    ) -> None:
+        """Handle incoming messages for unregistered users."""
+        if message_text.strip().upper().startswith("START "):
+            parts = message_text.strip().split()
+            if len(parts) >= 2:
+                code = parts[1].upper()
+
+                cache_entry = await self.repo.by_temporary_code(code)
+
+                if cache_entry:
+                    created_at_utc = cache_entry.created_at.replace(tzinfo=timezone.utc)
+                    expires_at = created_at_utc + timedelta(minutes=10)
+                    now = datetime.now(timezone.utc)
+
+                    if now > expires_at:
+                        await self.repo.delete_cache_entry(cache_entry.id)
+                        await self.repo.session.commit()
+
+                        await self.send_text(
+                            to=message_from_e164,
+                            text="Your registration code has expired. Please visit the website to generate a new code.",
+                        )
+                    else:
+                        await self.send_text(
+                            to=message_from_e164,
+                            text="Successfully registered! You can now start chatting with us.",
+                        )
+                        await self.repo.create_metadata(
+                            user_id=cache_entry.user_id,
+                            user_e164=message_from_e164,
+                        )
+                        await self.repo.delete_cache_entry(cache_entry.id)
+                        await self.repo.session.commit()
+                else:
+                    await self.send_text(
+                        to=message_from_e164,
+                        text="Invalid code. Please visit the website to generate a new registration code.",
+                    )
+            else:
+                await self.send_text(
+                    to=message_from_e164,
+                    text="Invalid format. Please send 'START <CODE>' where <CODE> is the code from the website.",
+                )
+        else:
+            await self.send_text(
+                to=message_from_e164,
+                text="Welcome! To get started, please visit our website to generate a registration code, then send 'START <CODE>' here.",
+            )
+
     async def process_webhook(self, webhook_data: WhatsAppWebhook) -> dict[str, str]:
         """
         Process incoming WhatsApp webhook data.
@@ -252,71 +359,13 @@ class WhatsAppService:
                                 logger.debug(
                                     f"User {message_from_e164} is already registered in whatsapp_metadata"
                                 )
-                                # User is already registered, process their message
-                                user_id = metadata.user_id
-                                logger.debug(f"Registered user {user_id} sent: {message_text}")
+                                await self._registered_user_message_handling(
+                                    metadata, message_text, message_from_e164
+                                )
                             else:
-
-                                # User is not registered, check if this is a START command
-                                if message_text.strip().upper().startswith("START "):
-                                    # Extract the code from message
-                                    parts = message_text.strip().split()
-                                    if len(parts) >= 2:
-                                        code = parts[1].upper()
-
-                                        # Look up the code in whatsapp_cache
-                                        cache_entry = await self.repo.by_temporary_code(code)
-
-                                        if cache_entry:
-                                            # Check if the code has expired (10 minutes TTL)
-                                            created_at_utc = cache_entry.created_at.replace(
-                                                tzinfo=timezone.utc
-                                            )
-                                            expires_at = created_at_utc + timedelta(minutes=10)
-                                            now = datetime.now(timezone.utc)
-
-                                            if now > expires_at:
-                                                # Code has expired, delete it and send re-registration template
-                                                await self.repo.delete_cache_entry(cache_entry.id)
-                                                await self.repo.session.commit()
-
-                                                # Send template message to re-register
-                                                await self.send_text(
-                                                    to=message_from_e164,
-                                                    text="Your registration code has expired. Please visit the website to generate a new code.",
-                                                )
-                                            else:
-                                                # Send welcome message
-                                                await self.send_text(
-                                                    to=message_from_e164,
-                                                    text="Successfully registered! You can now start chatting with us.",
-                                                )
-                                                # Code is valid, create metadata entry to link user
-                                                await self.repo.create_metadata(
-                                                    user_id=cache_entry.user_id,
-                                                    user_e164=message_from_e164,
-                                                )
-                                                # Delete the cache entry after successful registration
-                                                await self.repo.delete_cache_entry(cache_entry.id)
-                                                await self.repo.session.commit()
-                                        else:
-                                            # Code not found
-                                            await self.send_text(
-                                                to=message_from_e164,
-                                                text="Invalid code. Please visit the website to generate a new registration code.",
-                                            )
-                                    else:
-                                        # Invalid START command format
-                                        await self.send_text(
-                                            to=message_from_e164,
-                                            text="Invalid format. Please send 'START <CODE>' where <CODE> is the code from the website.",
-                                        )
-                                else:
-                                    # User is not registered and didn't send START command
-                                    await self.send_text(
-                                        to=message_from_e164,
-                                        text="Welcome! To get started, please visit our website to generate a registration code, then send 'START <CODE>' here.",
-                                    )
+                                await self._unregistered_user_message_handling(
+                                    message_text, message_from_e164
+                                )
             return {"status": "processed"}
         except Exception as e:
             logger.error(f"Error processing webhook: {e}")

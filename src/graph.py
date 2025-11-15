@@ -13,7 +13,7 @@ from src.core.settings import settings
 from src.nodes.portfolio import PortfolioNode
 from src.nodes.router import RouterNode
 from src.nodes.web_search import WebSearchNode
-from src.schemas.agent_state import AgentState
+from src.schemas.agent_state import AgentContext, AgentState
 from src.tools.execute_tools import news_agent_tools, portfolio_agent_tools
 
 logger = logger_for(__name__)
@@ -49,7 +49,7 @@ class Graph:
     def get_graph(model: LLMModel) -> StateGraph:
         logger.info("Building agent graph with model: %s", model.value)
 
-        builder = StateGraph(AgentState)
+        builder = StateGraph(state_schema=AgentState, context_schema=AgentContext)
 
         news_node_instance = WebSearchNode()
         news_node = news_node_instance.get_runnable_sequence(model)

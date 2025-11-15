@@ -264,7 +264,7 @@ Step 3: Synthesize and present per "Output style"."""
 
         # Tool-enabled answer stage
         answer_chain = final_prompt | llm.bind_tools(
-            [   
+            [
                 get_symbol_name,
                 get_ticker_price,
                 calculate_profit,

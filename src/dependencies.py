@@ -129,6 +129,7 @@ def _get_whatsapp_repository(
 
 def get_whatsapp_service(
     repo: Annotated[WhatsAppRepository, Depends(_get_whatsapp_repository)],
+    chat_service: Annotated[ChatService, Depends(get_chat_service)],
 ) -> WhatsAppService:
     """
     Provide WhatsAppService with its dependencies.
@@ -142,4 +143,4 @@ def get_whatsapp_service(
     Returns:
         Configured WhatsAppService instance
     """
-    return WhatsAppService(repo=repo)
+    return WhatsAppService(repo=repo, chat_service=chat_service)

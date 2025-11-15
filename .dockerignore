@@ -41,3 +41,4 @@ docs/
 kitchen-sink/
 Makefile
 
+scripts/render_graph.py

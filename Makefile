@@ -1,4 +1,4 @@
-.PHONY: setup init-db run-apis run-ui clean lint help
+.PHONY: setup init-db run-apis run-ui clean lint help render-graph
 
 # Detect operating system
 ifeq ($(OS),Windows_NT)
@@ -19,6 +19,7 @@ help:
 	@echo "  make run-ui    - Run the Gradio UI server"
 	@echo "  make lint      - Run code linting and formatting (autoflake, isort, black, flake8)"
 	@echo "  make clean     - Clean .venv and uv cache"
+	@echo "  make render-graph - Render the LangGraph topology image"
 
 setup:
 	@echo "🔧 Setting up project for $(DETECTED_OS)..."
@@ -70,3 +71,8 @@ clean:
 	@echo "🗑️  Cleaning uv cache..."
 	@uv cache clean
 	@echo "✅ Clean complete!"
+
+render-graph:
+	@echo "🧭 Rendering LangGraph topology (PNG)..."
+	@uv run python scripts/render_graph.py --format png --output artifacts/langgraph.png
+	@echo "🖼️  Graph image available at artifacts/langgraph.png"

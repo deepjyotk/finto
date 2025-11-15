@@ -48,6 +48,7 @@ docker-build-and-run:
 	@echo "🐳 Building Docker image..."
 	@docker build -t finto-app:latest .
 	@echo "🐳 Starting Docker container..."
+	@docker rm -f finto-container >/dev/null 2>&1 || true
 	@docker run -d -p 8000:8000 --name finto-container --env-file .env finto-app:latest
 
 lint:

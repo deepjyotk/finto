@@ -252,6 +252,7 @@ class WhatsAppService:
                 self.chat_service.query,
                 chat_request,
                 session_id,
+                user_id,
             )
             if isinstance(response, AgentMessage):
                 response_text = response.content

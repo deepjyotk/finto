@@ -63,13 +63,15 @@ async def receive(
     request: Request,
     svc: Annotated[WhatsAppService, Depends(get_whatsapp_service)],
 ):
+    raw = b""
     try:
         raw = await request.body()
         _check_signature(raw, request.headers.get("X-Hub-Signature-256"))
         webhook_data = WhatsAppWebhook.model_validate_json(raw)
     except Exception as e:
         logger.error(f"Validation error: {e}")
-        logger.error(f"RAW: {raw[:500]}")
+        if raw:
+            logger.error(f"RAW: {raw[:500]}")
         return PlainTextResponse(status_code=400, content="Validation error")
 
     try:

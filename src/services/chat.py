@@ -41,7 +41,7 @@ class ChatService:
 
             graph = Graph.get_graph(request.model)
 
-            out = graph.invoke(question)
+            out = graph.invoke({"messages": [HumanMessage(content=question)]})
             # MessageGraph.invoke() returns a list of messages directly
             if isinstance(out, list):
                 # Get the last message's content

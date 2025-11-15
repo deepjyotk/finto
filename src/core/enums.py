@@ -28,6 +28,32 @@ class Nodes:
         "description": "Portfolio node for fetching portfolio information.",
         "max_ai_messages_allowed": 8,
     }
+    # New portfolio pipeline nodes
+    portfolio_reasoning = {
+        "name": "portfolio_reasoning_node",
+        "description": "Interprets query and outputs plan + required tools.",
+        "max_ai_messages_allowed": 2,
+    }
+    context_loader = {
+        "name": "context_loader_node",
+        "description": "Loads user portfolio context (e.g., from Excel/DB).",
+        "max_ai_messages_allowed": 1,
+    }
+    tool_executor = {
+        "name": "tool_executor_node",
+        "description": "LLM step that issues tool calls based on plan + context.",
+        "max_ai_messages_allowed": 2,
+    }
+    computation = {
+        "name": "computation_node",
+        "description": "LLM-generated Python REPL to compute metrics.",
+        "max_ai_messages_allowed": 1,
+    }
+    result_synthesizer = {
+        "name": "result_synthesizer_node",
+        "description": "Turns structured results into final user-friendly answer.",
+        "max_ai_messages_allowed": 1,
+    }
     news_tools = {
         "name": "news_agent_tools",
         "description": "Tools node for news agent - web search and symbol lookup.",

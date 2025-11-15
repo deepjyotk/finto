@@ -18,9 +18,9 @@ class ChatRequest(BaseModel):
         examples=[["Hello", "Hi there!"]],
     )
     model: LLMModel = Field(
-        default=LLMModel.GPT4oMini,
+        default=LLMModel.GPT4p1,
         description="AI model to use for the chat",
-        examples=[LLMModel.GPT4oMini],
+        examples=[LLMModel.GPT4p1],
     )
 
     model_config = {

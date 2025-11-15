@@ -30,18 +30,6 @@ system_prompt = (
 # 3️⃣ Create a Pandas DataFrame agent
 agent = create_agent(llm, system_prompt=system_prompt, response_format=SymbolQuery)
 
-raw = agent.invoke(
-    {
-        "messages": [
-            HumanMessage(
-                content="I want to calculate the total value of my holdings in adani green"
-            )
-        ],
-    }
-)
-print("Agent Response:", raw["structured_response"].symbol_name)
-# 4️⃣ Ask your question
-
 
 @tool("get_symbol_name")
 def get_symbol_name(user_query: str) -> str:

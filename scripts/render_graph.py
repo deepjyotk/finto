@@ -1,4 +1,4 @@
-"""Utility script to render the LangGraph topology to an image."""
+"""Utility script to render the LangGraph topology to an image and a mermaid file."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ from src.graph import Graph
 DEFAULT_MODEL = LLMModel.GPT4oMini
 DEFAULT_FORMAT = "png"
 DEFAULT_OUTPUT = Path("wiki/artifacts/langgraph.png")
+MERMAID_FILENAME = "langgraph-mermaid.mermaid"
 
 
 def _draw_png(graph, output: Path) -> None:
@@ -24,14 +25,17 @@ def _draw_svg(graph, output: Path) -> None:
     graph.draw_svg(str(output))
 
 
-def _draw_mermaid(graph, output: Path) -> None:
-    graph.draw_mermaid(str(output))
+# We no longer pass output path into draw_mermaid; instead we capture the string
+def _draw_mermaid_to_file(graph, output: Path) -> None:
+    mermaid_str = graph.draw_mermaid()
+    output.write_text(mermaid_str, encoding="utf-8")
 
 
-DRAWERS: dict[str, Callable] = {
+DRAWERS: dict[str, Callable[[Graph, Path], None]] = {
     "png": _draw_png,
     "svg": _draw_svg,
-    "mermaid": _draw_mermaid,
+    # We do _draw_mermaid_to_file here in case user wants mermaid as “main” output
+    "mermaid": _draw_mermaid_to_file,
 }
 
 
@@ -67,12 +71,16 @@ def main() -> None:
     selected_model = LLMModel(args.model)
     compiled_graph = Graph.get_graph(selected_model).get_graph()
 
+    # render the main requested format
     drawer = DRAWERS[args.format]
     drawer(compiled_graph, output_path)
-
     print(f"LangGraph rendered to {output_path.resolve()}")
+
+    # always also write a mermaid file
+    mermaid_path = output_path.parent / MERMAID_FILENAME
+    _draw_mermaid_to_file(compiled_graph, mermaid_path)
+    print(f"Mermaid topology written to {mermaid_path.resolve()}")
 
 
 if __name__ == "__main__":
     main()
-

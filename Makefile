@@ -67,6 +67,7 @@ clean:
 	@echo "✅ Clean complete!"
 
 render-graph:
-	@echo "🧭 Rendering LangGraph topology (PNG)..."
+	@echo "🧭 Rendering LangGraph topology (PNG + Mermaid)..."
 	@uv run python scripts/render_graph.py --format png --output wiki/artifacts/langgraph.png
 	@echo "🖼️  Graph image available at artifacts/langgraph.png"
+	@echo "📄  Mermaid file available at wiki/artifacts/langgraph-mermaid.mermaid"

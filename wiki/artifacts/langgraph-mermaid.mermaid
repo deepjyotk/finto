@@ -1,0 +1,27 @@
+---
+config:
+  flowchart:
+    curve: linear
+---
+graph TD;
+	__start__([<p>__start__</p>]):::first
+	router_node(router_node)
+	news_node(news_node)
+	portfolio_node(portfolio_node)
+	news_agent_tools(news_agent_tools)
+	portfolio_agent_tools(portfolio_agent_tools)
+	unknown_node(unknown_node)
+	__end__([<p>__end__</p>]):::last
+	__start__ --> router_node;
+	news_node --> news_agent_tools;
+	portfolio_agent_tools --> portfolio_node;
+	portfolio_node -.-> __end__;
+	portfolio_node -.-> portfolio_agent_tools;
+	router_node -.-> news_node;
+	router_node -.-> portfolio_node;
+	router_node -.-> unknown_node;
+	news_agent_tools --> __end__;
+	unknown_node --> __end__;
+	classDef default fill:#f2f0ff,line-height:1.2
+	classDef first fill-opacity:0
+	classDef last fill:#bfb6fc

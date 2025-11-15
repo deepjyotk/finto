@@ -74,5 +74,5 @@ clean:
 
 render-graph:
 	@echo "🧭 Rendering LangGraph topology (PNG)..."
-	@uv run python scripts/render_graph.py --format png --output artifacts/langgraph.png
+	@uv run python scripts/render_graph.py --format png --output wiki/artifacts/langgraph.png
 	@echo "🖼️  Graph image available at artifacts/langgraph.png"

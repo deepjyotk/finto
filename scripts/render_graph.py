@@ -13,7 +13,7 @@ from src.graph import Graph
 
 DEFAULT_MODEL = LLMModel.GPT4oMini
 DEFAULT_FORMAT = "png"
-DEFAULT_OUTPUT = Path("artifacts/langgraph.png")
+DEFAULT_OUTPUT = Path("wiki/artifacts/langgraph.png")
 
 
 def _draw_png(graph, output: Path) -> None:

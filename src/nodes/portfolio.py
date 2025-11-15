@@ -13,6 +13,7 @@ from src.core.enums import LLMModel, Nodes
 from src.core.json_logging import logger_for
 from src.schemas.agent_state import AgentState
 from src.tools.calculate_profit_tool import calculate_profit
+from src.tools.get_symbol_name import get_symbol_name
 from src.tools.get_ticker_price import get_ticker_price
 from src.tools.yf_tools import (
     get_balance_sheet,
@@ -263,7 +264,8 @@ Step 3: Synthesize and present per "Output style"."""
 
         # Tool-enabled answer stage
         answer_chain = final_prompt | llm.bind_tools(
-            [
+            [   
+                get_symbol_name,
                 get_ticker_price,
                 calculate_profit,
                 get_major_holders,

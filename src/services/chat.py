@@ -46,8 +46,15 @@ class ChatService:
 
             # StateGraph expects an AgentState with a messages key
             initial_state = {"messages": [HumanMessage(content=question)]}
-
-            context = {"user_id": user_id}
+            DEFAULT_PORTFOLIO_COLUMN_METADATA: dict[str, list[str]] = {
+                "Symbols": ["The symbol tickers in the user's portfolio"],
+                "Quantity Available": ["The quantity of shares available for each symbol"],
+                "Average Price": ["The average purchase price for each symbol"],
+                "Unrealized P&L": ["The unrealized profit or loss for each symbol"],
+                "Unrealized P&L Pct": ["The unrealized profit or loss percentage for each symbol"],
+            }
+            context = {"user_id": user_id, "portfolio_column_metadata": DEFAULT_PORTFOLIO_COLUMN_METADATA}
+            
 
             out = graph.invoke(initial_state, config=config, context=context)
 

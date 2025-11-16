@@ -5,7 +5,8 @@ from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
-
+from dotenv import load_dotenv
+load_dotenv()
 class SymbolQuery(BaseModel):
     """Route a user query to the most relevant route."""
 

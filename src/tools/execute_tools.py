@@ -1,6 +1,7 @@
 from langgraph.prebuilt import ToolNode
 
 from src.tools.calculate_profit_tool import calculate_profit
+from src.tools.extract_portfolio_data import extract_portfolio_data
 from src.tools.get_symbol_name import get_symbol_name
 from src.tools.get_ticker_price import get_ticker_price
 from src.tools.tavily_web_search import tavily_web_search
@@ -50,5 +51,6 @@ portfolio_agent_tools = ToolNode(
         get_eps_revisions,
         get_growth_estimates,
         get_earnings,
+        extract_portfolio_data,
     ]
 )

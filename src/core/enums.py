@@ -16,17 +16,17 @@ class Nodes:
     router = {
         "name": "router_node",
         "description": "Router node for deciding between portfolio and news nodes.",
-        "max_ai_messages_allowed": 2,
+        "max_ai_messages_allowed": 60,
     }
     news = {
         "name": "news_node",
         "description": "News node for fetching news from the web.",
-        "max_ai_messages_allowed": 8,
+        "max_ai_messages_allowed": 60,
     }
     portfolio = {
         "name": "portfolio_node",
         "description": "Portfolio node for fetching portfolio information.",
-        "max_ai_messages_allowed": 8,
+        "max_ai_messages_allowed": 60,
     }
     news_tools = {
         "name": "news_agent_tools",

@@ -1,9 +1,10 @@
+import asyncio
 import hashlib
 import hmac
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import PlainTextResponse
 
 from src.api.schemas.whatsapp import (
@@ -15,15 +16,38 @@ from src.api.schemas.whatsapp import (
     SendTextResponse,
     WhatsAppWebhook,
 )
+from src.core.db import SessionLocal
 from src.core.json_logging import logger_for
 from src.core.middleware import require_auth
 from src.core.settings import whatsapp_settings
 from src.dependencies import get_whatsapp_service
+from src.repositories.whatsapp_repo import WhatsAppRepository
+from src.services.chat import ChatService
 from src.services.whatsapp import WhatsAppService
+from datetime import datetime, timedelta, timezone
 
 router = APIRouter(prefix="", tags=["whatsapp"])
 
 logger = logger_for(__name__)
+
+
+async def _process_webhook_background(webhook_data: WhatsAppWebhook) -> None:
+    """
+    Process webhook in background with its own database session.
+    
+    This function creates a new session and service instance to avoid
+    using a session from the request lifecycle that gets closed.
+    """
+    async with SessionLocal() as session:
+        try:
+            repo = WhatsAppRepository(session)
+            chat_service = ChatService()
+            svc = WhatsAppService(repo=repo, chat_service=chat_service)
+            await svc.process_webhook(webhook_data=webhook_data)
+        except Exception as e:
+            logger.exception(f"Error processing webhook in background: {e}")
+        finally:
+            await session.rollback()
 
 
 @router.get("/webhooks/whatsapp", response_class=PlainTextResponse)
@@ -58,31 +82,70 @@ def _check_signature(raw_body: bytes, signature_header: str | None) -> None:
         raise HTTPException(status_code=401, detail="Bad signature")
 
 
-@router.post("/webhooks/whatsapp")
-async def receive(
-    request: Request,
-    svc: Annotated[WhatsAppService, Depends(get_whatsapp_service)],
-):
-    raw = b""
+
+MAX_EVENT_AGE = timedelta(minutes=5)
+
+
+def _get_event_timestamp(webhook_data: WhatsAppWebhook) -> datetime | None:
+    """
+    Extract the timestamp (as UTC datetime) from the first message/status
+    in the webhook. WhatsApp sends timestamp as a string of unix seconds.
+    """
     try:
-        raw = await request.body()
-        _check_signature(raw, request.headers.get("X-Hub-Signature-256"))
-        webhook_data = WhatsAppWebhook.model_validate_json(raw)
-    except Exception as e:
-        logger.error(f"Validation error: {e}")
-        if raw:
-            logger.error(f"RAW: {raw[:500]}")
-        return PlainTextResponse(status_code=400, content="Validation error")
+        entry = webhook_data.entry[0]
+        change = entry.changes[0]
+        value = change.value
+
+        ts_str = None
+
+        # Incoming user messages
+        if getattr(value, "messages", None):
+            ts_str = value.messages[0].timestamp
+
+        # Status callbacks (sent/delivered/read)
+        elif getattr(value, "statuses", None):
+            ts_str = value.statuses[0].timestamp
+
+        if not ts_str:
+            return None
+
+        ts_int = int(ts_str)  # "1763249605" -> 1763249605
+        return datetime.fromtimestamp(ts_int, tz=timezone.utc)
+    except Exception:
+        # If anything is weird, just skip age filtering
+        return None
+
+@router.post("/webhooks/whatsapp")
+async def receive(request: Request):
+    raw = await request.body()
 
     try:
-        # Use service to process webhook
-        result = await svc.process_webhook(webhook_data=webhook_data)
-        logger.info("Webhook processed successfully")
-        return result
+        # Verify signature
+        _check_signature(raw, request.headers.get("X-Hub-Signature-256"))
+
+        # Parse payload
+        webhook_data = WhatsAppWebhook.model_validate_json(raw)
+
+        # Age check: ignore very old events
+        event_ts = _get_event_timestamp(webhook_data)
+        if event_ts is not None:
+            age = datetime.now(timezone.utc) - event_ts
+            if age > MAX_EVENT_AGE:
+                logger.info(
+                    "Ignoring stale WhatsApp webhook "
+                    f"(age={age}, event_ts={event_ts.isoformat()})"
+                )
+                return Response(status_code=200, content="Ignored stale webhook")
+
+        # Process in background (don't block WhatsApp)
+        asyncio.create_task(_process_webhook_background(webhook_data))
+
+        return Response(status_code=200, content="Webhook accepted")
     except Exception as e:
-        logger.error(f"Error processing webhook: {e}")
-        # Return ok to prevent webhook retries for processing errors
-        return {"ok": True}
+        logger.exception("Error handling WhatsApp webhook")
+        # Still return 200 so WhatsApp doesn't retry forever
+        return Response(status_code=200, content="Error (logged)")
+
 
 
 @router.post("/api/whatsapp/send-text", response_model=SendTextResponse)
@@ -101,7 +164,7 @@ async def send_text(
         return response
     except Exception as e:
         logger.error(f"Error sending text: {e}")
-        raise HTTPException(status_code=e.status_code, detail=str(e))
+        return Response(status_code=500, content=str(e))
 
 
 @router.post("/api/whatsapp/send-template", response_model=SendTemplateResponse)

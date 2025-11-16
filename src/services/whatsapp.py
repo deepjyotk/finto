@@ -323,7 +323,7 @@ class WhatsAppService:
                 text="Welcome! To get started, please visit our website to generate a registration code, then send 'START <CODE>' here.",
             )
 
-    async def process_webhook(self, webhook_data: WhatsAppWebhook) -> dict[str, str]:
+    async def process_webhook(self, webhook_data: WhatsAppWebhook):
         """
         Process incoming WhatsApp webhook data.
 

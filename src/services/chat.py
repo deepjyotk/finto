@@ -41,6 +41,8 @@ class ChatService:
 
             graph = Graph.get_graph(request.model)
 
+            logger.info(f"Starting chat session with thread_id: {thread_id}")
+
             # Create config with thread_id for persistence
             config: RunnableConfig = {"configurable": {"thread_id": str(thread_id)}}
 

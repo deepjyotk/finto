@@ -1,48 +1,28 @@
-import pandas as pd
-from langchain.agents import create_agent
-from langchain_core.messages import HumanMessage
+# src/tools/get_symbol_name.py
 from langchain_core.tools import tool
-from langchain_openai import ChatOpenAI
-from pydantic import BaseModel, Field
-
+from src.utils.vector_embeddings import init_pinecone, query_symbols
 from dotenv import load_dotenv
+
 load_dotenv()
-class SymbolQuery(BaseModel):
-    """Route a user query to the most relevant route."""
 
-    symbol_name: str = Field(
-        ...,
-        description="The stock symbol relevant to the question.",
-    )
-
-
-# 1️⃣ Load your Excel file
-df = pd.read_excel("portfolio.xlsx")
-print("Portfolio Data:", df.head())
-
-# 2️⃣ Initialize an OpenAI chat model
-llm = ChatOpenAI(model="gpt-4o", temperature=0)
-system_prompt = (
-    "You are a financial assistant that answers questions about the provided portfolio data.\n"
-    f"{df.to_markdown()}\n"
-    "Output the symbol name."
-)
-
-# 3️⃣ Create a Pandas DataFrame agent
-agent = create_agent(llm, system_prompt=system_prompt, response_format=SymbolQuery)
-
+# Initialize Pinecone once at module level
+index, embeddings = init_pinecone()
 
 @tool("get_symbol_name")
 def get_symbol_name(user_query: str) -> str:
-    """Extracts the stock symbol from the user's query and returns the symbol name.
+    """Extracts the stock symbol from the user's query using vector similarity search.
 
     Input: user's query string like "I want to calculate the total value of my holdings in adani green"
     Returns: symbol name string like "ADANIGREEN"
     """
-    raw = agent.invoke(
-        {
-            "messages": [HumanMessage(content=user_query)],
-        }
-    )
-    symbol_name = raw["structured_response"].symbol_name
+    # Query Pinecone with the user's natural language query
+    matches = query_symbols(index, embeddings, user_query, top_k=1)
+    
+    if not matches:
+        return "Symbol not found"
+    
+    # Return the best matching symbol
+    best_match = matches[0]
+    symbol_name = best_match["metadata"].get("symbol", "")
+    
     return symbol_name

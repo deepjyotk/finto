@@ -48,8 +48,8 @@ class ChatService:
 
             # StateGraph expects an AgentState with a messages key
             initial_state = {"messages": [HumanMessage(content=question)]}
-
             context = {"user_id": user_id}
+            
 
             out = graph.invoke(initial_state, config=config, context=context)
 

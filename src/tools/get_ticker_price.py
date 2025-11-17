@@ -1,14 +1,9 @@
 import yfinance as yf
 from langchain_core.tools import tool
+from typing import List, Union
+from concurrent.futures import ThreadPoolExecutor
 
-
-@tool("get_ticker_price")
-def get_ticker_price(ticker_symbol: str) -> float:
-    """Return the latest close price (float) for the given ticker symbol.
-
-    Input: ticker symbol string like 'AAPL' or 'BTC-USD'.
-    Returns a float price on success or raises on error.
-    """
+def _get_single_ticker_price(ticker_symbol: str) -> Union[float, str]:
     if not ticker_symbol:
         raise ValueError("no ticker provided")
     t = ticker_symbol.strip().upper()
@@ -19,4 +14,11 @@ def get_ticker_price(ticker_symbol: str) -> float:
         price = float(hist["Close"].iloc[-1])
         return price
     except Exception as e:
-        raise RuntimeError(f"Error fetching ticker '{t}': {e}") from e
+        return f"Data not available for {t}"
+
+@tool("get_ticker_prices")
+def get_ticker_prices(ticker_symbols: List[str]) -> List[Union[float, str]]:
+    """Return the latest close prices for a list of ticker symbols."""
+    with ThreadPoolExecutor() as executor:
+        prices = list(executor.map(_get_single_ticker_price, ticker_symbols))
+    return prices

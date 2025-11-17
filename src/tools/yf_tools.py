@@ -21,13 +21,13 @@ def _df_to_dict_safe(df):
 def get_major_holders(symbol_name: str) -> dict:
     """Return major shareholders for the given symbol name."""
     if not symbol_name:
-        raise ValueError("Symbol name is required.")
+        return {"symbol": None, "major_holders": None, "error": "Symbol name is required."}
     t = symbol_name.strip().upper()
     try:
         data = yf.Ticker(t).get_major_holders(as_dict=True)
         return {"symbol": t, "major_holders": data}
-    except Exception as e:
-        raise RuntimeError(f"Error fetching major holders for '{t}': {e}") from e
+    except Exception:
+        return {"symbol": t, "major_holders": None, "error": f"Data not available for {t}"}
 
 
 # 2️⃣ Institutional Holders
@@ -35,13 +35,13 @@ def get_major_holders(symbol_name: str) -> dict:
 def get_institutional_holders(symbol_name: str) -> dict:
     """Return institutional holders for the given symbol name."""
     if not symbol_name:
-        raise ValueError("Symbol name is required.")
+        return {"symbol": None, "institutional_holders": None, "error": "Symbol name is required."}
     t = symbol_name.strip().upper()
     try:
         df = yf.Ticker(t).get_institutional_holders(as_dict=False)
         return {"symbol": t, "institutional_holders": _df_to_dict_safe(df)}
-    except Exception as e:
-        raise RuntimeError(f"Error fetching institutional holders for '{t}': {e}") from e
+    except Exception:
+        return {"symbol": t, "institutional_holders": None, "error": f"Data not available for {t}"}
 
 
 # 3️⃣ Mutual Fund Holders
@@ -49,13 +49,13 @@ def get_institutional_holders(symbol_name: str) -> dict:
 def get_mutualfund_holders(symbol_name: str) -> dict:
     """Return mutual fund holders for the given symbol name."""
     if not symbol_name:
-        raise ValueError("Symbol name is required.")
+        return {"symbol": None, "mutualfund_holders": None, "error": "Symbol name is required."}
     t = symbol_name.strip().upper()
     try:
         df = yf.Ticker(t).get_mutualfund_holders(as_dict=False)
         return {"symbol": t, "mutualfund_holders": _df_to_dict_safe(df)}
-    except Exception as e:
-        raise RuntimeError(f"Error fetching mutual fund holders for '{t}': {e}") from e
+    except Exception:
+        return {"symbol": t, "mutualfund_holders": None, "error": f"Data not available for {t}"}
 
 
 # 4️⃣ Insider Purchases
@@ -63,13 +63,13 @@ def get_mutualfund_holders(symbol_name: str) -> dict:
 def get_insider_purchases(symbol_name: str) -> dict:
     """Return insider purchase transactions for the given ticker."""
     if not symbol_name:
-        raise ValueError("Symbol name is required.")
+        return {"symbol": None, "insider_purchases": None, "error": "Symbol name is required."}
     t = symbol_name.strip().upper()
     try:
         df = yf.Ticker(t).get_insider_purchases(as_dict=False)
         return {"symbol": t, "insider_purchases": _df_to_dict_safe(df)}
-    except Exception as e:
-        raise RuntimeError(f"Error fetching insider purchases for '{t}': {e}") from e
+    except Exception:
+        return {"symbol": t, "insider_purchases": None, "error": f"Data not available for {t}"}
 
 
 # 5️⃣ Insider Transactions
@@ -77,13 +77,13 @@ def get_insider_purchases(symbol_name: str) -> dict:
 def get_insider_transactions(symbol_name: str) -> dict:
     """Return insider transactions (sales, purchases, option exercises, etc.) for the given ticker."""
     if not symbol_name:
-        raise ValueError("Symbol name is required.")
+        return {"symbol": None, "insider_transactions": None, "error": "Symbol name is required."}
     t = symbol_name.strip().upper()
     try:
         df = yf.Ticker(t).get_insider_transactions(as_dict=False)
         return {"symbol": t, "insider_transactions": _df_to_dict_safe(df)}
-    except Exception as e:
-        raise RuntimeError(f"Error fetching insider transactions for '{t}': {e}") from e
+    except Exception:
+        return {"symbol": t, "insider_transactions": None, "error": f"Data not available for {t}"}
 
     # 1️⃣ Dividends
 
@@ -92,13 +92,13 @@ def get_insider_transactions(symbol_name: str) -> dict:
 def get_dividends(symbol_name: str, period: str = "max") -> dict:
     """Fetch dividend payment history for a given ticker."""
     if not symbol_name:
-        raise ValueError("Symbol name is required.")
+        return {"symbol": None, "dividends": None, "error": "Symbol name is required."}
     t = symbol_name.strip().upper()
     try:
         series = yf.Ticker(t).get_dividends(period=period)
         return {"symbol": t, "dividends": _df_to_dict_safe(series)}
-    except Exception as e:
-        raise RuntimeError(f"Error fetching dividends for {t}: {e}") from e
+    except Exception:
+        return {"symbol": t, "dividends": None, "error": f"Data not available for {t}"}
 
 
 # 2️⃣ Capital Gains
@@ -106,13 +106,13 @@ def get_dividends(symbol_name: str, period: str = "max") -> dict:
 def get_capital_gains(symbol_name: str, period: str = "max") -> dict:
     """Fetch capital gain distribution history (for funds/ETFs)."""
     if not symbol_name:
-        raise ValueError("Symbol name is required.")
+        return {"symbol": None, "capital_gains": None, "error": "Symbol name is required."}
     t = symbol_name.strip().upper()
     try:
         series = yf.Ticker(t).get_capital_gains(period=period)
         return {"symbol": t, "capital_gains": _df_to_dict_safe(series)}
-    except Exception as e:
-        raise RuntimeError(f"Error fetching capital gains for {t}: {e}") from e
+    except Exception:
+        return {"symbol": t, "capital_gains": None, "error": f"Data not available for {t}"}
 
 
 # 3️⃣ Balance Sheet
@@ -120,13 +120,13 @@ def get_capital_gains(symbol_name: str, period: str = "max") -> dict:
 def get_balance_sheet(symbol_name: str, freq: str = "yearly", pretty: bool = False) -> dict:
     """Fetch balance sheet (yearly or quarterly)."""
     if not symbol_name:
-        raise ValueError("Symbol name is required.")
+        return {"symbol": None, "balance_sheet": None, "error": "Symbol name is required."}
     t = symbol_name.strip().upper()
     try:
         df = yf.Ticker(t).get_balance_sheet(as_dict=False, pretty=pretty, freq=freq)
         return {"symbol": t, "balance_sheet": _df_to_dict_safe(df)}
-    except Exception as e:
-        raise RuntimeError(f"Error fetching balance sheet for {t}: {e}") from e
+    except Exception:
+        return {"symbol": t, "balance_sheet": None, "error": f"Data not available for {t}"}
 
 
 # 4️⃣ Cash Flow
@@ -134,13 +134,13 @@ def get_balance_sheet(symbol_name: str, freq: str = "yearly", pretty: bool = Fal
 def get_cash_flow(symbol_name: str, freq: str = "yearly", pretty: bool = False) -> dict:
     """Fetch cash flow statement (yearly or quarterly)."""
     if not symbol_name:
-        raise ValueError("Symbol name is required.")
+        return {"symbol": None, "cash_flow": None, "error": "Symbol name is required."}
     t = symbol_name.strip().upper()
     try:
         df = yf.Ticker(t).get_cash_flow(as_dict=False, pretty=pretty, freq=freq)
         return {"symbol": t, "cash_flow": _df_to_dict_safe(df)}
-    except Exception as e:
-        raise RuntimeError(f"Error fetching cash flow for {t}: {e}") from e
+    except Exception:
+        return {"symbol": t, "cash_flow": None, "error": f"Data not available for {t}"}
 
 
 # 5️⃣ Income Statement
@@ -148,7 +148,7 @@ def get_cash_flow(symbol_name: str, freq: str = "yearly", pretty: bool = False) 
 def get_income_statement(symbol_name: str, freq: str = "yearly", pretty: bool = False) -> dict:
     """Fetch income statement (yearly, quarterly, or trailing)."""
     if not symbol_name:
-        raise ValueError("Symbol name is required.")
+        return {"symbol": None, "income_statement": None, "error": "Symbol name is required."}
     t = symbol_name.strip().upper()
     try:
         df = yf.Ticker(t).get_income_stmt(as_dict=True, pretty=pretty, freq=freq)
@@ -161,8 +161,8 @@ def get_income_statement(symbol_name: str, freq: str = "yearly", pretty: bool = 
             )
             df_2022.to_excel(filepath)
         return {"symbol": t, "income_statement": _df_to_dict_safe(df)}
-    except Exception as e:
-        raise RuntimeError(f"Error fetching income statement for {t}: {e}") from e
+    except Exception:
+        return {"symbol": t, "income_statement": None, "error": f"Data not available for {t}"}
 
 
 # 6️⃣ Earnings Estimates
@@ -170,13 +170,13 @@ def get_income_statement(symbol_name: str, freq: str = "yearly", pretty: bool = 
 def get_earnings_estimate(symbol_name: str) -> dict:
     """Fetch earnings estimates for upcoming quarters and years."""
     if not symbol_name:
-        raise ValueError("Symbol name is required.")
+        return {"symbol": None, "earnings_estimate": None, "error": "Symbol name is required."}
     t = symbol_name.strip().upper()
     try:
         data = yf.Ticker(t).get_earnings_estimate(as_dict=True)
         return {"symbol": t, "earnings_estimate": _df_to_dict_safe(data)}
-    except Exception as e:
-        raise RuntimeError(f"Error fetching earnings estimate for {t}: {e}") from e
+    except Exception:
+        return {"symbol": t, "earnings_estimate": None, "error": f"Data not available for {t}"}
 
 
 # 7️⃣ Revenue Estimates
@@ -184,13 +184,13 @@ def get_earnings_estimate(symbol_name: str) -> dict:
 def get_revenue_estimate(symbol_name: str) -> dict:
     """Fetch revenue estimates for upcoming quarters and years."""
     if not symbol_name:
-        raise ValueError("Symbol name is required.")
+        return {"symbol": None, "revenue_estimate": None, "error": "Symbol name is required."}
     t = symbol_name.strip().upper()
     try:
         data = yf.Ticker(t).get_revenue_estimate(as_dict=True)
         return {"symbol": t, "revenue_estimate": _df_to_dict_safe(data)}
-    except Exception as e:
-        raise RuntimeError(f"Error fetching revenue estimate for {t}: {e}") from e
+    except Exception:
+        return {"symbol": t, "revenue_estimate": None, "error": f"Data not available for {t}"}
 
 
 # 8️⃣ Earnings History
@@ -198,13 +198,13 @@ def get_revenue_estimate(symbol_name: str) -> dict:
 def get_earnings_history(symbol_name: str) -> dict:
     """Fetch past earnings results (EPS actual vs. estimate)."""
     if not symbol_name:
-        raise ValueError("Symbol name is required.")
+        return {"symbol": None, "earnings_history": None, "error": "Symbol name is required."}
     t = symbol_name.strip().upper()
     try:
         data = yf.Ticker(t).get_earnings_history(as_dict=True)
         return {"symbol": t, "earnings_history": _df_to_dict_safe(data)}
-    except Exception as e:
-        raise RuntimeError(f"Error fetching earnings history for {t}: {e}") from e
+    except Exception:
+        return {"symbol": t, "earnings_history": None, "error": f"Data not available for {t}"}
 
 
 # 9️⃣ EPS Trend
@@ -212,13 +212,13 @@ def get_earnings_history(symbol_name: str) -> dict:
 def get_eps_trend(symbol_name: str) -> dict:
     """Fetch historical EPS trend data (current vs 7, 30, 60, 90 days ago)."""
     if not symbol_name:
-        raise ValueError("Symbol name is required.")
+        return {"symbol": None, "eps_trend": None, "error": "Symbol name is required."}
     t = symbol_name.strip().upper()
     try:
         data = yf.Ticker(t).get_eps_trend(as_dict=True)
         return {"symbol": t, "eps_trend": _df_to_dict_safe(data)}
-    except Exception as e:
-        raise RuntimeError(f"Error fetching EPS trend for {t}: {e}") from e
+    except Exception:
+        return {"symbol": t, "eps_trend": None, "error": f"Data not available for {t}"}
 
 
 # 🔟 EPS Revisions
@@ -226,13 +226,13 @@ def get_eps_trend(symbol_name: str) -> dict:
 def get_eps_revisions(symbol_name: str) -> dict:
     """Fetch EPS revisions (up/down changes last 7 & 30 days)."""
     if not symbol_name:
-        raise ValueError("Symbol name is required.")
+        return {"symbol": None, "eps_revisions": None, "error": "Symbol name is required."}
     t = symbol_name.strip().upper()
     try:
         data = yf.Ticker(t).get_eps_revisions(as_dict=True)
         return {"symbol": t, "eps_revisions": _df_to_dict_safe(data)}
-    except Exception as e:
-        raise RuntimeError(f"Error fetching EPS revisions for {t}: {e}") from e
+    except Exception:
+        return {"symbol": t, "eps_revisions": None, "error": f"Data not available for {t}"}
 
 
 # 11️⃣ Growth Estimates
@@ -240,13 +240,13 @@ def get_eps_revisions(symbol_name: str) -> dict:
 def get_growth_estimates(symbol_name: str) -> dict:
     """Fetch growth estimates (stock, sector, industry, index comparisons)."""
     if not symbol_name:
-        raise ValueError("Symbol name is required.")
+        return {"symbol": None, "growth_estimates": None, "error": "Symbol name is required."}
     t = symbol_name.strip().upper()
     try:
         data = yf.Ticker(t).get_growth_estimates(as_dict=True)
         return {"symbol": t, "growth_estimates": _df_to_dict_safe(data)}
-    except Exception as e:
-        raise RuntimeError(f"Error fetching growth estimates for {t}: {e}") from e
+    except Exception:
+        return {"symbol": t, "growth_estimates": None, "error": f"Data not available for {t}"}
 
 
 # 12️⃣ Earnings (actual trailing or yearly data)
@@ -254,10 +254,10 @@ def get_growth_estimates(symbol_name: str) -> dict:
 def get_earnings(symbol_name: str, freq: str = "yearly") -> dict:
     """Fetch trailing or yearly earnings data."""
     if not symbol_name:
-        raise ValueError("Symbol name is required.")
+        return {"symbol": None, "earnings": None, "error": "Symbol name is required."}
     t = symbol_name.strip().upper()
     try:
         data = yf.Ticker(t).get_earnings(as_dict=True, freq=freq)
         return {"symbol": t, "earnings": _df_to_dict_safe(data)}
-    except Exception as e:
-        raise RuntimeError(f"Error fetching earnings for {t}: {e}") from e
+    except Exception:
+        return {"symbol": t, "earnings": None, "error": f"Data not available for {t}"}

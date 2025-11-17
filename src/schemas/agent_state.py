@@ -15,4 +15,3 @@ class AgentContext(TypedDict):
     """Context for the StateGraph, holding the user_id."""
 
     user_id: UUID
-    portfolio_column_metadata: dict[str, list[str]]

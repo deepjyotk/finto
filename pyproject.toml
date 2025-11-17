@@ -38,6 +38,9 @@ dependencies = [
     "alembic>=1.17.1",
     "pandas>=2.2.0",
     "langgraph-checkpoint-postgres>=2.0.0",
+    "pinecone>=7.3.0",
+    "langchain-huggingface>=1.0.1",
+    "sentence-transformers>=5.1.2",
 ]
 
 [dependency-groups]

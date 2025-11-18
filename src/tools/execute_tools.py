@@ -2,8 +2,8 @@ from langgraph.prebuilt import ToolNode
 
 from src.tools.calculate_profit_tool import calculate_profit
 from src.tools.extract_portfolio_data import extract_portfolio_data
-from src.tools.get_symbol_name import get_symbol_name
-from src.tools.get_ticker_price import get_ticker_price
+from src.tools.get_symbol_name import get_symbol_names
+from src.tools.get_ticker_price import get_ticker_prices
 from src.tools.tavily_web_search import tavily_web_search
 from src.tools.yf_tools import (
     get_balance_sheet,
@@ -31,8 +31,8 @@ news_agent_tools = ToolNode([tavily_web_search])
 # Portfolio agent tools - focused on portfolio management and calculations
 portfolio_agent_tools = ToolNode(
     [
-        get_ticker_price,
-        get_symbol_name,
+        get_ticker_prices,
+        get_symbol_names,
         calculate_profit,
         get_major_holders,
         get_institutional_holders,

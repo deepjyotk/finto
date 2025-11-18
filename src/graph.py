@@ -67,7 +67,7 @@ class Graph:
         builder.add_node(Nodes.portfolio_tools.get("name"), portfolio_agent_tools)
         builder.add_node(Nodes.unknown.get("name"), Graph._handle_unknown_node)
 
-        builder.add_edge(Nodes.news.get("name"), Nodes.news_tools.get("name"))  
+        builder.add_edge(Nodes.news.get("name"), Nodes.news_tools.get("name"))
         builder.add_edge(Nodes.portfolio_tools.get("name"), Nodes.portfolio.get("name"))
 
         builder.add_conditional_edges(
@@ -83,10 +83,7 @@ class Graph:
         builder.add_conditional_edges(
             Nodes.portfolio.get("name"),
             portfolio_node_instance.portfolio_agent_decision,
-            {
-                END: END,
-                Nodes.portfolio_tools.get("name"): Nodes.portfolio_tools.get("name")
-            },
+            {END: END, Nodes.portfolio_tools.get("name"): Nodes.portfolio_tools.get("name")},
         )
 
         builder.add_edge(Nodes.unknown.get("name"), END)

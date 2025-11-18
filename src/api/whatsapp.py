@@ -1,6 +1,7 @@
 import asyncio
 import hashlib
 import hmac
+from datetime import datetime, timedelta, timezone
 from typing import Annotated
 from uuid import UUID
 
@@ -24,7 +25,6 @@ from src.dependencies import get_whatsapp_service
 from src.repositories.whatsapp_repo import WhatsAppRepository
 from src.services.chat import ChatService
 from src.services.whatsapp import WhatsAppService
-from datetime import datetime, timedelta, timezone
 
 router = APIRouter(prefix="", tags=["whatsapp"])
 
@@ -34,7 +34,7 @@ logger = logger_for(__name__)
 async def _process_webhook_background(webhook_data: WhatsAppWebhook) -> None:
     """
     Process webhook in background with its own database session.
-    
+
     This function creates a new session and service instance to avoid
     using a session from the request lifecycle that gets closed.
     """
@@ -82,7 +82,6 @@ def _check_signature(raw_body: bytes, signature_header: str | None) -> None:
         raise HTTPException(status_code=401, detail="Bad signature")
 
 
-
 MAX_EVENT_AGE = timedelta(minutes=5)
 
 
@@ -115,6 +114,7 @@ def _get_event_timestamp(webhook_data: WhatsAppWebhook) -> datetime | None:
         # If anything is weird, just skip age filtering
         return None
 
+
 @router.post("/webhooks/whatsapp")
 async def receive(request: Request):
     raw = await request.body()
@@ -141,11 +141,10 @@ async def receive(request: Request):
         asyncio.create_task(_process_webhook_background(webhook_data))
 
         return Response(status_code=200, content="Webhook accepted")
-    except Exception as e:
+    except Exception:
         logger.exception("Error handling WhatsApp webhook")
         # Still return 200 so WhatsApp doesn't retry forever
         return Response(status_code=200, content="Error (logged)")
-
 
 
 @router.post("/api/whatsapp/send-text", response_model=SendTextResponse)

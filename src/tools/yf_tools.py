@@ -151,7 +151,7 @@ def get_income_statement(symbol_name: str, freq: str = "yearly", pretty: bool = 
         raise ValueError("Symbol name is required.")
     t = symbol_name.strip().upper()
     try:
-        df = yf.Ticker(t).get_income_stmt(as_dict=True, pretty=pretty, freq=freq)
+        df = yf.Ticker(t).get_income_stmt(as_dict=False, pretty=pretty, freq=freq)
         cols_2022 = [c for c in df.columns if pd.to_datetime(str(c)).year == 2022]
         pd.set_option("display.float_format", "{:,.0f}".format)
         df_2022 = df[cols_2022]

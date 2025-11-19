@@ -1,4 +1,4 @@
-# src/utils/vector_embeddings.py
+# src/services/vector_embeddings.py
 from typing import Iterable, Tuple
 
 import pandas as pd
@@ -106,3 +106,4 @@ def query_symbols(index, embeddings: HuggingFaceEmbeddings, query_text: str, top
             }
         )
     return matches
+

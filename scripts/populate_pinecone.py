@@ -1,18 +1,17 @@
-# scripts/populate_pinecone.py
+# src/scripts/populate_pinecone.py
 """
-Script to populate Pinecone index with company symbols and names from portfolio.xlsx
+Script to populate Pinecone index with company symbols and names from company-symbol-mapping.xlsx
 """
 import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-from src.utils.vector_embeddings import init_pinecone, upsert_from_portfolio_excel
+from src.services.vector_embeddings import init_pinecone, upsert_from_portfolio_excel
 
 # Add project root to path
-project_root = Path(__file__).parent.parent
+project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
-
 
 load_dotenv()
 
@@ -34,7 +33,7 @@ def main():
     print("✓ Successfully populated Pinecone index with symbol embeddings!")
 
     # Test query
-    from src.utils.vector_embeddings import query_symbols
+    from src.services.vector_embeddings import query_symbols
 
     print("\nTesting query: 'adani green'")
     results = query_symbols(index, embeddings, "adani green", top_k=3)
@@ -46,3 +45,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

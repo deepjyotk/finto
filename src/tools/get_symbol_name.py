@@ -2,7 +2,7 @@
 from dotenv import load_dotenv
 from langchain_core.tools import tool
 
-from src.utils.vector_embeddings import init_pinecone, query_symbols
+from src.services.vector_embeddings import init_pinecone, query_symbols
 
 load_dotenv()
 

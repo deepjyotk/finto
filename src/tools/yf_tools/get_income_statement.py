@@ -4,7 +4,7 @@ import pandas as pd
 import yfinance as yf
 from langchain.tools import tool
 
-from .utils import _df_to_dict_safe
+from src.utils.data_frame import _df_to_dict_safe
 
 
 @tool("get_income_statement")

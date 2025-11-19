@@ -7,3 +7,4 @@ def _df_to_dict_safe(df):
     if hasattr(df, "to_dict"):
         return df.to_dict(orient="records")
     return {}
+

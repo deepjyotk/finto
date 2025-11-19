@@ -3,7 +3,6 @@ from langgraph.prebuilt import ToolNode
 from src.tools.calculate_profit_tool import calculate_profit
 from src.tools.extract_portfolio_data import extract_portfolio_data
 from src.tools.get_symbol_name import get_symbol_name
-from src.tools.get_ticker_price import get_ticker_price
 from src.tools.tavily_web_search import tavily_web_search
 from src.tools.yf_tools import (
     get_balance_sheet,
@@ -23,6 +22,7 @@ from src.tools.yf_tools import (
     get_major_holders,
     get_mutualfund_holders,
     get_revenue_estimate,
+    get_ticker_price,
 )
 
 # News agent tools - focused on web search and basic symbol/price lookup

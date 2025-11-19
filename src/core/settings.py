@@ -72,7 +72,40 @@ class WhatsAppSettings(BaseSettings):
     )
 
 
+class PineconeSettings(BaseSettings):
+    """Pinecone vector database settings loaded from environment variables"""
+
+    index_name: str = Field(
+        default="company-symbol-index",
+        description="Pinecone index name",
+        validation_alias="PINECONE_INDEX",
+    )
+    dimension: int = Field(
+        default=384, description="Vector dimension for all-MiniLM-L6-v2 model"
+    )
+    embedding_model: str = Field(
+        default="sentence-transformers/all-MiniLM-L6-v2",
+        description="HuggingFace embedding model name",
+    )
+    api_key: str = Field(
+        ..., description="Pinecone API key", validation_alias="PINECONE_API_KEY"
+    )
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+        # Environment variables:
+        # PINECONE_INDEX -> index_name
+        # PINECONE_API_KEY -> api_key
+        # PINECONE_DIMENSION -> dimension (optional)
+        # PINECONE_EMBEDDING_MODEL -> embedding_model (optional)
+    )
+
+
 settings = Settings()
 llm_settings = LLMSettings()
 tavily_settings = TavilySettings()
 whatsapp_settings = WhatsAppSettings()
+pinecone_settings = PineconeSettings()

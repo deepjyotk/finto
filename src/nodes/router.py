@@ -30,30 +30,40 @@ class RouterNode:
     _ROUTER_PROMPT_TEMPLATE: Final[
         str
     ] = """
-    You are a router that must select exactly one destination for the user's query.
+Here’s an edited version of your router prompt with the new bias:
 
-    Return ONLY a JSON object conforming to RouteResponse (no prose, no extra fields).
+---
 
-    Destinations
-    - "{portfolio_node}": Personalized questions about the user's portfolio/holdings/positions, P&L/returns, allocation/rebalancing, SIP/mutual funds, taxes, risk/exposure, or actions to take on their assets.
-    - "{news_node}": General market information or events not specific to the user's portfolio: NSE/SEBI/BSE circulars, index changes (e.g., NIFTY 50), company/ticker news, earnings/dividends, macro/policy (RBI/Fed/CPI), prices/quotes.
+You are a router that must select exactly one destination for the user's query.
 
-    Decision rules
-    1) If the query references “my/our portfolio/holdings/positions” or asks for actions/advice tailored to the user's assets → "{portfolio_node}".
-    2) If the query requests market/regulatory/news updates or price/quote lookups without user-specific context → "{news_node}".
-    3) If both apply (e.g., “How will today’s RBI hike affect my portfolio?”) → "{portfolio_node}".
-    4) If ambiguous, default to "{news_node}".
+Return ONLY a JSON object conforming to RouteResponse (no prose, no extra fields).
 
-    Output format
-    Return: "{portfolio_node}" or "{news_node}".
+Destinations
 
-    Examples
-    - "What's the latest NSE circular on NIFTY 50 rebalancing?" → "{news_node}"
-    - "Should I rebalance my portfolio after the NIFTY 50 changes?" → "{portfolio_node}"
-    - "My holdings: TCS 20%, HDFCBANK 15%—is my finance exposure too high?" → "{portfolio_node}"
-    - "INFY Q2 results highlights?" → "{news_node}"
-    - "Current price of RELIANCE" → "{news_node}"
-    - "Will the Union Budget impact my SIPs?" → "{portfolio_node}"
+- "{portfolio_node}": Personalized questions about the user's portfolio/holdings/positions, P&L/returns, allocation/rebalancing, SIP/mutual funds, taxes, risk/exposure, actions to take on their assets, or *any* generic stock/price/fund query that does **not explicitly** ask for news or circulars.
+- "{news_node}": **Only** when the query explicitly asks for circulars or news/updates, such as NSE/SEBI/BSE circulars, index change announcements (e.g., NIFTY 50 rebalancing news), company news, earnings/dividend announcements, macro/policy news (RBI/Fed/CPI), or other market headlines.
+
+Decision rules
+
+1. If the query mentions the user's assets explicitly (“my/our portfolio/holdings/positions/SIP/mutual funds”) → "{portfolio_node}".
+2. If the query asks for guidance, actions, or analysis that could apply to the user's investments (even if not saying “my”) → "{portfolio_node}".
+3. If the query is a generic ticker/stock/fund/index question (e.g., “Current price of RELIANCE”, “Is TCS overvalued?”, “Explain NIFTY 50 PE ratio”) and does **not** explicitly mention news/circulars → "{portfolio_node}".
+4. Route to "{news_node}" **only if** the query explicitly references *news-like* terms such as “news”, “headline(s)”, “latest update(s)”, “announcement(s)”, “results”, “dividends”, “NSE circular”, “SEBI circular”, “BSE circular”, “circular”, “press release”, “RBI policy news”, etc.
+5. If both apply (e.g., “How will today’s RBI news affect my portfolio?”) → "{portfolio_node}".
+6. If ambiguous, default to "{portfolio_node}".
+
+Output format
+Return: "{portfolio_node}" or "{news_node}".
+
+Examples
+ - "What's the latest NSE circular on NIFTY 50 rebalancing?" → "{news_node}"
+ - "Latest news on RELIANCE results" → "{news_node}"
+ - "INFY Q2 results highlights?" → "{news_node}"
+ - "Should I rebalance my portfolio after the NIFTY 50 changes?" → "{portfolio_node}"
+ - "My holdings: TCS 20%, HDFCBANK 15%—is my finance exposure too high?" → "{portfolio_node}"
+ - "Current price of RELIANCE" → "{portfolio_node}"
+ - "Will the Union Budget impact my SIPs?" → "{portfolio_node}"
+
     """
 
     def __init__(self):

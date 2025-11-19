@@ -1,22 +1,21 @@
 # src/utils/vector_embeddings.py
-import os
 from typing import Iterable, Tuple
 
 import pandas as pd
 from langchain_huggingface import HuggingFaceEmbeddings
 from pinecone import Pinecone, ServerlessSpec
 
-# Defaults
-DEFAULT_INDEX_NAME = os.getenv("PINECONE_INDEX", "company-symbol-index")
-DEFAULT_DIM = 384  # all-MiniLM-L6-v2 dimension
-DEFAULT_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+from src.core.settings import pinecone_settings
 
 
-def init_pinecone(index_name: str = DEFAULT_INDEX_NAME, dimension: int = DEFAULT_DIM):
+def init_pinecone(
+    index_name: str | None = None, dimension: int | None = None
+):
     """Initialize Pinecone client and return index and embeddings model."""
-    api_key = os.getenv("PINECONE_API_KEY")
-    if not api_key:
-        raise RuntimeError("Set PINECONE_API_KEY environment variable.")
+    # Use settings defaults if not provided
+    index_name = index_name or pinecone_settings.index_name
+    dimension = dimension or pinecone_settings.dimension
+    api_key = pinecone_settings.api_key
 
     # Initialize Pinecone client (new API)
     pc = Pinecone(api_key=api_key)
@@ -32,9 +31,9 @@ def init_pinecone(index_name: str = DEFAULT_INDEX_NAME, dimension: int = DEFAULT
         )
 
     index = pc.Index(index_name)
-    # Use all-MiniLM-L6-v2 model (runs locally, no API key needed)
+    # Use embedding model from settings (runs locally, no API key needed)
     embeddings = HuggingFaceEmbeddings(
-        model_name=DEFAULT_EMBEDDING_MODEL,
+        model_name=pinecone_settings.embedding_model,
         model_kwargs={"device": "cpu"},  # Change to 'cuda' if you have GPU
         encode_kwargs={"normalize_embeddings": True},  # Normalize for better cosine similarity
     )

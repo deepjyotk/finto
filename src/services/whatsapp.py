@@ -323,6 +323,24 @@ class WhatsAppService:
                 text="Welcome! To get started, please visit our website to generate a registration code, then send 'START <CODE>' here.",
             )
 
+    async def _background_read_and_typing(self, to: str, message_id: str) -> None:
+        """
+        Fire-and-forget: mark as read + send typing.
+        Failures are logged but never raised.
+        """
+        try:
+            await self.mark_message_as_read(message_id)
+        except Exception as e:
+            logger.warning("Failed to mark message %s as read: %s", message_id, e)
+
+        try:
+            await self.send_typing_indicator(
+                to=to,
+                message_id=message_id,
+            )
+        except Exception as e:
+            logger.warning("Failed to send typing indicator for %s: %s", message_id, e)
+
     async def process_webhook(self, webhook_data: WhatsAppWebhook):
         """
         Process incoming WhatsApp webhook data.
@@ -336,8 +354,9 @@ class WhatsAppService:
         Returns:
             Dictionary with processing result
         """
-        try:
 
+        # Optionally: send typing indicator while we process
+        try:
             for entry in webhook_data.entry:
                 for change in entry.changes:
                     value = change.value
@@ -351,6 +370,14 @@ class WhatsAppService:
 
                             logger.info(
                                 f"Processing message from {message_from_e164} with text: {message_text}"
+                                f"Message ID: {msg.id}"
+                            )
+
+                            # 🔥 Fire-and-forget: don't block main logic
+                            asyncio.create_task(
+                                self._background_read_and_typing(
+                                    to=message_from_e164, message_id=msg.id
+                                )
                             )
 
                             # Check if user is already registered in whatsapp_metadata
@@ -371,3 +398,116 @@ class WhatsAppService:
         except Exception as e:
             logger.error(f"Error processing webhook: {e}")
             raise e
+
+    async def mark_message_as_read(self, message_id: str) -> None:
+        """
+        Mark an incoming WhatsApp message as read (Cloud API).
+        """
+        url = (
+            f"https://graph.facebook.com/{whatsapp_settings.wa_api_version}/"
+            f"{whatsapp_settings.wa_phone_number_id}/messages"
+        )
+
+        payload = {
+            "messaging_product": "whatsapp",
+            "status": "read",
+            "message_id": message_id,
+        }
+
+        async with httpx.AsyncClient(timeout=15) as client:
+            try:
+                response = await client.post(  # <-- POST, **not** PUT
+                    url,
+                    headers={
+                        "Authorization": f"Bearer {whatsapp_settings.wa_user_or_system_token}",
+                        "Content-Type": "application/json",
+                    },
+                    json=payload,
+                )
+                response.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                logger.error(
+                    "Failed to mark message as read - HTTP error: "
+                    "message_id=%s, status_code=%s, response_text=%s, url=%s",
+                    message_id,
+                    exc.response.status_code,
+                    exc.response.text,
+                    url,
+                )
+                # In fire-and-forget we *don't* want to crash anything, so just return
+            except Exception as exc:
+                logger.error(
+                    "Failed to mark message as read - unexpected error: "
+                    "message_id=%s, error=%s, url=%s",
+                    message_id,
+                    exc,
+                    url,
+                )
+
+    async def send_typing_indicator(
+        self,
+        to: str,
+        message_id: str,
+    ) -> dict[str, Any]:
+        """
+        Send a typing indicator (and optionally a read receipt) for a message.
+
+        Args:
+            to: Recipient's E.164 phone number
+            message_id: The WhatsApp message ID (wamid...) you are replying to
+
+        Returns:
+            Response dictionary from the API
+        """
+        url = (
+            f"https://graph.facebook.com/{whatsapp_settings.wa_api_version}/"
+            f"{whatsapp_settings.wa_phone_number_id}/messages"
+        )
+
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": to,
+            # Depending on Meta's docs you might not need "type"/"status" here,
+            # but this shape is close to what they describe. The key bit is:
+            # typing_indicator.type MUST be "TEXT".
+            "typing_indicator": {
+                "type": "TEXT",  # <- REQUIRED ENUM VALUE
+            },
+            "status": "read",
+            "message_id": message_id,
+        }
+
+        async with httpx.AsyncClient(timeout=15) as client:
+            try:
+                response = await client.post(
+                    url,
+                    headers={
+                        "Authorization": f"Bearer {whatsapp_settings.wa_user_or_system_token}",
+                        "Content-Type": "application/json",
+                    },
+                    json=payload,
+                )
+                response.raise_for_status()
+                return response.json()
+            except httpx.HTTPStatusError as exc:
+                logger.error(
+                    "Failed to send typing indicator - HTTP error: "
+                    "to=%s, message_id=%s, "
+                    "status_code=%s, response_text=%s, url=%s",
+                    to,
+                    message_id,
+                    exc.response.status_code,
+                    exc.response.text,
+                    url,
+                )
+                raise
+            except Exception as exc:
+                logger.error(
+                    "Failed to send typing indicator - unexpected error: "
+                    "to=%s, message_id=%s, error=%s, url=%s",
+                    to,
+                    message_id,
+                    exc,
+                    url,
+                )
+                raise

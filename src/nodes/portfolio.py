@@ -11,14 +11,11 @@ from langchain_openai import ChatOpenAI
 from langgraph.graph import END
 
 from src.core.enums import LLMModel, Nodes
-from langgraph.runtime import get_runtime
 from src.core.json_logging import logger_for
-from src.schemas import portfolio
-from src.schemas.agent_state import AgentContext, AgentState
+from src.schemas.agent_state import AgentState
 from src.tools.calculate_profit_tool import calculate_profit
-from src.tools.get_symbol_name import get_symbol_names
-from src.tools.get_ticker_price import get_ticker_prices
 from src.tools.extract_portfolio_data import extract_portfolio_data
+from src.tools.get_symbol_name import get_symbol_names
 from src.tools.yf_tools import (
     get_balance_sheet,
     get_capital_gains,
@@ -37,6 +34,7 @@ from src.tools.yf_tools import (
     get_major_holders,
     get_mutualfund_holders,
     get_revenue_estimate,
+    get_ticker_price,
 )
 
 logger = logger_for(__name__)
@@ -44,11 +42,10 @@ logger = logger_for(__name__)
 
 class PortfolioNode:
     """Portfolio agent node for financial computations."""
-    
+
     _SYSTEM_PROMPT: Final[
         str
-    ] = """You are PortfolioAgent — a precise financial assistant focused on Indian equities (NSE/BSE) and the user's portfolio.
-         
+    ] = """You are PortfolioAgent — a precise financial assistant focused on Indian equities (NSE/BSE) and the user's portfolio.         
         Now (UTC): {today_utc_iso}
         Now (IST, UTC+5:30): {today_ist_iso}
 
@@ -63,7 +60,7 @@ class PortfolioNode:
 
         POLICY
         1) Tool order:
-        a) ALWAYS call get_symbol_name(user_query) FIRST to extract the stock symbol.
+        a) ALWAYS call get_symbol_names(user_query) FIRST to extract the stock symbol.
         b) Smartly select additional tools based on the query (fundamentals, ownership, earnings, etc.).
 
         2) Data integrity:
@@ -81,10 +78,9 @@ class PortfolioNode:
 
         WORKFLOW
         Understand the user's query and the portfolio context and smartly decide tool usage.
-        Step 1: get_symbol_name(user_query).  
+        Step 1: get_symbol_names(user_query).  
         Step 2: Call relevant tools (fundamentals, ownership, earnings, portfolio, etc.).  
-        Step 3: Synthesize and present per "Output style".
-        
+        Step 3: Synthesize and present per "Output style".        
         Portfolio column metadata:
         {portfolio_column_metadata}
         """
@@ -104,14 +100,18 @@ class PortfolioNode:
             ]
         )
         DEFAULT_PORTFOLIO_COLUMN_METADATA: dict[str, list[str]] = {
-                "Symbols": ["The symbol tickers in the user's portfolio"],
-                "Quantity Available": ["The quantity of shares available for each symbol"],
-                "Average Price": ["The average purchase price for each symbol"],
-                "Unrealized P&L": ["The unrealized profit or loss for each symbol"],
-                "Unrealized P&L Pct": ["The unrealized profit or loss percentage for each symbol"],
-            }
+            "Symbols": ["The symbol tickers in the user's portfolio"],
+            "Quantity Available": ["The quantity of shares available for each symbol"],
+            "Average Price": ["The average purchase price for each symbol"],
+            "Unrealized P&L": ["The unrealized profit or loss for each symbol"],
+            "Unrealized P&L Pct": ["The unrealized profit or loss percentage for each symbol"],
+        }
         portfolio_column_metadata = DEFAULT_PORTFOLIO_COLUMN_METADATA
-        complete_template = chat_template.partial(today_utc_iso=now_utc, today_ist_iso=now_ist, portfolio_column_metadata=portfolio_column_metadata)
+        complete_template = chat_template.partial(
+            today_utc_iso=now_utc,
+            today_ist_iso=now_ist,
+            portfolio_column_metadata=portfolio_column_metadata,
+        )
         return complete_template
 
     def get_runnable_sequence(self, model: LLMModel):
@@ -126,15 +126,13 @@ class PortfolioNode:
         """
 
         llm = ChatOpenAI(model=model.value, temperature=0)
-        code_llm = llm  # reuse same model for code-gen for now
 
         excel_path = "portfolio.xlsx"
         try:
             df = pd.read_excel(excel_path)
-            excel_preview = df.head().to_string()
+            logger.info(f"Successfully read portfolio.xlsx with {len(df)} rows")
         except Exception as e:
-            excel_preview = f"ERROR reading {excel_path}: {e}"
-        
+            logger.error(f"Error reading portfolio.xlsx: {e}")
 
         portfolio_prompt = self._agent_prompt_template()
 
@@ -142,7 +140,7 @@ class PortfolioNode:
         answer_chain = portfolio_prompt | llm.bind_tools(
             [
                 get_symbol_names,
-                get_ticker_prices,
+                get_ticker_price,
                 calculate_profit,
                 get_major_holders,
                 get_institutional_holders,
@@ -161,14 +159,12 @@ class PortfolioNode:
                 get_eps_revisions,
                 get_growth_estimates,
                 get_earnings,
-                extract_portfolio_data
+                extract_portfolio_data,
             ]
         )
 
         # Complete chain: mapping -> answer
         # chain = mapped_inputs | answer_chain
-        
-
 
         def portfolio_node_fn(state: AgentState) -> AgentState:
             messages = state.get("messages", [])

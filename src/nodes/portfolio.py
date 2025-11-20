@@ -141,7 +141,7 @@ class PortfolioNode:
             logger.info(f"Successfully read portfolio.xlsx with {len(df)} rows")
         except Exception as e:
             logger.error(f"Error reading portfolio.xlsx: {e}")
-            
+
         portfolio_prompt = self._agent_prompt_template()
 
         # Tool-enabled answer stage

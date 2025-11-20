@@ -15,9 +15,9 @@ from pydantic import BaseModel, Field, field_validator
 class AdjustMode(str, Enum):
     """How to adjust prices for corporate actions."""
 
-    AUTO = "auto"   # auto_adjust=True (default)
-    BACK = "back"   # back_adjust=True
-    NONE = "none"   # no adjustment
+    AUTO = "auto"  # auto_adjust=True (default)
+    BACK = "back"  # back_adjust=True
+    NONE = "none"  # no adjustment
 
 
 # ───────────────────────────── Input model ───────────────────────────── #
@@ -48,7 +48,9 @@ class GetTickerPriceInput(BaseModel):
         ),
     )
 
-    interval: Literal["1m", "2m", "5m", "15m", "30m", "60m", "90m", "1h", "1d", "5d", "1wk", "1mo", "3mo"] = Field(
+    interval: Literal[
+        "1m", "2m", "5m", "15m", "30m", "60m", "90m", "1h", "1d", "5d", "1wk", "1mo", "3mo"
+    ] = Field(
         default="1d",
         description=(
             "Data interval/bar size. Valid intervals: "
@@ -115,7 +117,9 @@ class GetTickerPriceInput(BaseModel):
 def get_ticker_price(
     ticker_symbol: str,
     period: Literal["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max"] = "1d",
-    interval: Literal["1m", "2m", "5m", "15m", "30m", "60m", "90m", "1h", "1d", "5d", "1wk", "1mo", "3mo"] = "1d",
+    interval: Literal[
+        "1m", "2m", "5m", "15m", "30m", "60m", "90m", "1h", "1d", "5d", "1wk", "1mo", "3mo"
+    ] = "1d",
     adjust_mode: AdjustMode = AdjustMode.AUTO,
     prepost: bool = False,
     repair: bool = False,
@@ -129,7 +133,7 @@ def get_ticker_price(
     - Always returns a dict mapping dates (YYYY-MM-DD) to close prices, regardless of period.
     - Applies price adjustment based on `adjust_mode`.
     - Supports pre/post market data, price repair, and custom timeout.
-    
+
     Raises RuntimeError on failure.
     """
     t = ticker_symbol
@@ -158,7 +162,7 @@ def get_ticker_price(
             # hist.index is a DatetimeIndex, so idx is a Timestamp
             date_str = pd.Timestamp(idx).date().isoformat()
             prices_dict[date_str] = float(close_price)
-        
+
         return prices_dict
 
     except Exception as e:

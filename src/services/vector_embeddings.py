@@ -8,9 +8,7 @@ from pinecone import Pinecone, ServerlessSpec
 from src.core.settings import pinecone_settings
 
 
-def init_pinecone(
-    index_name: str | None = None, dimension: int | None = None
-):
+def init_pinecone(index_name: str | None = None, dimension: int | None = None):
     """Initialize Pinecone client and return index and embeddings model."""
     # Use settings defaults if not provided
     index_name = index_name or pinecone_settings.index_name
@@ -106,4 +104,3 @@ def query_symbols(index, embeddings: HuggingFaceEmbeddings, query_text: str, top
             }
         )
     return matches
-

@@ -15,7 +15,7 @@ from src.core.json_logging import logger_for
 from src.schemas.agent_state import AgentState
 from src.tools.calculate_profit_tool import calculate_profit
 from src.tools.extract_portfolio_data import extract_portfolio_data
-from src.tools.get_symbol_name import get_symbol_name
+from src.tools.get_symbol_name import get_symbol_name, get_symbol_names
 from src.tools.yf_tools import (
     get_balance_sheet,
     get_capital_gains,
@@ -124,14 +124,6 @@ class PortfolioNode:
         Returns:
             A runnable that takes AgentState and returns AgentState
         """
-        # ------------------ UPDATED CHAIN ------------------
-        # Stage 1: Generate Python code to extract relevant portfolio data (pattern borrowed from code_generatio_testing.py)
-        # Stage 2: Use extracted data + original messages with the financial tools to answer the user query.
-
-        # import pandas as pd
-        # from langchain_core.prompts import ChatPromptTemplate
-        # from langchain_core.runnables import RunnableMap
-        # from langchain_experimental.tools import PythonREPLTool  # lightweight runtime tool
 
         llm = ChatOpenAI(model=model.value, temperature=0)
 
@@ -147,7 +139,7 @@ class PortfolioNode:
         # Tool-enabled answer stage
         answer_chain = portfolio_prompt | llm.bind_tools(
             [
-                get_symbol_name,
+                get_symbol_names,
                 get_ticker_price,
                 calculate_profit,
                 get_major_holders,

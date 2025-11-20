@@ -15,7 +15,7 @@ from src.core.json_logging import logger_for
 from src.schemas.agent_state import AgentState
 from src.tools.calculate_profit_tool import calculate_profit
 from src.tools.extract_portfolio_data import extract_portfolio_data
-from src.tools.get_symbol_name import get_symbol_name, get_symbol_names
+from src.tools.get_symbol_name import get_symbol_names
 from src.tools.yf_tools import (
     get_balance_sheet,
     get_capital_gains,
@@ -60,7 +60,7 @@ class PortfolioNode:
 
         POLICY
         1) Tool order:
-        a) ALWAYS call get_symbol_name(user_query) FIRST to extract the stock symbol.
+        a) ALWAYS call get_symbol_names(user_query) FIRST to extract the stock symbol.
         b) Smartly select additional tools based on the query (fundamentals, ownership, earnings, etc.).
 
         2) Data integrity:
@@ -78,7 +78,7 @@ class PortfolioNode:
 
         WORKFLOW
         Understand the user's query and the portfolio context and smartly decide tool usage.
-        Step 1: get_symbol_name(user_query).  
+        Step 1: get_symbol_names(user_query).  
         Step 2: Call relevant tools (fundamentals, ownership, earnings, portfolio, etc.).  
         Step 3: Synthesize and present per "Output style".        
         Portfolio column metadata:

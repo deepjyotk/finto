@@ -18,12 +18,12 @@ DATASET_DESCRIPTION = "QA pairs about finto chatbot."
 # Update these lists freely; the script will respect whatever is defined here.
 inputs: List[str] = [
     "How much profit did I make in Adani Green?",
-    "What is the percentage of metal stocks in portfolio?"
+    "What is the percentage of metal stocks in portfolio?",
 ]
 
 outputs: List[str] = [
     "You have made **₹649.75** profit in Adani Green.",
-    "The metal sector makes up **about 85%** of your total portfolio value."
+    "The metal sector makes up **about 85%** of your total portfolio value.",
 ]
 
 
@@ -68,9 +68,7 @@ def main() -> None:
     client = Client()
     choice = _prompt_choice()
     dataset = (
-        _read_or_create_dataset(client)
-        if choice == "1"
-        else _create_new_version_dataset(client)
+        _read_or_create_dataset(client) if choice == "1" else _create_new_version_dataset(client)
     )
 
     example_inputs, example_outputs = _zip_examples(inputs, outputs)

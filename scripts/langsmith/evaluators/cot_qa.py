@@ -21,11 +21,13 @@ from src.graph import Graph
 import os
 
 import dotenv
+
 dotenv.load_dotenv()
 
 
 DATASET_NAME = "finto-qa-dataset-1"
 DEFAULT_MODEL = LLMModel.GPT4oMini
+
 
 @lru_cache(maxsize=1)
 def _get_compiled_graph(model: LLMModel):
@@ -114,9 +116,9 @@ _cot_qa_prompt = ChatPromptTemplate.from_messages(
     ]
 )
 
-_cot_qa_chain = _cot_qa_prompt | ChatOpenAI(model=DEFAULT_MODEL.value, temperature=0).with_structured_output(
-    CotQAGrade
-)
+_cot_qa_chain = _cot_qa_prompt | ChatOpenAI(
+    model=DEFAULT_MODEL.value, temperature=0
+).with_structured_output(CotQAGrade)
 
 
 def cot_qa_evaluator(run: Run, example: Example, **_: Any) -> Dict[str, Any]:

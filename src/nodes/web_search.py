@@ -69,7 +69,9 @@ Boundaries
             context = runtime.context
             news_model = context.get("news_model", LLMModel.GPT4oMini)
 
-            llm = ChatOpenAI(model=news_model.value, temperature=0)
+            # Use model name and kwargs from enum
+            llm_kwargs = {"model": news_model.model_name, **news_model.llm_kwargs}
+            llm = ChatOpenAI(**llm_kwargs)
             chain = prompt | llm.with_structured_output(WebSearchResult)
 
             messages = state.get("messages", [])

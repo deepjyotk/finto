@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 from functools import lru_cache
 from typing import Any, Dict, Mapping
 from uuid import uuid4
@@ -17,22 +18,24 @@ from pydantic import BaseModel, Field
 
 from src.core.enums import LLMModel
 from src.graph import Graph
-
-import os
-
 import dotenv
 
 dotenv.load_dotenv()
 
 
-DATASET_NAME = "finto-qa-dataset-1"
-DEFAULT_MODEL = LLMModel.GPT4oMini
+DATASET_NAME = "finto-qa-dataset-v2"
+EVALUATION_MODEL = LLMModel.GPT4oMini
+
+# Model configuration for evaluation
+ROUTER_MODEL = LLMModel.GPT4oMini
+PORTFOLIO_MODEL = LLMModel.O1
+NEWS_MODEL = LLMModel.GPT4oMini
 
 
 @lru_cache(maxsize=1)
-def _get_compiled_graph(model: LLMModel):
+def _get_compiled_graph():
     """Compile and cache the LangGraph for reuse during evaluation."""
-    return Graph.get_graph(model)
+    return Graph.get_graph()
 
 
 def _message_content_to_str(message: Any) -> str:
@@ -62,15 +65,28 @@ def _extract_answer(graph_result: Any) -> str:
     return str(graph_result or "")
 
 
+def _generate_experiment_prefix(
+    dataset_name: str,
+    router_model: LLMModel,
+    portfolio_model: LLMModel,
+    news_model: LLMModel,
+) -> str:
+    """Generate experiment prefix with dataset name and model names."""
+    router_name = router_model.model_name.replace(".", "-")
+    portfolio_name = portfolio_model.model_name.replace(".", "-")
+    news_name = news_model.model_name.replace(".", "-")
+    return f"{dataset_name}_router-{router_name}_portfolio-{portfolio_name}_news-{news_name}"
+
+
 def predict_agent_answer(
     inputs: Mapping[str, Any], config: RunnableConfig | None = None, **_: Any
 ) -> Dict[str, str]:
     """Invoke the LangGraph agent on a dataset row."""
-    question = inputs.get("question")
+    question = inputs.get("input") or inputs.get("question")  # Support both 'input' and 'question'
     if not isinstance(question, str) or not question.strip():
-        raise ValueError("Each dataset example must include a non-empty 'question'.")
+        raise ValueError("Each dataset example must include a non-empty 'input' or 'question'.")
 
-    graph = _get_compiled_graph(DEFAULT_MODEL)
+    graph = _get_compiled_graph()
 
     run_config: RunnableConfig = {}
     if config:
@@ -80,7 +96,12 @@ def predict_agent_answer(
     run_config["configurable"] = configurable
 
     graph_state = {"messages": [HumanMessage(content=question.strip())]}
-    context = {"user_id": uuid4()}
+    context = {
+        "user_id": uuid4(),
+        "router_model": ROUTER_MODEL,
+        "portfolio_model": PORTFOLIO_MODEL,
+        "news_model": NEWS_MODEL,
+    }
     result = graph.invoke(graph_state, config=run_config, context=context)
 
     return {"answer": _extract_answer(result)}
@@ -117,7 +138,7 @@ _cot_qa_prompt = ChatPromptTemplate.from_messages(
 )
 
 _cot_qa_chain = _cot_qa_prompt | ChatOpenAI(
-    model=DEFAULT_MODEL.value, temperature=0
+    model=EVALUATION_MODEL.model_name, **EVALUATION_MODEL.llm_kwargs
 ).with_structured_output(CotQAGrade)
 
 
@@ -125,8 +146,8 @@ def cot_qa_evaluator(run: Run, example: Example, **_: Any) -> Dict[str, Any]:
     """Grade the agent answer using the CoT QA evaluator chain."""
     outputs = run.outputs or {}
     prediction = outputs.get("answer", "")
-    reference = (example.outputs or {}).get("answer", "")
-    question = (example.inputs or {}).get("question", "")
+    reference = (example.outputs or {}).get("output", "") or (example.outputs or {}).get("answer", "")
+    question = (example.inputs or {}).get("input", "") or (example.inputs or {}).get("question", "")
 
     if not isinstance(prediction, str):
         prediction = str(prediction)
@@ -149,13 +170,21 @@ def cot_qa_evaluator(run: Run, example: Example, **_: Any) -> Dict[str, Any]:
 def run_evaluation(dataset_name: str = DATASET_NAME) -> None:
     """Kick off the LangSmith evaluation on the specified dataset."""
     client = Client()
+    experiment_prefix = _generate_experiment_prefix(
+        dataset_name, ROUTER_MODEL, PORTFOLIO_MODEL, NEWS_MODEL
+    )
     results = evaluate(
         predict_agent_answer,
         data=dataset_name,
         evaluators=[cot_qa_evaluator],
         client=client,
-        experiment_prefix="finto-cot-qa",
-        metadata={"model": DEFAULT_MODEL.value},
+        experiment_prefix=experiment_prefix,
+        metadata={
+            "router_model": ROUTER_MODEL.model_name,
+            "portfolio_model": PORTFOLIO_MODEL.model_name,
+            "news_model": NEWS_MODEL.model_name,
+            "evaluation_model": EVALUATION_MODEL.model_name,
+        },
     )
     experiment_id = getattr(results, "experiment_name", None)
     if experiment_id:
@@ -165,4 +194,12 @@ def run_evaluation(dataset_name: str = DATASET_NAME) -> None:
 
 
 if __name__ == "__main__":
-    run_evaluation()
+    parser = argparse.ArgumentParser(description="Run LangSmith CoT QA evaluation")
+    parser.add_argument(
+        "--dataset-name",
+        type=str,
+        default=DATASET_NAME,
+        help=f"Name of the dataset to evaluate (default: {DATASET_NAME})",
+    )
+    args = parser.parse_args()
+    run_evaluation(dataset_name=args.dataset_name)

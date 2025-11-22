@@ -40,8 +40,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Render LangGraph topology.")
     parser.add_argument(
         "--model",
-        default=DEFAULT_MODEL.value,
-        choices=[model.value for model in LLMModel],
+        default=DEFAULT_MODEL.model_name,
+        choices=[model.model_name for model in LLMModel],
         help="LLM model to use when constructing the graph.",
     )
     parser.add_argument(
@@ -65,8 +65,8 @@ def main() -> None:
 
     os.environ.setdefault("OPENAI_API_KEY", llm_settings.openai_api_key)
 
-    selected_model = LLMModel(args.model)
-    compiled_graph = Graph.get_graph(selected_model)
+    # Note: Graph.get_graph() doesn't take model parameter - models are passed via context
+    compiled_graph = Graph.get_graph()
 
     # render the main requested format
     drawer = DRAWERS[args.format]

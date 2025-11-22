@@ -1,0 +1,22 @@
+{
+    "dataset_name": "finto-qa-dataset-v2",
+    "dataset_description": "QA pairs about finto chatbot.",
+    "examples": [
+        {
+            "input": "How much profit did I make in Adani Green?",
+            "output": "You have made **₹649.75** profit in Adani Green."
+        },
+        {
+            "input": "What is the percentage of metal stocks in portfolio?",
+            "output": "The metal sector makes up **about 85%** of your total portfolio."
+        },
+        {
+            "input": "What is the percentage of metal stocks in portfolio by quantity?",
+            "output": "The metal sector makes up **about 85%** of your total portfolio quantity."
+        },
+        {
+            "input": "What is the percentage of metal stocks in portfolio by value?",
+            "output": "The metal sector makes up **about 91%** of your total portfolio value."
+        }
+    ]
+}

@@ -91,10 +91,12 @@ Examples
             user_id = context.get("user_id")
             router_model = context.get("router_model", LLMModel.GPT4oMini)
             logger.info(
-                "Router node invoked for user_id=%s with model=%s", user_id, router_model.value
+                "Router node invoked for user_id=%s with model=%s", user_id, router_model.model_name
             )
 
-            llm = ChatOpenAI(model=router_model.value, temperature=0)
+            # Use model name and kwargs from enum
+            llm_kwargs = {"model": router_model.model_name, **router_model.llm_kwargs}
+            llm = ChatOpenAI(**llm_kwargs)
             chain = prompt | llm.with_structured_output(RouteResponse)
 
             messages = state.get("messages", [])

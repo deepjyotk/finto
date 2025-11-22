@@ -1,4 +1,4 @@
-.PHONY: setup run-apis run-ui clean lint help render-graph
+.PHONY: setup run-apis run-ui clean lint help render-graph run-evaluation-script create-dataset
 
 # Detect operating system
 ifeq ($(OS),Windows_NT)
@@ -19,6 +19,8 @@ help:
 	@echo "  make lint      - Run code linting and formatting (autoflake, isort, black, flake8)"
 	@echo "  make clean     - Clean .venv and uv cache"
 	@echo "  make render-graph - Render the LangGraph topology image"
+	@echo "  make run-evaluation-script dataset_name=<name> - Run LangSmith evaluation on specified dataset"
+	@echo "  make create-dataset dataset_name=<name> - Create LangSmith dataset from JSON file"
 
 setup:
 	@echo "🔧 Setting up project for $(DETECTED_OS)..."
@@ -71,3 +73,42 @@ render-graph:
 	@uv run python scripts/render_graph.py --format png --output wiki/artifacts/langgraph.png
 	@echo "🖼️  Graph image available at artifacts/langgraph.png"
 	@echo "📄  Mermaid file available at wiki/artifacts/langgraph-mermaid.mermaid"
+
+# make run-evaluation-script dataset_name=finto-qa-dataset-v2
+run-evaluation-script:
+	@if [ -z "$(dataset_name)" ]; then \
+		echo "❌ Error: dataset_name parameter is required"; \
+		echo "Usage: make run-evaluation-script dataset_name=<dataset_name>"; \
+		exit 1; \
+	fi
+	@echo "🔬 Running LangSmith evaluation on dataset: $(dataset_name)..."
+	@uv run python scripts/langsmith/evaluators/cot_qa.py --dataset-name $(dataset_name)
+	@echo "✅ Evaluation complete!"
+
+#make create-dataset dataset_name=finto-qa-dataset
+create-dataset:
+	@if [ -z "$(dataset_name)" ]; then \
+		echo "❌ Error: dataset_name parameter is required"; \
+		echo "Usage: make create-dataset dataset_name=<dataset_name>"; \
+		echo "Example: make create-dataset dataset_name=finto-qa-dataset"; \
+		exit 1; \
+	fi
+	@DATASET_FILE="scripts/langsmith/datasets/$(dataset_name).json"; \
+	if [ ! -f "$$DATASET_FILE" ]; then \
+		echo "❌ Error: Dataset file not found: $$DATASET_FILE"; \
+		echo "Please create the file with the following structure:"; \
+		echo "{"; \
+		echo "    \"dataset_name\": \"$(dataset_name)\","; \
+		echo "    \"dataset_description\": \"QA pairs about finto chatbot.\","; \
+		echo "    \"examples\": ["; \
+		echo "        {"; \
+		echo "            \"input\": \"Your question here\","; \
+		echo "            \"output\": \"Expected answer here\""; \
+		echo "        }"; \
+		echo "    ]"; \
+		echo "}"; \
+		exit 1; \
+	fi
+	@echo "📦 Creating LangSmith dataset from: scripts/langsmith/datasets/$(dataset_name).json"
+	@uv run python scripts/langsmith/datasets/manual_create_dataset.py --dataset-file scripts/langsmith/datasets/$(dataset_name).json
+	@echo "✅ Dataset creation complete!"

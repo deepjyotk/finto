@@ -3,7 +3,6 @@
 from datetime import datetime, timedelta, timezone
 
 # from pandas import pd
-import pandas as pd
 from typing import Final, cast
 
 from langchain_core.messages import AIMessage
@@ -132,7 +131,9 @@ class PortfolioNode:
             context = runtime.context
             portfolio_model = context.get("portfolio_model", LLMModel.GPT4p1)
 
-            llm = ChatOpenAI(model=portfolio_model.value, temperature=0)
+            # Use model name and kwargs from enum
+            llm_kwargs = {"model": portfolio_model.model_name, **portfolio_model.llm_kwargs}
+            llm = ChatOpenAI(**llm_kwargs)
 
             # Tool-enabled answer stage
             answer_chain = portfolio_prompt | llm.bind_tools(

@@ -81,16 +81,19 @@ Examples
         )
         return chat_template
 
-    def get_runnable_sequence(self, model: LLMModel):
-        llm = ChatOpenAI(model=model.value, temperature=0)
+    def get_runnable_sequence(self):
         prompt = self._router_prompt_template()
-        chain = prompt | llm.with_structured_output(RouteResponse)
 
         def router_node_fn(state: AgentState) -> AgentState:
             # 🔹 Access AgentContext via runtime
             runtime = get_runtime(AgentContext)
-            user_id = runtime.context["user_id"]  # AgentContext is a TypedDict
-            logger.info("Router node invoked for user_id=%s", user_id)
+            context = runtime.context
+            user_id = context.get("user_id")
+            router_model = context.get("router_model", LLMModel.GPT4oMini)
+            logger.info("Router node invoked for user_id=%s with model=%s", user_id, router_model.value)
+
+            llm = ChatOpenAI(model=router_model.value, temperature=0)
+            chain = prompt | llm.with_structured_output(RouteResponse)
 
             messages = state.get("messages", [])
             rr = chain.invoke({"messages": messages})

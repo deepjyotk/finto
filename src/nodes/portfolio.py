@@ -1,7 +1,8 @@
 """Portfolio agent node for financial computations."""
 
 from datetime import datetime, timedelta, timezone
-from turtle import pd
+# from pandas import pd
+import pandas as pd
 from typing import Final, cast
 
 from langchain_core.messages import AIMessage
@@ -9,10 +10,11 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableLambda
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END
+from langgraph.runtime import get_runtime
 
 from src.core.enums import LLMModel, Nodes
 from src.core.json_logging import logger_for
-from src.schemas.agent_state import AgentState
+from src.schemas.agent_state import AgentContext, AgentState
 from src.tools.calculate_profit_tool import calculate_profit
 from src.tools.extract_portfolio_data import extract_portfolio_data
 from src.tools.get_symbol_name import get_symbol_names
@@ -114,59 +116,50 @@ class PortfolioNode:
         )
         return complete_template
 
-    def get_runnable_sequence(self, model: LLMModel):
+    def get_runnable_sequence(self):
         """
         Get the runnable sequence instance.
-
-        Args:
-            model: The model to use for the agent
 
         Returns:
             A runnable that takes AgentState and returns AgentState
         """
-
-        llm = ChatOpenAI(model=model.value, temperature=0)
-
-        excel_path = "portfolio.xlsx"
-        try:
-            df = pd.read_excel(excel_path)
-            logger.info(f"Successfully read portfolio.xlsx with {len(df)} rows")
-        except Exception as e:
-            logger.error(f"Error reading portfolio.xlsx: {e}")
-
         portfolio_prompt = self._agent_prompt_template()
 
-        # Tool-enabled answer stage
-        answer_chain = portfolio_prompt | llm.bind_tools(
-            [
-                get_symbol_names,
-                get_ticker_price,
-                calculate_profit,
-                get_major_holders,
-                get_institutional_holders,
-                get_mutualfund_holders,
-                get_insider_purchases,
-                get_insider_transactions,
-                get_dividends,
-                get_capital_gains,
-                get_balance_sheet,
-                get_cash_flow,
-                get_income_statement,
-                get_earnings_estimate,
-                get_revenue_estimate,
-                get_earnings_history,
-                get_eps_trend,
-                get_eps_revisions,
-                get_growth_estimates,
-                get_earnings,
-                extract_portfolio_data,
-            ]
-        )
-
-        # Complete chain: mapping -> answer
-        # chain = mapped_inputs | answer_chain
-
         def portfolio_node_fn(state: AgentState) -> AgentState:
+            # Access AgentContext via runtime
+            runtime = get_runtime(AgentContext)
+            context = runtime.context
+            portfolio_model = context.get("portfolio_model", LLMModel.GPT4p1)
+
+            llm = ChatOpenAI(model=portfolio_model.value, temperature=0)
+
+            # Tool-enabled answer stage
+            answer_chain = portfolio_prompt | llm.bind_tools(
+                [
+                    get_symbol_names,
+                    get_ticker_price,
+                    calculate_profit,
+                    get_major_holders,
+                    get_institutional_holders,
+                    get_mutualfund_holders,
+                    get_insider_purchases,
+                    get_insider_transactions,
+                    get_dividends,
+                    get_capital_gains,
+                    get_balance_sheet,
+                    get_cash_flow,
+                    get_income_statement,
+                    get_earnings_estimate,
+                    get_revenue_estimate,
+                    get_earnings_history,
+                    get_eps_trend,
+                    get_eps_revisions,
+                    get_growth_estimates,
+                    get_earnings,
+                    extract_portfolio_data,
+                ]
+            )
+
             messages = state.get("messages", [])
             result = answer_chain.invoke(cast(dict, state))
             # result is expected to be an AIMessage, but handle list defensively

@@ -6,6 +6,7 @@ from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 
 from src.api.schemas.chat import ChatRequest
+from src.core.enums import LLMModel
 from src.core.json_logging import logger_for
 from src.core.schema import AgentMessage
 from src.graph import Graph
@@ -39,7 +40,7 @@ class ChatService:
             if not isinstance(question, str) or not question.strip():
                 raise ValueError("question must be a non-empty string")
 
-            graph = Graph.get_graph(request.model)
+            graph = Graph.get_graph()
 
             logger.info(f"Starting chat session with thread_id: {thread_id}")
 
@@ -48,7 +49,12 @@ class ChatService:
 
             # StateGraph expects an AgentState with a messages key
             initial_state = {"messages": [HumanMessage(content=question)]}
-            context = {"user_id": user_id}
+            context = {
+                "user_id": user_id,
+                "router_model": LLMModel.GPT4oMini,
+                "portfolio_model": LLMModel.GPT4p1,
+                "news_model": LLMModel.GPT4oMini,
+            }
 
             out = graph.invoke(initial_state, config=config, context=context)
 

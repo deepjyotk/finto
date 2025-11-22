@@ -7,7 +7,7 @@ from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.graph import END, StateGraph
 from psycopg.rows import dict_row
 
-from src.core.enums import LLMModel, Nodes
+from src.core.enums import Nodes
 from src.core.json_logging import logger_for
 from src.core.settings import settings
 from src.nodes.portfolio import PortfolioNode
@@ -46,19 +46,19 @@ class Graph:
         }
 
     @staticmethod
-    def get_graph(model: LLMModel) -> StateGraph:
-        logger.info("Building agent graph with model: %s", model.value)
+    def get_graph() -> StateGraph:
+        logger.info("Building agent graph")
 
         builder = StateGraph(state_schema=AgentState, context_schema=AgentContext)
 
         news_node_instance = WebSearchNode()
-        news_node = news_node_instance.get_runnable_sequence(model)
+        news_node = news_node_instance.get_runnable_sequence()
 
         portfolio_node_instance = PortfolioNode()
-        portfolio_node = portfolio_node_instance.get_runnable_sequence(model)
+        portfolio_node = portfolio_node_instance.get_runnable_sequence()
 
         router_node_instance = RouterNode()
-        router_node = router_node_instance.get_runnable_sequence(model)
+        router_node = router_node_instance.get_runnable_sequence()
 
         builder.add_node(Nodes.router.get("name"), router_node)
         builder.add_node(Nodes.news.get("name"), news_node)

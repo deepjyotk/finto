@@ -5,9 +5,10 @@ from langchain_core.messages import AIMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableLambda, RunnableSequence
 from langchain_openai import ChatOpenAI
+from langgraph.runtime import get_runtime
 
 from src.core.enums import LLMModel
-from src.schemas.agent_state import AgentState
+from src.schemas.agent_state import AgentContext, AgentState
 from src.schemas.web_search import WebSearchResult
 
 
@@ -59,11 +60,18 @@ Boundaries
         complete_template = chat_template.partial(today_utc_iso=now_utc, today_ist_iso=now_ist)
         return complete_template
 
-    def get_runnable_sequence(self, model: LLMModel) -> RunnableSequence:
-        llm = ChatOpenAI(model=model.value, temperature=0)
-        chain = self._agent_prompt_template() | llm.with_structured_output(WebSearchResult)
+    def get_runnable_sequence(self) -> RunnableSequence:
+        prompt = self._agent_prompt_template()
 
         def web_search_node_fn(state: AgentState) -> AgentState:
+            # Access AgentContext via runtime
+            runtime = get_runtime(AgentContext)
+            context = runtime.context
+            news_model = context.get("news_model", LLMModel.GPT4oMini)
+
+            llm = ChatOpenAI(model=news_model.value, temperature=0)
+            chain = prompt | llm.with_structured_output(WebSearchResult)
+
             messages = state.get("messages", [])
             ws_result = chain.invoke({"messages": messages})
             ai_msg = AIMessage(content=ws_result.answer)

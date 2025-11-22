@@ -90,7 +90,9 @@ Examples
             context = runtime.context
             user_id = context.get("user_id")
             router_model = context.get("router_model", LLMModel.GPT4oMini)
-            logger.info("Router node invoked for user_id=%s with model=%s", user_id, router_model.value)
+            logger.info(
+                "Router node invoked for user_id=%s with model=%s", user_id, router_model.value
+            )
 
             llm = ChatOpenAI(model=router_model.value, temperature=0)
             chain = prompt | llm.with_structured_output(RouteResponse)

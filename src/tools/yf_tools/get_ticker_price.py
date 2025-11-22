@@ -8,7 +8,6 @@ import yfinance as yf
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field, field_validator
 
-
 # ───────────────────────────── Enums ───────────────────────────── #
 
 

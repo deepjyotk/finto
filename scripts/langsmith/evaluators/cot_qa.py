@@ -18,9 +18,14 @@ from pydantic import BaseModel, Field
 from src.core.enums import LLMModel
 from src.graph import Graph
 
+import os
+
+import dotenv
+dotenv.load_dotenv()
+
+
 DATASET_NAME = "finto-qa-dataset-1"
 DEFAULT_MODEL = LLMModel.GPT4oMini
-
 
 @lru_cache(maxsize=1)
 def _get_compiled_graph(model: LLMModel):
@@ -142,7 +147,7 @@ def cot_qa_evaluator(run: Run, example: Example, **_: Any) -> Dict[str, Any]:
 def run_evaluation(dataset_name: str = DATASET_NAME) -> None:
     """Kick off the LangSmith evaluation on the specified dataset."""
     client = Client()
-    evaluate(
+    results = evaluate(
         predict_agent_answer,
         data=dataset_name,
         evaluators=[cot_qa_evaluator],
@@ -150,6 +155,11 @@ def run_evaluation(dataset_name: str = DATASET_NAME) -> None:
         experiment_prefix="finto-cot-qa",
         metadata={"model": DEFAULT_MODEL.value},
     )
+    experiment_id = getattr(results, "experiment_name", None)
+    if experiment_id:
+        print(f"LangSmith experiment_id: {experiment_id}")
+    else:
+        print("Evaluation finished but experiment_id was not returned.")
 
 
 if __name__ == "__main__":

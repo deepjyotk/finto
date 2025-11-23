@@ -2,13 +2,14 @@ from typing import Optional
 
 import pandas as pd
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.tools import tool
 from langchain_experimental.tools import PythonREPLTool
 from langchain_openai import ChatOpenAI
-
+from langchain.tools import tool, ToolRuntime
+from src.core.enums import LLMModel
+from src.schemas.agent_state import AgentContext
 
 @tool("extract_portfolio_data")
-def extract_portfolio_data(query: str, symbols: Optional[list[str]] = None) -> str:
+def extract_portfolio_data(   runtime: ToolRuntime[AgentContext], query: str, symbols: Optional[list[str]] = None) -> str:
     """Extract specific data from the user's portfolio using Python/Pandas code generation.
 
     Use this tool when you need to:
@@ -21,7 +22,7 @@ def extract_portfolio_data(query: str, symbols: Optional[list[str]] = None) -> s
     Args:
         query: A natural language description of what portfolio data to extract.
                Examples:
-               - "Get the quantity and purchase price of my holdings in Tesla"
+               - "Get the quantity and purchase price of my holdings in Adani Green Energy"
                - "Calculate total portfolio value"
                - "Show top 5 holdings by value"
                - "Group by sector and show allocation percentage"
@@ -73,8 +74,11 @@ def extract_portfolio_data(query: str, symbols: Optional[list[str]] = None) -> s
             - Output ONLY executable Python code (no comments, no explanations, no markdown)"""
     )
 
+    context = runtime.context
+    portfolio_model = context.get("portfolio_model", LLMModel.GPT4p1)
     # Generate code
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+    llm_kwargs = {"model": portfolio_model.model_name, **portfolio_model.llm_kwargs}
+    llm = ChatOpenAI(**llm_kwargs)
     code_chain = extraction_prompt | llm | (lambda msg: msg.content)
 
     generated_code = code_chain.invoke(

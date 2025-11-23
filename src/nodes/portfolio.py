@@ -82,7 +82,8 @@ class PortfolioNode:
         Understand the user's query and the portfolio context and smartly decide tool usage.
         Step 1: get_symbol_names(user_query).  
         Step 2: Call relevant tools (fundamentals, ownership, earnings, portfolio, etc.).  
-        Step 3: Synthesize and present per "Output style".        
+        Step 3: Synthesize and present per "Output style".
+
         Portfolio column metadata:
         {portfolio_column_metadata}
         """

@@ -1,4 +1,5 @@
-"""Manual script to append QA examples to a LangSmith dataset."""
+"""Manual script to create or replace a LangSmith dataset from a JSON file.
+If a dataset with the same name exists, it will be deleted and recreated."""
 
 from __future__ import annotations
 
@@ -30,16 +31,23 @@ def _zip_examples(examples: list[dict[str, str]]) -> tuple[list[dict], list[dict
 
 
 def _get_or_create_dataset(client: Client, dataset_name: str, description: str) -> Dataset:
-    """Get existing dataset or create a new one."""
+    """Get existing dataset or create a new one. If dataset exists, delete it first and create a new one."""
     try:
-        return client.read_dataset(dataset_name=dataset_name)
+        existing_dataset = client.read_dataset(dataset_name=dataset_name)
+        print(f"⚠️  Dataset '{dataset_name}' already exists. Deleting it...")
+        client.delete_dataset(dataset_id=existing_dataset.id)
+        print(f"✅ Deleted existing dataset '{dataset_name}'")
     except Exception:
-        return client.create_dataset(dataset_name=dataset_name, description=description)
+        pass  # Dataset doesn't exist, which is fine
+
+    # Create a new dataset
+    return client.create_dataset(dataset_name=dataset_name, description=description)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Create or update a LangSmith dataset from a JSON file."
+        description="Create or replace a LangSmith dataset from a JSON file. "
+        "If a dataset with the same name exists, it will be deleted and recreated."
     )
     parser.add_argument(
         "--dataset-file",

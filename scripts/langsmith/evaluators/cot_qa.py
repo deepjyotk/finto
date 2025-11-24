@@ -23,12 +23,13 @@ import dotenv
 dotenv.load_dotenv()
 
 
-DATASET_NAME = "finto-qa-dataset-v2"
+# DATASET_NAME = "finto-qa-dataset-v2"
+DATASET_NAME = "finto-yf-tools-getBalanceSheet"
 EVALUATION_MODEL = LLMModel.GPT4oMini
 
 # Model configuration for evaluation
 ROUTER_MODEL = LLMModel.GPT4oMini
-PORTFOLIO_MODEL = LLMModel.O1
+PORTFOLIO_MODEL = LLMModel.GPT4p1
 NEWS_MODEL = LLMModel.GPT4oMini
 
 

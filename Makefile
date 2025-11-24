@@ -74,7 +74,7 @@ render-graph:
 	@echo "🖼️  Graph image available at artifacts/langgraph.png"
 	@echo "📄  Mermaid file available at wiki/artifacts/langgraph-mermaid.mermaid"
 
-# make run-evaluation-script dataset_name=finto-qa-dataset-v2
+# make run-evaluation-script dataset_name=finto-yf-tools-getBalanceSheet
 run-evaluation-script:
 	@if [ -z "$(dataset_name)" ]; then \
 		echo "❌ Error: dataset_name parameter is required"; \
@@ -85,7 +85,7 @@ run-evaluation-script:
 	@uv run python scripts/langsmith/evaluators/cot_qa.py --dataset-name $(dataset_name)
 	@echo "✅ Evaluation complete!"
 
-#make create-dataset dataset_name=finto-qa-dataset
+#make create-dataset dataset_name=yf-tools-simple-dataset/finto-yf-tools-getBalanceSheet
 create-dataset:
 	@if [ -z "$(dataset_name)" ]; then \
 		echo "❌ Error: dataset_name parameter is required"; \

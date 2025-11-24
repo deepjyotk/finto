@@ -1,0 +1,15 @@
+{
+    "dataset_name": "finto-yf-tools-getBalanceSheet",
+    "dataset_description": "Sample inputs and outputs for Yahoo Finance get_balance_sheet tool. Contains queries about balance sheet data for Indian equities (NSE/BSE).",
+    "examples": [
+        {
+            "input": "What is the balance sheet for Reliance Industries?",
+            "output": "The yearly balance sheet summary for Reliance Industries (RELIANCE.NS) highlights consistent financial growth between FY 2022 and FY 2025. Total assets increased from ₹14,996,650 crore in March 2022 to ₹19,501,210 crore in March 2025, reflecting strong long-term expansion. Total liabilities rose from ₹11,526,460 crore to ₹14,508,510 crore over the same period, while total equity strengthened from ₹3,470,190 crore in 2022 to ₹4,992,700 crore in 2025. These figures, sourced from NSE’s latest annual filings and represented in ₹ crore, summarize key balance sheet components across four financial years. Full detailed line items are available on request. Tools used: get_symbol_names and get_balance_sheet."
+        },
+        {
+            "input": "Show me the total assets and liabilities of TCS for the last 4 years",
+            "output": "Here's **TCS (TCS.NS)** total assets and liabilities for the last 4 years:\n\n| Year | Total Assets | Total Liabilities |\n|------|--------------|-------------------|\n| 2024 | ₹1,85,000 Cr | ₹45,000 Cr |\n| 2023 | ₹1,72,000 Cr | ₹42,000 Cr |\n| 2022 | ₹1,58,000 Cr | ₹38,000 Cr |\n| 2021 | ₹1,45,000 Cr | ₹35,000 Cr |\n\nTCS has shown consistent growth in both assets and liabilities over the past 4 years, with assets growing by approximately **27.6%** from 2021 to 2024."
+        }
+    ]
+}
+

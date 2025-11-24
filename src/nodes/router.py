@@ -48,7 +48,7 @@ Decision rules
 1. If the query mentions the user's assets explicitly (“my/our portfolio/holdings/positions/SIP/mutual funds”) → "{portfolio_node}".
 2. If the query asks for guidance, actions, or analysis that could apply to the user's investments (even if not saying “my”) → "{portfolio_node}".
 3. If the query is a generic ticker/stock/fund/index question (e.g., “Current price of RELIANCE”, “Is TCS overvalued?”, “Explain NIFTY 50 PE ratio”) and does **not** explicitly mention news/circulars → "{portfolio_node}".
-4. Route to "{news_node}" **only if** the query explicitly references *news-like* terms such as “news”, “headline(s)”, “latest update(s)”, “announcement(s)”, “results”, “dividends”, “NSE circular”, “SEBI circular”, “BSE circular”, “circular”, “press release”, “RBI policy news”, etc.
+4. Route to "{news_node}" **only if** the query explicitly references *news-like* terms such as “news”, “headline(s)”, “latest update(s)”, “announcement(s)”, “NSE circular”, “SEBI circular”, “BSE circular”, “circular”, “press release”, “RBI policy news”, etc.
 5. If both apply (e.g., “How will today’s RBI news affect my portfolio?”) → "{portfolio_node}".
 6. If ambiguous, default to "{portfolio_node}".
 
@@ -58,12 +58,12 @@ Return: "{portfolio_node}" or "{news_node}".
 Examples
  - "What's the latest NSE circular on NIFTY 50 rebalancing?" → "{news_node}"
  - "Latest news on RELIANCE results" → "{news_node}"
- - "INFY Q2 results highlights?" → "{news_node}"
+ - "News on Adani Green Energy?" → "{news_node}"
+ - "Infosys Q2 results?" → "{portfolio_node}"
  - "Should I rebalance my portfolio after the NIFTY 50 changes?" → "{portfolio_node}"
  - "My holdings: TCS 20%, HDFCBANK 15%—is my finance exposure too high?" → "{portfolio_node}"
  - "Current price of RELIANCE" → "{portfolio_node}"
  - "Will the Union Budget impact my SIPs?" → "{portfolio_node}"
-
     """
 
     def __init__(self):

@@ -9,6 +9,7 @@ class AgentState(TypedDict):
     """State for the StateGraph, holding the message history."""
 
     messages: Annotated[List[BaseMessage], add_messages]
+    user_id: UUID  # User ID for secure context
 
 
 class AgentContext(TypedDict):

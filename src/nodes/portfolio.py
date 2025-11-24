@@ -126,14 +126,6 @@ class PortfolioNode:
         """
 
         llm = ChatOpenAI(model=model.value, temperature=0)
-        code_llm = llm  # reuse same model for code-gen for now
-
-        excel_path = "portfolio.xlsx"
-        try:
-            df = pd.read_excel(excel_path)
-            excel_preview = df.head().to_string()
-        except Exception as e:
-            excel_preview = f"ERROR reading {excel_path}: {e}"
         
 
         portfolio_prompt = self._agent_prompt_template()

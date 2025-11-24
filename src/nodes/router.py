@@ -6,12 +6,10 @@ from langchain_core.messages import AIMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableLambda
 from langchain_openai import ChatOpenAI
-from langgraph.runtime import get_runtime  # 🔹 NEW
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from src.core.enums import LLMModel, Nodes
 from src.core.json_logging import logger_for
-from src.schemas.agent_state import AgentContext  # 🔹 make sure this path matches your project
 from src.schemas.agent_state import AgentState
 
 logger = logger_for(__name__)
@@ -77,9 +75,8 @@ class RouterNode:
         chain = prompt | llm.with_structured_output(RouteResponse)
 
         def router_node_fn(state: AgentState) -> AgentState:
-            # 🔹 Access AgentContext via runtime
-            runtime = get_runtime(AgentContext)
-            user_id = runtime.context["user_id"]  # AgentContext is a TypedDict
+            # Get user_id from state
+            user_id = state.get("user_id")
             logger.info("Router node invoked for user_id=%s", user_id)
 
             messages = state.get("messages", [])
@@ -122,9 +119,8 @@ class RouterNode:
         Returns:
             str: The node to route to ('portfolio_node', 'news_node', or 'unknown_node')
         """
-        # 🔹 Access context again when computing the decision (used by conditional edge)
-        runtime = get_runtime(AgentContext)
-        user_id = runtime.context["user_id"]
+        # Get user_id from state
+        user_id = state.get("user_id")
         logger.info("Router decision evaluated for user_id=%s", user_id)
 
         messages = state.get("messages", [])

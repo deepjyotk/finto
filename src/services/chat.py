@@ -46,12 +46,13 @@ class ChatService:
             # Create config with thread_id for persistence
             config: RunnableConfig = {"configurable": {"thread_id": str(thread_id)}}
 
-            # StateGraph expects an AgentState with a messages key
-            initial_state = {"messages": [HumanMessage(content=question)]}
-            context = {"user_id": user_id}
+            # StateGraph expects an AgentState with a messages key and user_id
+            initial_state = {
+                "messages": [HumanMessage(content=question)],
+                "user_id": user_id
+            }
             
-
-            out = graph.invoke(initial_state, config=config, context=context)
+            out = graph.invoke(initial_state, config=config)
 
             if isinstance(out, list):
                 # Get the last message's content

@@ -8,8 +8,11 @@ from langchain.tools import tool, ToolRuntime
 from src.core.enums import LLMModel
 from src.schemas.agent_state import AgentContext
 
+
 @tool("extract_portfolio_data")
-def extract_portfolio_data(   runtime: ToolRuntime[AgentContext], query: str, symbols: Optional[list[str]] = None) -> str:
+def extract_portfolio_data(
+    runtime: ToolRuntime[AgentContext], query: str, symbols: Optional[list[str]] = None
+) -> str:
     """Extract specific data from the user's portfolio using Python/Pandas code generation.
 
     Use this tool when you need to:

@@ -146,7 +146,9 @@ def cot_qa_evaluator(run: Run, example: Example, **_: Any) -> Dict[str, Any]:
     """Grade the agent answer using the CoT QA evaluator chain."""
     outputs = run.outputs or {}
     prediction = outputs.get("answer", "")
-    reference = (example.outputs or {}).get("output", "") or (example.outputs or {}).get("answer", "")
+    reference = (example.outputs or {}).get("output", "") or (example.outputs or {}).get(
+        "answer", ""
+    )
     question = (example.inputs or {}).get("input", "") or (example.inputs or {}).get("question", "")
 
     if not isinstance(prediction, str):

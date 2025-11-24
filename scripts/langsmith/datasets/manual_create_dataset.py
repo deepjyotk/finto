@@ -29,9 +29,7 @@ def _zip_examples(examples: list[dict[str, str]]) -> tuple[list[dict], list[dict
     return example_inputs, example_outputs
 
 
-def _get_or_create_dataset(
-    client: Client, dataset_name: str, description: str
-) -> Dataset:
+def _get_or_create_dataset(client: Client, dataset_name: str, description: str) -> Dataset:
     """Get existing dataset or create a new one."""
     try:
         return client.read_dataset(dataset_name=dataset_name)

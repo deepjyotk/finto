@@ -9,6 +9,7 @@ from src.api.schemas.chat import ChatRequest
 from src.core.enums import LLMModel
 from src.core.json_logging import logger_for
 from src.core.schema import AgentMessage
+import psycopg
 from src.graph import Graph
 
 logger = logger_for(__name__)
@@ -56,7 +57,21 @@ class ChatService:
                 "news_model": LLMModel.GPT4oMini,
             }
 
-            out = graph.invoke(initial_state, config=config, context=context)
+            try:
+                out = graph.invoke(initial_state, config=config, context=context)
+            except Exception as e:
+                # If the error looks like a DB connection problem, try rebuilding the graph once and retry
+                msg = str(e).lower()
+                if "connection is closed" in msg or "server closed the connection" in msg or isinstance(e, psycopg.OperationalError):
+                    logger.warning("DB connection error detected, rebuilding graph and retrying once")
+                    try:
+                        graph = Graph.get_graph()
+                        out = graph.invoke(initial_state, config=config, context=context)
+                    except Exception:
+                        # fall through to outer exception handling
+                        raise
+                else:
+                    raise
 
             if isinstance(out, list):
                 # Get the last message's content

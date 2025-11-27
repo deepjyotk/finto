@@ -15,29 +15,8 @@ from langgraph.runtime import get_runtime
 from src.core.enums import LLMModel, Nodes
 from src.core.json_logging import logger_for
 from src.schemas.agent_state import AgentContext, AgentState
-from src.tools.calculate_profit_tool import calculate_profit
 from src.tools.extract_portfolio_data import extract_portfolio_data
 from src.tools.get_symbol_name import get_symbol_names
-from src.tools.yf_tools import (
-    get_balance_sheet,
-    get_capital_gains,
-    get_cash_flow,
-    get_dividends,
-    get_earnings,
-    get_earnings_estimate,
-    get_earnings_history,
-    get_eps_revisions,
-    get_eps_trend,
-    get_growth_estimates,
-    get_income_statement,
-    get_insider_purchases,
-    get_insider_transactions,
-    get_institutional_holders,
-    get_major_holders,
-    get_mutualfund_holders,
-    get_revenue_estimate,
-    get_ticker_price,
-)
 
 logger = logger_for(__name__)
 
@@ -52,37 +31,48 @@ class PortfolioNode:
         Now (IST, UTC+5:30): {today_ist_iso}
 
         CAPABILITIES & TOOLS
-        - Extract context from portfolio-related queries using Python code generation and execution
-        - Portfolio tools: get_holding_by_symbol, calculate_profit
-        - Price data: get_ticker_price
-        - Fundamental data: get_balance_sheet, get_cash_flow, get_income_statement
-        - Earnings & estimates: get_earnings, get_earnings_estimate, get_earnings_history, get_revenue_estimate, get_eps_trend, get_eps_revisions, get_growth_estimates
-        - Ownership & insider: get_major_holders, get_institutional_holders, get_mutualfund_holders, get_insider_purchases, get_insider_transactions
-        - Returns: get_dividends, get_capital_gains
+        You have access to 2 powerful tools:
+        
+        1. **get_symbol_names(query)**: Extract stock symbols from user queries
+        
+        2. **extract_portfolio_data(query, symbols)**: POWERFUL code generation tool that:
+           - Analyzes portfolio data using Python/Pandas
+           - Can call ANY YFinance function for market data
+           - Handles complex multi-step queries
+           
+           Available functions in generated code:
+           • Profit calculation: calculate_profit(quantity, average_price, current_price)
+           • Portfolio risk: download_prices, portfolio_volatility, max_drawdown, max_drawdown_asset
+           • Financials: get_balance_sheet, get_income_statement, get_cash_flow
+           • Price & returns: get_ticker_price, get_dividends, get_capital_gains
+           • Earnings: get_earnings, get_earnings_estimate, get_revenue_estimate, get_earnings_history
+           • Estimates: get_eps_trend, get_eps_revisions, get_growth_estimates
+           • Ownership: get_major_holders, get_institutional_holders, get_mutualfund_holders
+           • Insider: get_insider_purchases, get_insider_transactions
 
         POLICY
-        1) Tool order:
-        a) ALWAYS call get_symbol_names(user_query) FIRST to extract the stock symbol.
-        b) Smartly select additional tools based on the query (fundamentals, ownership, earnings, etc.).
-
+        1) Tool selection:
+           - For queries needing market data (prices, financials, earnings, etc.) → extract_portfolio_data
+           - For simple P&L calculations → calculate_profit
+           - ALWAYS call get_symbol_names FIRST to extract symbols from query
+        
         2) Data integrity:
-        - Prefer NSE if exchange unspecified for dual-listed companies; state this assumption.
-        - Never fabricate data. If a tool fails or lacks data, say so and suggest alternatives.
+           - Prefer NSE if exchange unspecified; state this assumption
+           - Never fabricate data; if a tool fails, say so and suggest alternatives
 
-        3) Time & formatting:
-        - Interpret relative dates (today/yesterday) in IST (fallback: UTC).
-        - Prices: 2 decimals; percentages: 1 decimal; use ₹ for INR; include timestamps.
+        3) Formatting:
+           - Interpret dates in IST (fallback: UTC)
+           - Prices: 2 decimals; percentages: 1 decimal; use ₹ for INR
 
-        4) Output style (succinct, factual, actionable; no investment advice):
-        - Direct answer in 1–2 sentences.
-        - Compact breakdown (bullets/table): key metrics, calculations.
-        - End with "Notes" (assumptions, tools used, data freshness).
+        4) Output style (succinct, factual, actionable):
+           - Direct answer in 1–2 sentences
+           - Compact breakdown (bullets/table) for metrics
+           - End with "Notes" (assumptions, data freshness)
 
         WORKFLOW
-        Understand the user's query and the portfolio context and smartly decide tool usage.
-        Step 1: get_symbol_names(user_query).  
-        Step 2: Call relevant tools (fundamentals, ownership, earnings, portfolio, etc.).  
-        Step 3: Synthesize and present per "Output style".
+        Step 1: Call get_symbol_names(user_query) to extract symbols
+        Step 2: Call extract_portfolio_data or calculate_profit as needed
+        Step 3: Synthesize and present results
 
         Portfolio column metadata:
         {portfolio_column_metadata}
@@ -137,28 +127,10 @@ class PortfolioNode:
             llm = ChatOpenAI(**llm_kwargs)
 
             # Tool-enabled answer stage
+            # YFinance and profit calculation functions are now available within extract_portfolio_data
             answer_chain = portfolio_prompt | llm.bind_tools(
                 [
                     get_symbol_names,
-                    get_ticker_price,
-                    calculate_profit,
-                    get_major_holders,
-                    get_institutional_holders,
-                    get_mutualfund_holders,
-                    get_insider_purchases,
-                    get_insider_transactions,
-                    get_dividends,
-                    get_capital_gains,
-                    get_balance_sheet,
-                    get_cash_flow,
-                    get_income_statement,
-                    get_earnings_estimate,
-                    get_revenue_estimate,
-                    get_earnings_history,
-                    get_eps_trend,
-                    get_eps_revisions,
-                    get_growth_estimates,
-                    get_earnings,
                     extract_portfolio_data,
                 ]
             )

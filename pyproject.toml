@@ -41,6 +41,7 @@ dependencies = [
     "pinecone>=7.3.0",
     "langchain-huggingface>=1.0.1",
     "sentence-transformers>=5.1.2",
+    "psycopg2>=2.9.11",
 ]
 
 [dependency-groups]

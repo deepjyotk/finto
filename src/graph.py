@@ -18,11 +18,24 @@ from src.tools.execute_tools import news_agent_tools, portfolio_agent_tools
 
 logger = logger_for(__name__)
 
-# Create a psycopg connection configured the way PostgresSaver expects
-_pg_conn = psycopg.connect(settings.database_url, autocommit=True, row_factory=dict_row)
-CHECKPOINTER = PostgresSaver(_pg_conn)
-# Safe to call repeatedly; just ensures tables exist
-CHECKPOINTER.setup()
+def _create_checkpointer() -> PostgresSaver:
+    """
+    Create a new PostgresSaver with a fresh psycopg connection.
+    This avoids using a long-lived connection that may become closed by the server.
+    """
+    conn = psycopg.connect(settings.database_url, autocommit=True, row_factory=dict_row)
+    saver = PostgresSaver(conn)
+    # Ensure required tables exist
+    try:
+        saver.setup()
+    except Exception:
+        # If setup fails, close the connection and re-raise
+        try:
+            conn.close()
+        except Exception:
+            pass
+        raise
+    return saver
 
 
 class Graph:
@@ -91,8 +104,9 @@ class Graph:
 
         builder.set_entry_point(Nodes.router.get("name"))
 
-        # ✅ Now CHECKPOINTER is a real PostgresSaver, not a context manager
-        graph = builder.compile(checkpointer=CHECKPOINTER)
+        # Create a fresh checkpointer for this graph build to avoid stale DB connections
+        checkpointer = _create_checkpointer()
+        graph = builder.compile(checkpointer=checkpointer)
 
         logger.info("Agent graph built successfully with Postgres-backed memory.")
         return graph

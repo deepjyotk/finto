@@ -18,6 +18,7 @@ from src.tools.execute_tools import news_agent_tools, portfolio_agent_tools
 
 logger = logger_for(__name__)
 
+
 def _create_checkpointer() -> PostgresSaver:
     """
     Create a new PostgresSaver with a fresh psycopg connection.

@@ -18,17 +18,17 @@ Usage:
     print("Max drawdown:", max_drawdown(pfolio))
 """
 
+from math import sqrt
 from typing import List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
 import yfinance as yf
-from math import sqrt
 
 
-def download_prices(tickers: List[str],
-                    start: Optional[str] = None,
-                    end: Optional[str] = None,
-                    interval: str = "1d") -> Tuple[pd.DataFrame, List[str]]:
+def download_prices(
+    tickers: List[str], start: Optional[str] = None, end: Optional[str] = None, interval: str = "1d"
+) -> Tuple[pd.DataFrame, List[str]]:
     """
     Download adjusted close prices for tickers using yfinance.
     Returns tuple of (DataFrame indexed by date with columns=tickers, list of successfully retrieved tickers).
@@ -39,7 +39,9 @@ def download_prices(tickers: List[str],
     all_prices: List[pd.Series] = []
     for t in tickers:
         try:
-            df = yf.download(t, start=start, end=end, interval=interval, progress=False, auto_adjust=False)
+            df = yf.download(
+                t, start=start, end=end, interval=interval, progress=False, auto_adjust=False
+            )
             if df is None or df.empty:
                 # Skip empty responses
                 print(f"Warning: No data returned for ticker '{t}'. Skipping.")
@@ -78,7 +80,7 @@ def annualization_factor(interval: str) -> float:
     interval: "1d", "1wk", "1mo"
     """
     if interval in ("1d", "1d"):
-        return sqrt(252)   # trading days
+        return sqrt(252)  # trading days
     if interval in ("1wk", "1wk"):
         return sqrt(52)
     if interval in ("1mo", "1mo"):
@@ -104,12 +106,14 @@ def normalize_weights(weights: Optional[List[float]], n: int) -> np.ndarray:
     return w / s
 
 
-def portfolio_volatility(tickers: List[str],
-                         weights: Optional[List[float]] = None,
-                         start: Optional[str] = None,
-                         end: Optional[str] = None,
-                         interval: str = "1d",
-                         dropna: bool = True) -> Tuple[float, dict]:
+def portfolio_volatility(
+    tickers: List[str],
+    weights: Optional[List[float]] = None,
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    interval: str = "1d",
+    dropna: bool = True,
+) -> Tuple[float, dict]:
     """
     Compute annualized portfolio volatility (std dev of returns).
 
@@ -176,7 +180,7 @@ def portfolio_volatility(tickers: List[str],
         "portfolio_returns": port_rets,
         "annualization_factor": ann_factor,
         "weights_used": w,
-        "prices": prices
+        "prices": prices,
     }
     return annualized_vol, details
 
@@ -194,12 +198,14 @@ def max_drawdown(price_series: pd.Series) -> float:
     return float(abs(max_dd))
 
 
-def max_drawdown_asset(tickers: Optional[List[str]] = None,
-                       prices: Optional[pd.DataFrame] = None,
-                       weights: Optional[List[float]] = None,
-                       start: Optional[str] = None,
-                       end: Optional[str] = None,
-                       interval: str = "1d") -> List[dict]:
+def max_drawdown_asset(
+    tickers: Optional[List[str]] = None,
+    prices: Optional[pd.DataFrame] = None,
+    weights: Optional[List[float]] = None,
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    interval: str = "1d",
+) -> List[dict]:
     """
     Calculate drawdown for each ticker and return sorted list by drawdown magnitude.
 
@@ -228,15 +234,17 @@ def max_drawdown_asset(tickers: Optional[List[str]] = None,
     - If prices is None, will download prices for the given tickers.
     """
     retrieved_tickers: List[str] = []
-    
+
     if prices is None:
         if tickers is None or len(tickers) == 0:
             raise ValueError("Either prices or tickers must be provided")
-        prices, retrieved_tickers = download_prices(tickers, start=start, end=end, interval=interval)
+        prices, retrieved_tickers = download_prices(
+            tickers, start=start, end=end, interval=interval
+        )
         if prices.empty:
             return []
     else:
-        retrieved_tickers = [str(col) for col in prices.columns]
+        [str(col) for col in prices.columns]
 
     df = prices.copy()
     df = df.ffill().bfill()
@@ -257,7 +265,7 @@ def max_drawdown_asset(tickers: Optional[List[str]] = None,
         dd = (s - roll_max) / roll_max  # negative or zero
         min_dd = dd.min()
         abs_dd = abs(min_dd)
-        
+
         if abs_dd > 0:  # Only include stocks with actual drawdown
             trough_idx = dd.idxmin()
             # peak is the last time the running max equals the peak before trough
@@ -265,16 +273,18 @@ def max_drawdown_asset(tickers: Optional[List[str]] = None,
             s_up_to = s.loc[:trough_idx]
             roll_up_to = s_up_to.cummax()
             peak_idx = pd.Series(roll_up_to == roll_up_to.max()).idxmax()
-            
-            results.append({
-                'ticker': str(t),
-                'max_drawdown': float(abs_dd),
-                'peak_date': pd.Timestamp(peak_idx),
-                'trough_date': pd.Timestamp(trough_idx)
-            })
+
+            results.append(
+                {
+                    "ticker": str(t),
+                    "max_drawdown": float(abs_dd),
+                    "peak_date": pd.Timestamp(peak_idx),
+                    "trough_date": pd.Timestamp(trough_idx),
+                }
+            )
 
     # Sort by max_drawdown descending
-    results.sort(key=lambda x: x['max_drawdown'], reverse=True)
+    results.sort(key=lambda x: x["max_drawdown"], reverse=True)
     return results
 
 
@@ -285,7 +295,9 @@ if __name__ == "__main__":
     # quick demo
     tickers = ["AAPL", "MSFT", "TSLA"]
     weights = [0.4, 0.4, 0.2]  # must sum to 1 (or None)
-    vol, details = portfolio_volatility(tickers, weights, start="2023-01-01", end=None, interval="1d")
+    vol, details = portfolio_volatility(
+        tickers, weights, start="2023-01-01", end=None, interval="1d"
+    )
     print(f"Annualized volatility for {tickers} = {vol:.2%}")
     p_rets = details["portfolio_returns"]
     # build portfolio price series (for drawdown)
@@ -299,6 +311,8 @@ if __name__ == "__main__":
     if drawdown_results:
         print("\nDrawdown Analysis (sorted by severity):")
         for result in drawdown_results:
-            print(f"  {result['ticker']}: {result['max_drawdown']:.2%} (from {result['peak_date'].date()} to {result['trough_date'].date()})")
+            print(
+                f"  {result['ticker']}: {result['max_drawdown']:.2%} (from {result['peak_date'].date()} to {result['trough_date'].date()})"
+            )
     else:
         print("No drawdown data available")

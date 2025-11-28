@@ -49,7 +49,17 @@ class ChatService:
             config: RunnableConfig = {"configurable": {"thread_id": str(thread_id)}}
 
             # StateGraph expects an AgentState with a messages key
-            initial_state = {"messages": [HumanMessage(content=question)]}
+            initial_state = {
+                "messages": [HumanMessage(content=question)],
+                "symbol_names": [],
+                "user_request": question,
+                "attempts": 0,
+                "last_code_success": True,
+                "last_code": None,
+                "last_output": None,
+                "done": False,
+                "final_answer": None,
+            }
             context = {
                 "user_id": user_id,
                 "router_model": LLMModel.GPT4oMini,

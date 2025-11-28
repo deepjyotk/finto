@@ -96,13 +96,23 @@ class Nodes:
         "description": "Portfolio node for fetching portfolio information.",
         "max_ai_messages_allowed": 60,
     }
+    code_generation = {
+        "name": "code_generation_node",
+        "description": "LLM node that generates Python code for portfolio analysis.",
+        "max_ai_messages_allowed": 60,
+    }
+    execute_code = {
+        "name": "execute_code_node",
+        "description": "Node that executes generated Python code and captures output.",
+    }
     news_tools = {
         "name": "news_agent_tools",
         "description": "Tools node for news agent - web search and symbol lookup.",
     }
-    portfolio_tools = {
-        "name": "portfolio_agent_tools",
-        "description": "Tools node for portfolio agent - portfolio management and calculations.",
+    final_response = {
+        "name": "final_response_generation_node",
+        "description": "Node that crafts the final answer from code execution output and the user request.",
+        "max_ai_messages_allowed": 20,
     }
     unknown = {
         "name": "unknown_node",

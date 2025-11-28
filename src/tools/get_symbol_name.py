@@ -1,7 +1,6 @@
 from typing import List
 
 from dotenv import load_dotenv
-from langchain_core.tools import tool
 
 from src.services.vector_embeddings import init_pinecone, query_symbols
 
@@ -16,6 +15,7 @@ def _get_symbol_for_query(query: str) -> str:
     if not matches:
         return "Symbol not found"
     return matches[0]["metadata"].get("symbol", "")
+
 
 def get_symbol_names(user_query: str) -> List[str]:
     """Extracts the stock symbols from a user's query using vector similarity search.

@@ -7,7 +7,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableLambda
 from langchain_openai import ChatOpenAI
 from langgraph.runtime import get_runtime
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 
 from src.core.enums import LLMModel
 from src.core.json_logging import logger_for

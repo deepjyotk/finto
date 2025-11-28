@@ -17,8 +17,6 @@ def _get_symbol_for_query(query: str) -> str:
         return "Symbol not found"
     return matches[0]["metadata"].get("symbol", "")
 
-
-@tool("get_symbol_names")
 def get_symbol_names(user_query: str) -> List[str]:
     """Extracts the stock symbols from a user's query using vector similarity search.
 

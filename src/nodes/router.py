@@ -2,7 +2,7 @@
 
 from typing import Final, Literal
 
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableLambda
 from langchain_openai import ChatOpenAI
@@ -102,9 +102,15 @@ Examples
             messages = state.get("messages", [])
             rr = chain.invoke({"messages": messages})
             router_msg = AIMessage(content=rr.model_dump_json(), name="router")
+            user_request = state.get("user_request", "")
+            for message in reversed(messages):
+                if isinstance(message, HumanMessage):
+                    user_request = message.content
+                    break
             return {
                 **state,
                 "messages": messages + [router_msg],
+                "user_request": user_request,
             }
 
         return RunnableLambda(router_node_fn)

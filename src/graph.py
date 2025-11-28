@@ -10,11 +10,14 @@ from psycopg.rows import dict_row
 from src.core.enums import Nodes
 from src.core.json_logging import logger_for
 from src.core.settings import settings
+from src.nodes.code_generation import CodeGenerationNode
+from src.nodes.execute_code import ExecuteCodeNode
+from src.nodes.final_response_generation import FinalResponseGenerationNode
 from src.nodes.portfolio import PortfolioNode
 from src.nodes.router import RouterNode
 from src.nodes.web_search import WebSearchNode
 from src.schemas.agent_state import AgentContext, AgentState
-from src.tools.execute_tools import news_agent_tools, portfolio_agent_tools
+from src.tools.execute_tools import news_agent_tools
 
 logger = logger_for(__name__)
 
@@ -71,6 +74,15 @@ class Graph:
         portfolio_node_instance = PortfolioNode()
         portfolio_node = portfolio_node_instance.get_runnable_sequence()
 
+        code_generation_node_instance = CodeGenerationNode()
+        code_generation_node = code_generation_node_instance.get_runnable_sequence()
+
+        final_response_node_instance = FinalResponseGenerationNode()
+        final_response_node = final_response_node_instance.get_runnable_sequence()
+
+        execute_code_node_instance = ExecuteCodeNode()
+        execute_code_node = execute_code_node_instance.get_runnable_sequence()
+
         router_node_instance = RouterNode()
         router_node = router_node_instance.get_runnable_sequence()
 
@@ -78,11 +90,14 @@ class Graph:
         builder.add_node(Nodes.news.get("name"), news_node)
         builder.add_node(Nodes.portfolio.get("name"), portfolio_node)
         builder.add_node(Nodes.news_tools.get("name"), news_agent_tools)
-        builder.add_node(Nodes.portfolio_tools.get("name"), portfolio_agent_tools)
+        builder.add_node(Nodes.code_generation.get("name"), code_generation_node)
+        builder.add_node(Nodes.final_response.get("name"), final_response_node)
+        builder.add_node(Nodes.execute_code.get("name"), execute_code_node)
         builder.add_node(Nodes.unknown.get("name"), Graph._handle_unknown_node)
 
         builder.add_edge(Nodes.news.get("name"), Nodes.news_tools.get("name"))
-        builder.add_edge(Nodes.portfolio_tools.get("name"), Nodes.portfolio.get("name"))
+        builder.add_edge(Nodes.portfolio.get("name"), Nodes.code_generation.get("name"))
+        builder.add_edge(Nodes.code_generation.get("name"), Nodes.execute_code.get("name"))
 
         builder.add_conditional_edges(
             Nodes.router.get("name"),
@@ -95,12 +110,17 @@ class Graph:
         )
 
         builder.add_conditional_edges(
-            Nodes.portfolio.get("name"),
-            portfolio_node_instance.portfolio_agent_decision,
-            {END: END, Nodes.portfolio_tools.get("name"): Nodes.portfolio_tools.get("name")},
+            Nodes.execute_code.get("name"),
+            code_generation_node_instance.code_generation_agent_decision,
+            {
+                Nodes.code_generation.get("name"): Nodes.code_generation.get("name"),
+                Nodes.final_response.get("name"): Nodes.final_response.get("name"),
+                END: END,
+            },
         )
 
         builder.add_edge(Nodes.unknown.get("name"), END)
+        builder.add_edge(Nodes.final_response.get("name"), END)
         builder.add_edge(Nodes.news_tools.get("name"), END)
 
         builder.set_entry_point(Nodes.router.get("name"))

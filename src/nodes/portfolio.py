@@ -36,19 +36,15 @@ class PortfolioNode:
         def portfolio_node_fn(state: AgentState) -> AgentState:
             messages = state.get("messages", [])
             user_request = state.get("user_request") or self._latest_user_message_content(messages)
-            if not user_request:
+
+            user_query = (user_request or "").strip()
+
+            if not user_query:
                 logger.warning("Portfolio node invoked without a user request")
                 extracted_symbols: List[str] = []
             else:
                 try:
-                    if isinstance(user_request, str):
-                        user_queries = [user_request]
-                    elif isinstance(user_request, list):
-                        user_queries = [str(item) for item in user_request]
-                    else:
-                        user_queries = [str(user_request)]
-                    tool_input = {"user_queries": user_queries}
-                    tool_response = get_symbol_names.invoke(tool_input)
+                    tool_response = get_symbol_names.invoke({"user_query": user_query})
                 except Exception as exc:  # pragma: no cover - tool level errors
                     logger.error("get_symbol_names tool failed: %s", exc, exc_info=True)
                     tool_response = []

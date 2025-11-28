@@ -1,4 +1,3 @@
-from concurrent.futures import ThreadPoolExecutor
 from typing import List
 
 from dotenv import load_dotenv
@@ -20,13 +19,14 @@ def _get_symbol_for_query(query: str) -> str:
 
 
 @tool("get_symbol_names")
-def get_symbol_names(user_queries: List[str]) -> List[str]:
-    """Extracts the stock symbols from a list of user's queries using vector similarity search.
+def get_symbol_names(user_query: str) -> List[str]:
+    """Extracts the stock symbols from a user's query using vector similarity search.
 
     Input: user's query string like "I want to calculate the total value of my holdings in adani green and tata motors"
     Returns: A list with symbol name strings like "ADANIGREEN.NS", "TATAMOTORS.NS"
     """
-    # Query Pinecone with the user's natural language query
-    with ThreadPoolExecutor() as executor:
-        results = list(executor.map(_get_symbol_for_query, user_queries))
-    return results
+    normalized_query = (user_query or "").strip()
+    if not normalized_query:
+        return []
+
+    return [_get_symbol_for_query(normalized_query)]

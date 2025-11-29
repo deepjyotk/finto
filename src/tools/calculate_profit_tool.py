@@ -1,4 +1,4 @@
-def calculate_profit(quantity: float, average_price: float, current_price: float) -> dict:
+def calculate_profit_or_loss(quantity: float, average_price: float, current_price: float) -> dict:
     """Calculate profit or loss using quantity, purchase price, and current price.
 
     Args:
@@ -9,5 +9,8 @@ def calculate_profit(quantity: float, average_price: float, current_price: float
     Returns:
         dict: {"profit": float} - Profit or loss amount (negative for loss)
     """
-    profit = (current_price - average_price) * quantity
-    return {"profit": profit}
+    quantity = float(quantity)
+    average_price = float(average_price)
+    current_price = float(current_price)
+    profit_or_loss = (current_price - average_price) * quantity
+    return {"profit_or_loss": profit_or_loss}

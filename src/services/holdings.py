@@ -1,8 +1,12 @@
 """Holdings service - pure class for business logic, no FastAPI imports"""
 
+from typing import Optional
 from uuid import UUID
 
+import pandas as pd
+
 from src.api.schemas.holdings import HoldingsRequestSchema, HoldingsResponseSchema
+from src.core.schema import EquityHoldingSchema
 from src.models.equity_holding import EquityHolding
 from src.repositories.holdings_repo import HoldingsRepository
 
@@ -100,3 +104,35 @@ class HoldingsService:
         await self.repo.session.commit()
 
         return len(holdings)
+
+    async def get_portfolio_df(
+        self, user_id: UUID, broker_id: Optional[UUID] = None
+    ) -> pd.DataFrame:
+        """
+        Retrieve the full portfolio for a user and return it as a DataFrame.
+
+        Args:
+            user_id: UUID of the user
+            broker_id: Optional UUID of the broker. If None, returns holdings for all brokers.
+
+        Returns:
+            pandas.DataFrame of holdings with id/user_id/broker_id columns removed
+        """
+        # Use the table definition to keep a stable column order and drop identity fields
+        columns = [
+            column.name
+            for column in EquityHolding.__table__.columns
+            if column.name not in {"id", "user_id", "broker_id"}
+        ]
+
+        # Get holdings based on whether broker_id is provided
+        if broker_id is not None:
+            holdings = await self.repo.by_user_and_broker(user_id=user_id, broker_id=broker_id)
+        else:
+            holdings = await self.repo.by_user_id(user_id=user_id)
+
+        if not holdings:
+            return pd.DataFrame(columns=EquityHoldingSchema.get_supported_columns())
+
+        data = [{col: getattr(holding, col) for col in columns} for holding in holdings]
+        return pd.DataFrame(data, columns=EquityHoldingSchema.get_supported_columns())

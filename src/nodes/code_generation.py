@@ -1,10 +1,10 @@
 """Code generation node for portfolio analysis."""
 
-from typing import List
+import inspect
+from typing import Callable, List, Literal
 
-import pandas as pd
 from langchain_core.messages import AIMessage
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableLambda
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END
@@ -12,110 +12,180 @@ from langgraph.runtime import get_runtime
 
 from src.core.enums import LLMModel, Nodes
 from src.core.json_logging import logger_for
+from src.core.schema import EquityHoldingSchema
 from src.schemas.agent_state import AgentContext, AgentState
+from src.tools.calculate_profit_tool import calculate_profit_or_loss
+from src.tools.portfolio_risk import (
+    download_prices,
+    max_drawdown,
+    max_drawdown_asset,
+    portfolio_volatility,
+)
+from src.tools.yfinance_wrappers import (
+    get_balance_sheet,
+    get_capital_gains,
+    get_cash_flow,
+    get_dividends,
+    get_earnings,
+    get_earnings_estimate,
+    get_earnings_history,
+    get_eps_revisions,
+    get_eps_trend,
+    get_growth_estimates,
+    get_income_statement,
+    get_insider_purchases,
+    get_insider_transactions,
+    get_institutional_holders,
+    get_last_close_price,
+    get_major_holders,
+    get_mutualfund_holders,
+    get_revenue_estimate,
+)
 
 logger = logger_for(__name__)
+
+
+def get_function_with_doc_string(fns: list[Callable]) -> str:
+    chunks = []
+    for fn in fns:
+        sig = inspect.signature(fn)
+        doc = (fn.__doc__ or "").strip().replace("\n", " ")
+        chunks.append(f"def {fn.__name__}{sig}:\n" f'    """{doc}"""\n' f"    ...")
+    return "\n\n".join(chunks)
+
+
+def get_error_handling_rules(handling_type: Literal["strict", "lenient"]) -> str:
+    strict_rules = """
+- If any calculation encounters missing, invalid, or inconsistent financial data, raise a clear Python exception and stop further processing.
+- This is financial data; enforce strict validation and consistency. Do not silently ignore errors or auto-correct values.
+"""
+    lenient_rules = """
+- If any calculation encounters missing, invalid, or inconsistent financial data, still generate valid, runnable Python code.
+- Do not fail the whole script. Instead, log or print a clear warning message and skip only the problematic item, continuing with the rest.
+- Example: If a symbol is missing or not found, print `Warning: Symbol <X> not found` and exclude it from calculations, but continue processing remaining symbols.
+"""
+    return strict_rules if handling_type == "strict" else lenient_rules
 
 
 class CodeGenerationNode:
     """LLM code generation node similar to the reference agent_step."""
 
-    _PROMPT_TEMPLATE = ChatPromptTemplate.from_template(
-        """You are a Python and Pandas expert helping analyze a user's stock portfolio.
+    _PROMPT_TEMPLATE = ChatPromptTemplate.from_messages(
+        [
+            (
+                "system",
+                """
+# ROLE & GOAL
+You are a Python and Pandas expert helping analyze a user's stock portfolio.
+Your goal is to generate Python code that can be executed to answer the user's request.
 
-        Write **only valid Python code** to answer the user's query about their portfolio.
+# RUNTIME ENVIRONMENT
+You are running inside a controlled Python execution environment where:
+- df is a pandas DataFrame that already contains the user's portfolio data.
+- pd is available as the pandas module.
+- All helper functions listed below are already imported and available.
+- The environment does NOT allow:
+  - Reading files (no pd.read_excel, open, etc.)
+  - Network calls (except through provided helper functions)
+  - User input (no input()).
 
-        **Portfolio Excel file path:** {excel_path}
+IMPORTANT:
+- Always use the DataFrame variable named df.
+- Do NOT redefine df.
+- Do NOT reload data from files.
+- Do NOT use markdown, comments, or explanations.
 
-        **Preview of first rows:**
-        {excel_preview}
-        {symbol_context}
+# MANDATORY CODE PRELUDE
+Your output must begin with EXACTLY the following Python code:
 
-        **User request:**
-        {user_request}
+import pandas as pd
+import yfinance as yf
 
-        ### Requirements
-        - Use pandas: `import pandas as pd`
-        - Read the Excel file from the provided path
-        - If specific symbols are mentioned, filter the dataframe to those symbols first
-        - Base analysis strictly on the user request
-        - Use appropriate operations (groupby/agg/sort/filter/etc.)
-        - Print the final result with `print(...)`
-        - Output ONLY executable Python code (no comments, no explanations, no markdown)
-        
-        ### Available Portfolio Analysis Functions
-        
-        **Profit Calculation:**
-        - calculate_profit(quantity, average_price, current_price)
-          Returns: {{"profit": float}} - Profit/loss amount
-          Example: `result = calculate_profit(100, 50.0, 55.0)  # {{"profit": 500.0}}`
-        
-        **Risk Calculation Functions:**
-        
-        1. **download_prices(tickers, start=None, end=None, interval="1d")**
-           - Downloads adjusted close prices for given tickers
-           - Returns: (DataFrame, List[str]) - prices and successfully retrieved tickers
-           - Example: `prices, tickers = download_prices(["AAPL", "MSFT"], start="2023-01-01")`
-        
-        2. **portfolio_volatility(tickers, weights=None, start=None, end=None, interval="1d")**
-           - Calculates annualized portfolio volatility
-           - Returns: (annualized_vol, details_dict)
-           - Example: `vol, details = portfolio_volatility(["AAPL", "MSFT"], [0.6, 0.4])`
-        
-        3. **max_drawdown(price_series)**
-           - Calculates maximum drawdown from a price series
-           - Returns: float (e.g., 0.25 for 25% drawdown)
-        
-        4. **max_drawdown_asset(tickers=None, prices=None, weights=None, start=None, end=None)**
-           - Finds stocks with worst drawdowns
-           - Returns: List[dict] with ticker, max_drawdown, peak_date, trough_date
-        
-        ### Available YFinance Data Functions
-        All these functions take symbol_name as first parameter and return dict with data:
-        
-        **Financial Statements:**
-        - get_balance_sheet(symbol, freq="yearly", pretty=False)
-        - get_income_statement(symbol, freq="yearly", pretty=False)
-        - get_cash_flow(symbol, freq="yearly", pretty=False)
-        
-        **Price & Returns:**
-        - get_last_close_price(symbol)
-          Returns: {{"symbol": str, "last_close_price": float, "date": str}}
-          Example: `price_data = get_last_close_price("AAPL")  # {{"symbol": "AAPL", "last_close_price": 150.25, "date": "2024-01-15"}}`
-        - download_prices(tickers, start=None, end=None, interval="1d")
-          Returns: (DataFrame, List[str]) - prices and successfully retrieved tickers
-        - get_dividends(symbol, period="max")
-        - get_capital_gains(symbol, period="max")
-        
-        **Earnings & Estimates:**
-        - get_earnings(symbol, freq="yearly")
-        - get_earnings_estimate(symbol)
-        - get_revenue_estimate(symbol)
-        - get_earnings_history(symbol)
-        - get_eps_trend(symbol)
-        - get_eps_revisions(symbol)
-        - get_growth_estimates(symbol)
-        
-        **Ownership & Insider Data:**
-        - get_major_holders(symbol)
-        - get_institutional_holders(symbol)
-        - get_mutualfund_holders(symbol)
-        - get_insider_purchases(symbol)
-        - get_insider_transactions(symbol)
-        
-        All functions handle errors gracefully and return dictionaries.
-        Example: `data = get_balance_sheet("AAPL")` returns {{"symbol": "AAPL", "balance_sheet": {{...}}}}"""
+if not isinstance(df, pd.DataFrame):
+    raise ValueError("df is not a DataFrame")
+
+After these lines, continue writing Python code to solve the user request.
+Do NOT repeat these imports or checks later in the code.
+
+# INPUTS PROVIDED TO YOU
+
+Portfolio DataFrame Schema:
+{portfolio_df_schema}
+
+Symbols Context:
+{symbols_context}
+
+You must generate Python code that:
+- Uses df as the main dataset.
+- Filters df to relevant symbols when required.
+- Bases all calculations strictly on the user request and available data.
+
+# AVAILABLE PORTFOLIO ANALYSIS FUNCTIONS:
+
+## Profit/Loss Calculation
+{profit_calculation_function_with_doc_string}
+
+## Risk Functions
+{risk_functions_with_doc_string}
+
+# AVAILABLE YFINANCE DATA FUNCTIONS:
+The following functions are already implemented and imported in the runtime environment:
+
+## Financial Statements:
+{yf_financial_statement_function_with_doc_string}
+
+## Price & Returns:
+{yf_price_and_returns_function_with_doc_string}
+
+## Earnings & Estimates:
+{yf_earnings_and_estimates_function_with_doc_string}
+
+## Ownership & Insider Activity:
+{yf_ownership_and_insider_activity_function_with_doc_string}
+
+# STRICT RULES:
+- Always respect all argument types and argument descriptions when calling any function.
+- Prefer batch functions whenever working with multiple items.
+- You may use pandas operations (groupby, agg, sort_values, filters, etc.), but ensure the code is correct for financial data. If you drop any row for a valid reason, you must print a warning with print(...). Never drop a row without a clearly justified reason.
+- IMPORTANT: You are only allowed to call functions from 'AVAILABLE PORTFOLIO ANALYSIS FUNCTIONS' and 'AVAILABLE YFINANCE DATA FUNCTIONS'. No other functions may be called.
+
+
+# CODING REQUIREMENTS
+When generating Python code:
+- Always begin with the required import + df-check block.
+- Use df for all portfolio analysis.
+- Use pandas operations (groupby, agg, sort_values, filter, etc.).
+- The code must be executable as-is.
+
+# ERROR HANDLING:
+{error_handling_rules}
+
+# OUTPUT FORMAT
+Your output must:
+- Contain ONLY executable Python code.
+- Have no comments.
+- Have no markdown.
+- Have no explanations.
+- Begin with the mandatory import + df-check block.
+- Print the final result using print(...).
+                """,
+            ),
+            # History goes here (optional, but supported)
+            MessagesPlaceholder(variable_name="messages"),
+            ("user", "{user_request}"),
+        ]
     )
 
-    def __init__(self, max_attempts: int = 5):
+    def __init__(self, llm_factory: Callable[[LLMModel], ChatOpenAI], max_attempts: int = 5):
+        self._llm_factory = llm_factory
         self.max_attempts = max_attempts
 
-    def _build_symbol_context(self, symbols: List[str]) -> str:
+    def _build_symbols_context(self, symbols: List[str]) -> str:
         if symbols:
-            return f"\n**Focus on these symbols only:** {', '.join(symbols)}"
-        return "\n**Scope:** Analyze the entire portfolio (no specific symbol filter)."
+            return f"Focus only on these symbols: {', '.join(symbols)}"
+        return "Scope: Analyze the entire portfolio (no specific symbol filter)."
 
-    def get_runnable_sequence(self):
+    def get_runnable_sequence(self) -> RunnableLambda:
         """Return runnable for generating Python code from the portfolio query."""
 
         def code_generation_node_fn(state: AgentState) -> AgentState:
@@ -125,11 +195,47 @@ class CodeGenerationNode:
             runtime = get_runtime(AgentContext)
             context = runtime.context
             portfolio_model = context.get("portfolio_model", LLMModel.GPT4p1)
-            llm_kwargs = {"model": portfolio_model.model_name, **portfolio_model.llm_kwargs}
-            llm = ChatOpenAI(**llm_kwargs)
+            llm = self._llm_factory(portfolio_model)
+
+            # Build function-docstring context
+            risk_functions_with_doc_string: str = get_function_with_doc_string(
+                [download_prices, portfolio_volatility, max_drawdown, max_drawdown_asset]
+            )
+            yf_financial_statement_function_with_doc_string: str = get_function_with_doc_string(
+                [get_balance_sheet, get_income_statement, get_cash_flow]
+            )
+            yf_price_and_returns_function_with_doc_string: str = get_function_with_doc_string(
+                [get_last_close_price, download_prices, get_dividends, get_capital_gains]
+            )
+            yf_earnings_and_estimates_function_with_doc_string: str = get_function_with_doc_string(
+                [
+                    get_earnings,
+                    get_earnings_estimate,
+                    get_revenue_estimate,
+                    get_earnings_history,
+                    get_eps_trend,
+                    get_eps_revisions,
+                    get_growth_estimates,
+                ]
+            )
+            yf_ownership_and_insider_activity_function_with_doc_string: str = (
+                get_function_with_doc_string(
+                    [
+                        get_major_holders,
+                        get_institutional_holders,
+                        get_mutualfund_holders,
+                        get_insider_purchases,
+                        get_insider_transactions,
+                    ]
+                )
+            )
+            profit_calculation_function_with_doc_string: str = get_function_with_doc_string(
+                [calculate_profit_or_loss]
+            )
 
             user_request = state.get("user_request", "").strip()
             messages = state.get("messages", [])
+
             if not user_request:
                 error_msg = "No user request available for portfolio analysis."
                 ai_msg = AIMessage(content=error_msg, name="code_generation_error")
@@ -143,33 +249,28 @@ class CodeGenerationNode:
                     "final_answer": error_msg,
                 }
 
-            excel_path = "portfolio.xlsx"
-            try:
-                df = pd.read_excel(excel_path)
-                excel_preview = df.head().to_string()
-            except Exception as exc:  # pragma: no cover - IO heavy
-                error_msg = f"ERROR reading portfolio file: {exc}"
-                ai_msg = AIMessage(content=error_msg, name="code_generation_error")
-                return {
-                    **state,
-                    "messages": messages + [ai_msg],
-                    "last_code": None,
-                    "last_output": error_msg,
-                    "last_code_success": False,
-                    "done": True,
-                    "final_answer": error_msg,
-                }
+            portfolio_df_schema: str = EquityHoldingSchema.get_holdings_schema()
+            symbols_context = self._build_symbols_context(state.get("symbol_names", []))
 
-            symbol_context = self._build_symbol_context(state.get("symbol_names", []))
             chain = self._PROMPT_TEMPLATE | llm
+            # error_handling_rules = get_error_handling_rules("strict") if state.get("attempts", 0) < self.max_attempts-2 else get_error_handling_rules("lenient")
+            error_handling_rules = get_error_handling_rules("strict")
             ai_response = chain.invoke(
                 {
-                    "excel_path": excel_path,
-                    "excel_preview": excel_preview,
-                    "symbol_context": symbol_context,
+                    "messages": messages,
+                    "portfolio_df_schema": portfolio_df_schema,
+                    "symbols_context": symbols_context,
                     "user_request": user_request,
+                    "yf_financial_statement_function_with_doc_string": yf_financial_statement_function_with_doc_string,
+                    "yf_price_and_returns_function_with_doc_string": yf_price_and_returns_function_with_doc_string,
+                    "yf_earnings_and_estimates_function_with_doc_string": yf_earnings_and_estimates_function_with_doc_string,
+                    "yf_ownership_and_insider_activity_function_with_doc_string": yf_ownership_and_insider_activity_function_with_doc_string,
+                    "profit_calculation_function_with_doc_string": profit_calculation_function_with_doc_string,
+                    "risk_functions_with_doc_string": risk_functions_with_doc_string,
+                    "error_handling_rules": error_handling_rules,
                 }
             )
+
             generated_code = (
                 ai_response.content if hasattr(ai_response, "content") else str(ai_response)
             )
@@ -192,10 +293,12 @@ class CodeGenerationNode:
         last_output = state.get("last_output") or ""
         last_code_success = state.get("last_code_success", False)
 
+        # If code executed successfully and produced output, move to final_response
         if last_code_success and last_output:
-            state["done"] = False
+            state["done"] = True
             return Nodes.final_response["name"]
 
+        # If we've exhausted attempts, end with an error message
         if attempts >= self.max_attempts:
             state["done"] = True
             state["final_answer"] = (
@@ -205,5 +308,6 @@ class CodeGenerationNode:
             )
             return END
 
+        # Otherwise, request another code generation attempt
         state["done"] = False
         return Nodes.code_generation["name"]

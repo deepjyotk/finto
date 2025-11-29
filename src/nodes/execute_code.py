@@ -6,11 +6,13 @@ from typing import Dict
 
 from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableLambda
+from langgraph.runtime import get_runtime
 
 from src.core.json_logging import logger_for
-from src.schemas.agent_state import AgentState
+from src.schemas.agent_state import AgentContext, AgentState
+from src.services.holdings import HoldingsService
 from src.tools import yfinance_wrappers
-from src.tools.calculate_profit_tool import calculate_profit
+from src.tools.calculate_profit_tool import calculate_profit_or_loss
 from src.tools.portfolio_risk import (
     download_prices,
     max_drawdown,
@@ -46,11 +48,23 @@ class ExecuteCodeNode:
         "get_last_close_price",
     ]
 
+    def __init__(
+        self,
+        holding_service: HoldingsService,
+    ):
+        """
+        Initialize ExecuteCodeNode with injected dependencies.
+
+        Args:
+            holdings_service_provider: Async provider yielding a HoldingsService
+        """
+        self._holding_service = holding_service
+
     def _build_global_env(self) -> Dict[str, object]:
         """Build the safe execution environment."""
         env: Dict[str, object] = {
             "__builtins__": __builtins__,
-            "calculate_profit": calculate_profit,
+            "calculate_profit_or_loss": calculate_profit_or_loss,
             "download_prices": download_prices,
             "portfolio_volatility": portfolio_volatility,
             "max_drawdown": max_drawdown,
@@ -63,7 +77,7 @@ class ExecuteCodeNode:
     def get_runnable_sequence(self):
         """Return runnable that executes generated Python code."""
 
-        def execute_code_node_fn(state: AgentState) -> AgentState:
+        async def execute_code_node_fn(state: AgentState) -> AgentState:
             if state.get("done"):
                 return state
 
@@ -81,6 +95,26 @@ class ExecuteCodeNode:
 
             global_env = self._build_global_env()
             local_env: Dict[str, object] = {}
+
+            runtime = get_runtime(AgentContext)
+            context = runtime.context
+            user_id = context.get("user_id")
+
+            portfolio_df = await self._holding_service.get_portfolio_df(user_id)
+
+            # Excel cannot handle timezone-aware datetimes, so strip tz info before exporting
+            tz_cols = portfolio_df.select_dtypes(include=["datetimetz"]).columns
+            if len(tz_cols):
+                portfolio_df = portfolio_df.copy()
+                for col in tz_cols:
+                    portfolio_df[col] = portfolio_df[col].dt.tz_convert("UTC").dt.tz_localize(None)
+
+            excel_identifier = user_id or "unknown_user"
+            excel_path = f"portfolio_{excel_identifier}.xlsx"
+            portfolio_df.to_excel(excel_path, index=False)
+
+            local_env["df"] = portfolio_df
+
             stdout_capture = io.StringIO()
             error_text = None
             is_error = False
@@ -103,8 +137,12 @@ class ExecuteCodeNode:
             ]
             if error_text:
                 sections.append(f"ERROR:\n{error_text}")
+                sections.append(
+                    "\n Examine the above error message. Modify the code to fix the error."
+                )
 
             observation = "\n\n".join(sections)
+
             attempts = state.get("attempts", 0) + 1
             last_code_success = not is_error
             env_msg = HumanMessage(content=observation)

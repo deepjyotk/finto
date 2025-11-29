@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "finto-477904",
+  "private_key_id": "93c8cc19777e2fba086c9fa662776b6c0b8cd8eb",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDk+63ogGa1JZnO\nhfW0x+4GcYsLvpgcdUYYRW4vFlJ924zRHG531PZF+NMFPk6EE8q0LnZaMLPnC44k\nulaLq6dwwKvRNXKF69PsDdEjynDQD3/giHa9UaP0cG1zz5eFjB2LlhpRaFxNTzeO\nCfi8FWGJBGj/rh7MvxT7sW6URqVgLiuPVBOWdi5AhMUX5RsvUaYxOGAc8CdgA7zm\nsbCZU4zL+q8qtksnxTdpuoV6mteGDw+HEJeLyG7A+wcvI3uczfRh/b7XIZ5qzYdF\nOYAtKnxmGBH1tr5id+wBKWGJnA/5zG3vdGR6kTg0gZgAGNUFM9gxvsezE9SgmHga\n3g6cYtGbAgMBAAECggEAA27klopSuSmtqRKyNdh/Varsg3yXd089CIRj31hIkkqq\nfJg/+zvPyLkNeLJ4Ur1rOh6giFQ5SoHESwHI850X54O+HubOiPOnJctYm5RtDcs6\nwCdqyxPsJrpRHm0OZo5TbvjyPxH1J7GU+GrgOZsrg2JEx80EqDNhH9F54INNs0zj\nRnNCI2bXNYiPkeZTwq9Evmm6efbnSni+zhT3Apa9jV1HMHEomZzKZgN8SaArDtzU\ngUEynOuCWbdIZgMWLWXw4IsoBO1P71pvScCdeHaFrRRWAri9yZovVJBt7CHafYcP\n2YfmhXyg/7qowUCH5PUatUWdMTJNGeD9n89YhWhGOQKBgQD/rqk/w3RpGc+5RKbn\nadaGVJCs5W1N0sEEtZGEr/IEttI38oo3Fe/dK/H9yRfQ3/sTZcM7zdI3gLsAkzWi\nw1z9CB5LZcCPqogRCkgHogRT+wZJTdBCBilCgmYD8P/XFxdEvoIvD4orQXMIRloH\noNcNdClIC+TPmVTMMuY71mJQuQKBgQDlRIZIK/al6A3sHn60LuENXWf82V+1HCAg\nf2ZorU+kO+Jo6IJ30Skt4OZPVa+Tub/78YYpT+q8oDNof8Zji6DDh6KuwsAHr/JV\n/foA5B2gfzknz3aEMlrpMuo8gZkM2HU39KSqjnf87e9wWsaLu/TUtREqJuhhDVQh\n14VuoQTC8wKBgQDNgdG/0pYKtBhmTWvprQQkzGvMzEtitfc2lcn04Iaii1/EYEn/\npL47A0tqNOvTk3P3T1/w/antuqaT+76sqGJhbtkKuSphTyw2phDnMa5Q4f9XhBfU\nOaeIMc9Vc6vvcjvdoVJ6CP+BbQXMrN9IKlswESHtKsIqqo+h4Xd0uQgk4QKBgCr1\nhBPR6Q19Rd6QeD1a62CNuAZw1LYi5wIv3QiQMPQdJHdz2b6JuqWWFpGXBKcxjv+u\nae0jxGBDxF44UvwkFaONrrYAV+sY1Ne4FzhDhimkrRkAjryGkvJPUAS2Y+88P/qU\nJKawu1rxWoQ6/ikAtweERgsX70MANFuC/sWT9khxAoGBAI+mNLZYGOjj6VofsGqT\nWnWG0Eo0cgg7lHWSvI4jfgGeGowwzGcyVzpFyS0IqcJqOw0ueVWcl7f8lhmlO6Or\n68BZi+IN3jk7E+i4pwLcmJMV8fh+m34pF+NFGY0DfFcwWZQq1ilxA+goAUCY+KWK\nPiuGz1MA9Qgy8a9NK9BFDC/t\n-----END PRIVATE KEY-----\n",
+  "client_email": "local-testing-finto-sa@finto-477904.iam.gserviceaccount.com",
+  "client_id": "100813862562135365530",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/local-testing-finto-sa%40finto-477904.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

@@ -248,8 +248,7 @@ class WhatsAppService:
 
         try:
             chat_request = ChatRequest(message=message_text)
-            response = await asyncio.to_thread(
-                self.chat_service.query,
+            response = await self.chat_service.query(
                 chat_request,
                 session_id,
                 user_id,

@@ -1,5 +1,7 @@
 """Final response generation node that turns execution output into a user-facing answer."""
 
+from typing import Callable
+
 from langchain_core.messages import AIMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableLambda
@@ -32,6 +34,9 @@ Guidelines:
 - Do not add extra analysis beyond what the output supports."""
     )
 
+    def __init__(self, llm_factory: Callable[[LLMModel], ChatOpenAI]):
+        self._llm_factory = llm_factory
+
     def get_runnable_sequence(self):
         """Return runnable that produces the final user-facing response."""
 
@@ -42,8 +47,7 @@ Guidelines:
             runtime = get_runtime(AgentContext)
             context = runtime.context
             model = context.get("portfolio_model", LLMModel.GPT4p1)
-            llm_kwargs = {"model": model.model_name, **model.llm_kwargs}
-            llm = ChatOpenAI(**llm_kwargs)
+            llm = self._llm_factory(model)
 
             user_request = (state.get("user_request") or "").strip() or "No user request provided."
             execution_result = (state.get("last_output") or "").strip()

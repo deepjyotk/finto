@@ -5,11 +5,12 @@ from __future__ import annotations
 import argparse
 import os
 from pathlib import Path
+import asyncio
 from typing import Any, Callable
 
 from src.core.enums import LLMModel
 from src.core.settings import llm_settings
-from src.graph import Graph
+from src.dependencies import build_agent_graph
 
 DEFAULT_MODEL = LLMModel.GPT4oMini
 DEFAULT_FORMAT = "png"
@@ -17,15 +18,15 @@ DEFAULT_OUTPUT = Path("wiki/artifacts/langgraph.png")
 MERMAID_FILENAME = "langgraph-mermaid.mermaid"
 
 
-def _draw_png(graph, output: Path) -> None:
+def _draw_png(compiled_graph, output: Path) -> None:
     """Render graph as PNG using grandalf-based draw_mermaid_png."""
-    png_bytes = graph.get_graph().draw_mermaid_png()
+    png_bytes = compiled_graph.draw_mermaid_png()
     output.write_bytes(png_bytes)
 
 
 # We no longer pass output path into draw_mermaid; instead we capture the string
-def _draw_mermaid_to_file(graph, output: Path) -> None:
-    mermaid_str = graph.get_graph().draw_mermaid()
+def _draw_mermaid_to_file(compiled_graph, output: Path) -> None:
+    mermaid_str = compiled_graph.draw_mermaid()
     output.write_text(mermaid_str, encoding="utf-8")
 
 
@@ -65,8 +66,8 @@ def main() -> None:
 
     os.environ.setdefault("OPENAI_API_KEY", llm_settings.openai_api_key)
 
-    # Note: Graph.get_graph() doesn't take model parameter - models are passed via context
-    compiled_graph = Graph.get_graph()
+    graph_builder = build_agent_graph()
+    compiled_graph = asyncio.run(graph_builder.get_graph())
 
     # render the main requested format
     drawer = DRAWERS[args.format]

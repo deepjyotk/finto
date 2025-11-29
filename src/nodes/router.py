@@ -1,6 +1,6 @@
 """Router node for deciding between portfolio and news nodes."""
 
-from typing import Final, Literal
+from typing import Callable, Final, Literal
 
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -30,10 +30,6 @@ class RouterNode:
     _ROUTER_PROMPT_TEMPLATE: Final[
         str
     ] = """
-Here’s an edited version of your router prompt with the new bias:
-
----
-
 You are a router that must select exactly one destination for the user's query.
 
 Return ONLY a JSON object conforming to RouteResponse (no prose, no extra fields).
@@ -66,8 +62,9 @@ Examples
  - "Will the Union Budget impact my SIPs?" → "{portfolio_node}"
     """
 
-    def __init__(self):
-        """Initialize the RouterNode."""
+    def __init__(self, llm_factory: Callable[[LLMModel], ChatOpenAI]):
+        """Initialize the RouterNode with an injected LLM factory."""
+        self._llm_factory = llm_factory
 
     def _router_prompt_template(self) -> ChatPromptTemplate:
         router_prompt_template = self._ROUTER_PROMPT_TEMPLATE.format(
@@ -94,9 +91,7 @@ Examples
                 "Router node invoked for user_id=%s with model=%s", user_id, router_model.model_name
             )
 
-            # Use model name and kwargs from enum
-            llm_kwargs = {"model": router_model.model_name, **router_model.llm_kwargs}
-            llm = ChatOpenAI(**llm_kwargs)
+            llm = self._llm_factory(router_model)
             chain = prompt | llm.with_structured_output(RouteResponse)
 
             messages = state.get("messages", [])

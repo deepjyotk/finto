@@ -60,32 +60,23 @@ class PortfolioNode:
                         "- entire_portfolio_scope"
                     ),
                 ),
-
                 # ==== Few-shot examples ====
                 ("human", "What's the profit of my portfolio?"),
                 ("ai", "entire_portfolio_scope"),
-
                 ("human", "What's the profit of BAJFINANCE?"),
                 ("ai", "specific_stocks_scope"),
-
                 ("human", "What's the loss of Reliance and TATA?"),
                 ("ai", "specific_stocks_scope"),
-
                 ("human", "Compare prices of TATA with the other stocks?"),
                 ("ai", "entire_portfolio_scope"),
-
                 ("human", "Show my sector-wise allocation"),
                 ("ai", "entire_portfolio_scope"),
-
                 ("human", "How much have I gained in HDFC Bank since I bought it?"),
                 ("ai", "specific_stocks_scope"),
-
                 ("human", "Which are my top 5 holdings by value?"),
                 ("ai", "entire_portfolio_scope"),
-
                 ("human", "Between INFY and TCS, which one is performing better in my portfolio?"),
                 ("ai", "specific_stocks_scope"),
-
                 # ==== Actual user query ====
                 ("human", "{user_query}"),
             ]

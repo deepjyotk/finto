@@ -1,7 +1,9 @@
 """Code generation node for portfolio analysis."""
 
+from datetime import datetime
 import inspect
 from typing import Callable, List, Literal
+from zoneinfo import ZoneInfo
 
 from langchain_core.messages import AIMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -54,17 +56,17 @@ def get_function_with_doc_string(fns: list[Callable]) -> str:
     return "\n\n".join(chunks)
 
 
-def get_error_handling_rules(handling_type: Literal["strict", "lenient"]) -> str:
-    strict_rules = """
-- If any calculation encounters missing, invalid, or inconsistent financial data, raise a clear Python exception and stop further processing.
-- This is financial data; enforce strict validation and consistency. Do not silently ignore errors or auto-correct values.
-"""
-    lenient_rules = """
-- If any calculation encounters missing, invalid, or inconsistent financial data, still generate valid, runnable Python code.
-- Do not fail the whole script. Instead, log or print a clear warning message and skip only the problematic item, continuing with the rest.
-- Example: If a symbol is missing or not found, print `Warning: Symbol <X> not found` and exclude it from calculations, but continue processing remaining symbols.
-"""
-    return strict_rules if handling_type == "strict" else lenient_rules
+# def get_error_handling_rules(handling_type: Literal["strict", "lenient"]) -> str:
+#     strict_rules = """
+# - If any calculation encounters missing, invalid, or inconsistent financial data, raise a clear Python exception and stop further processing.
+# - This is financial data; enforce strict validation and consistency. Do not silently ignore errors or auto-correct values.
+# """
+#     lenient_rules = """
+# - If any calculation encounters missing, invalid, or inconsistent financial data, still generate valid, runnable Python code.
+# - Do not fail the whole script. Instead, log or print a clear warning message and skip only the problematic item, continuing with the rest.
+# - Example: If a symbol is missing or not found, print `Warning: Symbol <X> not found` and exclude it from calculations, but continue processing remaining symbols.
+# """
+#     return strict_rules if handling_type == "strict" else lenient_rules
 
 
 class CodeGenerationNode:
@@ -84,6 +86,7 @@ You are running inside a controlled Python execution environment where:
 - df is a pandas DataFrame that already contains the user's portfolio data.
 - pd is available as the pandas module.
 - All helper functions listed below are already imported and available.
+- The current IST(UTC+5:30) (Asia/Kolkata) date and time is {current_date_time}.
 - The environment does NOT allow:
   - Reading files (no pd.read_excel, open, etc.)
   - Network calls (except through provided helper functions)
@@ -94,6 +97,9 @@ IMPORTANT:
 - Do NOT redefine df.
 - Do NOT reload data from files.
 - Do NOT use markdown, comments, or explanations.
+- Do NOT define any new functions or classes in the generated code.
+  - Absolutely no `def`, `class`, or `function` declarations of any kind.
+- Write a single, linear Python script that can be executed as-is in the current environment.
 
 # MANDATORY CODE PRELUDE
 Your output must begin with EXACTLY the following Python code:
@@ -157,9 +163,6 @@ When generating Python code:
 - Use pandas operations (groupby, agg, sort_values, filter, etc.).
 - The code must be executable as-is.
 
-# ERROR HANDLING:
-{error_handling_rules}
-
 # OUTPUT FORMAT
 Your output must:
 - Contain ONLY executable Python code.
@@ -170,13 +173,12 @@ Your output must:
 - Print the final result using print(...).
                 """,
             ),
-            # History goes here (optional, but supported)
             MessagesPlaceholder(variable_name="messages"),
             ("user", "{user_request}"),
         ]
     )
 
-    def __init__(self, llm_factory: Callable[[LLMModel], ChatOpenAI], max_attempts: int = 5):
+    def __init__(self, llm_factory: Callable[[LLMModel], ChatOpenAI], max_attempts: int = 2):
         self._llm_factory = llm_factory
         self.max_attempts = max_attempts
 
@@ -251,10 +253,11 @@ Your output must:
 
             portfolio_df_schema: str = EquityHoldingSchema.get_holdings_schema()
             symbols_context = self._build_symbols_context(state.get("symbol_names", []))
+            current_date_time_ist = datetime.now(ZoneInfo("Asia/Kolkata")).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
 
             chain = self._PROMPT_TEMPLATE | llm
-            # error_handling_rules = get_error_handling_rules("strict") if state.get("attempts", 0) < self.max_attempts-2 else get_error_handling_rules("lenient")
-            error_handling_rules = get_error_handling_rules("strict")
             ai_response = chain.invoke(
                 {
                     "messages": messages,
@@ -267,13 +270,14 @@ Your output must:
                     "yf_ownership_and_insider_activity_function_with_doc_string": yf_ownership_and_insider_activity_function_with_doc_string,
                     "profit_calculation_function_with_doc_string": profit_calculation_function_with_doc_string,
                     "risk_functions_with_doc_string": risk_functions_with_doc_string,
-                    "error_handling_rules": error_handling_rules,
+                    "current_date_time": current_date_time_ist,
                 }
             )
 
             generated_code = (
                 ai_response.content if hasattr(ai_response, "content") else str(ai_response)
             )
+
             ai_msg = AIMessage(content=generated_code, name="portfolio_code_generation")
 
             return {
@@ -287,7 +291,7 @@ Your output must:
     def code_generation_agent_decision(self, state: AgentState):
         """Decide whether to end or request another generation cycle."""
         if state.get("done"):
-            return END
+            return Nodes.final_response["name"]
 
         attempts = state.get("attempts", 0)
         last_output = state.get("last_output") or ""
@@ -306,7 +310,7 @@ Your output must:
                 if last_output
                 else f"Failed after {attempts} attempts with no execution output."
             )
-            return END
+            return Nodes.final_response["name"]
 
         # Otherwise, request another code generation attempt
         state["done"] = False

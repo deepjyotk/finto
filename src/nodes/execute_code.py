@@ -102,17 +102,6 @@ class ExecuteCodeNode:
 
             portfolio_df = await self._holding_service.get_portfolio_df(user_id)
 
-            # Excel cannot handle timezone-aware datetimes, so strip tz info before exporting
-            tz_cols = portfolio_df.select_dtypes(include=["datetimetz"]).columns
-            if len(tz_cols):
-                portfolio_df = portfolio_df.copy()
-                for col in tz_cols:
-                    portfolio_df[col] = portfolio_df[col].dt.tz_convert("UTC").dt.tz_localize(None)
-
-            excel_identifier = user_id or "unknown_user"
-            excel_path = f"portfolio_{excel_identifier}.xlsx"
-            portfolio_df.to_excel(excel_path, index=False)
-
             local_env["df"] = portfolio_df
 
             stdout_capture = io.StringIO()

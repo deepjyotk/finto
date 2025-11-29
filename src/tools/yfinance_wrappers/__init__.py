@@ -20,7 +20,7 @@ def get_balance_sheet(symbol_name: str, freq: str = "yearly", pretty: bool = Fal
         pretty: If True, format column names nicely
 
     Returns:
-        Dict with symbol and balance_sheet data
+        {"symbol": t, "balance_sheet": {...}}
     """
     if not symbol_name:
         raise ValueError("Symbol name is required.")
@@ -38,7 +38,7 @@ def get_income_statement(symbol_name: str, freq: str = "yearly", pretty: bool = 
         pretty: If True, format column names nicely
 
     Returns:
-        Dict with symbol and income_statement data
+        {"symbol": t, "income_statement": {...}}
     """
     if not symbol_name:
         raise ValueError("Symbol name is required.")
@@ -56,7 +56,7 @@ def get_cash_flow(symbol_name: str, freq: str = "yearly", pretty: bool = False) 
         pretty: If True, format column names nicely
 
     Returns:
-        Dict with symbol and cash_flow data
+        {"symbol": t, "cash_flow": {...}}
     """
     if not symbol_name:
         raise ValueError("Symbol name is required.")
@@ -73,7 +73,7 @@ def get_dividends(symbol_name: str, period: str = "max") -> dict:
         period: Period to fetch (e.g., "1y", "5y", "max")
 
     Returns:
-        Dict with symbol and dividends data
+        {"symbol": t, "dividends": {...}}
     """
     if not symbol_name:
         raise ValueError("Symbol name is required.")
@@ -95,7 +95,7 @@ def get_capital_gains(symbol_name: str, period: str = "max") -> dict:
         period: Period to fetch (e.g., "1y", "5y", "max")
 
     Returns:
-        Dict with symbol and capital_gains data
+        {"symbol": t, "capital_gains": {...}}
     """
     if not symbol_name:
         raise ValueError("Symbol name is required.")
@@ -117,7 +117,7 @@ def get_earnings(symbol_name: str, freq: str = "yearly") -> dict:
         freq: "yearly" or "quarterly"
 
     Returns:
-        Dict with symbol and earnings data
+        {"symbol": t, "earnings": {...}}
     """
     if not symbol_name:
         raise ValueError("Symbol name is required.")
@@ -133,7 +133,7 @@ def get_earnings_estimate(symbol_name: str) -> dict:
         symbol_name: Stock ticker symbol
 
     Returns:
-        Dict with symbol and earnings_estimate data
+        {"symbol": t, "earnings_estimate": {...}}
     """
     if not symbol_name:
         raise ValueError("Symbol name is required.")
@@ -149,7 +149,7 @@ def get_revenue_estimate(symbol_name: str) -> dict:
         symbol_name: Stock ticker symbol
 
     Returns:
-        Dict with symbol and revenue_estimate data
+        {"symbol": t, "revenue_estimate": {...}}
     """
     if not symbol_name:
         raise ValueError("Symbol name is required.")
@@ -165,7 +165,7 @@ def get_earnings_history(symbol_name: str) -> dict:
         symbol_name: Stock ticker symbol
 
     Returns:
-        Dict with symbol and earnings_history data
+        {"symbol": t, "earnings_history": {...}}
     """
     if not symbol_name:
         raise ValueError("Symbol name is required.")
@@ -181,7 +181,7 @@ def get_eps_trend(symbol_name: str) -> dict:
         symbol_name: Stock ticker symbol
 
     Returns:
-        Dict with symbol and eps_trend data
+        {"symbol": t, "eps_trend": {...}}
     """
     if not symbol_name:
         raise ValueError("Symbol name is required.")
@@ -197,7 +197,7 @@ def get_eps_revisions(symbol_name: str) -> dict:
         symbol_name: Stock ticker symbol
 
     Returns:
-        Dict with symbol and eps_revisions data
+        {"symbol": t, "eps_revisions": {...}}
     """
     if not symbol_name:
         raise ValueError("Symbol name is required.")
@@ -213,7 +213,7 @@ def get_growth_estimates(symbol_name: str) -> dict:
         symbol_name: Stock ticker symbol
 
     Returns:
-        Dict with symbol and growth_estimates data
+        {"symbol": t, "growth_estimates": {...}}
     """
     if not symbol_name:
         raise ValueError("Symbol name is required.")
@@ -229,7 +229,7 @@ def get_major_holders(symbol_name: str) -> dict:
         symbol_name: Stock ticker symbol
 
     Returns:
-        Dict with symbol and major_holders data
+        {"symbol": t, "major_holders": {...}}
     """
     if not symbol_name:
         raise ValueError("Symbol name is required.")
@@ -245,7 +245,7 @@ def get_institutional_holders(symbol_name: str) -> dict:
         symbol_name: Stock ticker symbol
 
     Returns:
-        Dict with symbol and institutional_holders data
+        {"symbol": t, "institutional_holders": {...}}
     """
     if not symbol_name:
         raise ValueError("Symbol name is required.")
@@ -261,7 +261,7 @@ def get_mutualfund_holders(symbol_name: str) -> dict:
         symbol_name: Stock ticker symbol
 
     Returns:
-        Dict with symbol and mutualfund_holders data
+        {"symbol": t, "mutualfund_holders": {...}}
     """
     if not symbol_name:
         raise ValueError("Symbol name is required.")
@@ -277,7 +277,7 @@ def get_insider_purchases(symbol_name: str) -> dict:
         symbol_name: Stock ticker symbol
 
     Returns:
-        Dict with symbol and insider_purchases data
+        {"symbol": t, "insider_purchases": {...}}
     """
     if not symbol_name:
         raise ValueError("Symbol name is required.")
@@ -293,7 +293,7 @@ def get_insider_transactions(symbol_name: str) -> dict:
         symbol_name: Stock ticker symbol
 
     Returns:
-        Dict with symbol and insider_transactions data
+        {"symbol": t, "insider_transactions": {...}}
     """
     if not symbol_name:
         raise ValueError("Symbol name is required.")
@@ -315,15 +315,18 @@ def get_ticker_price(
 
     Args:
         ticker_symbol: Stock ticker symbol (e.g., "RELIANCE.NS", "AAPL")
-        period: Period to fetch (1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max)
-        interval: Data interval (1m, 2m, 5m, 15m, 30m, 60m, 90m, 1h, 1d, 5d, 1wk, 1mo, 3mo)
-        adjust_mode: "auto", "back", or "none" for price adjustment
-        prepost: Include pre/post market data
-        repair: Attempt to fix data errors
-        timeout: Request timeout in seconds
+        period: Period to fetch (1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max) (default: 1d)
+        interval: Data interval (1m, 2m, 5m, 15m, 30m, 60m, 90m, 1h, 1d, 5d, 1wk, 1mo, 3mo) (default: 1d)
+        adjust_mode: "auto", "back", or "none" for price adjustment (default: auto)
+        prepost: Include pre/post market data (default: False)
+        repair: Attempt to fix data errors (default: False)
+        timeout: Request timeout in seconds (default: 10.0)
 
     Returns:
-        Dict with symbol and price history as {date: price} mapping
+        On Success:
+        {"symbol": ticker_symbol, "prices": {...}, "period": period, "interval": interval}
+        On Failure:
+        {"symbol": ticker_symbol, "prices": {}, "message": str(e)}
     """
     ticker_symbol = ticker_symbol.strip().upper()
     if not ticker_symbol:
@@ -364,7 +367,7 @@ def get_ticker_price(
             "interval": interval,
         }
     except Exception as e:
-        raise RuntimeError(f"Error fetching price for {ticker_symbol}: {e}") from e
+        return {"symbol": ticker_symbol, "prices": {}, "message": str(e)}
 
 
 def get_last_close_price(symbol_name: str) -> dict:
@@ -374,8 +377,10 @@ def get_last_close_price(symbol_name: str) -> dict:
         symbol_name: Stock ticker symbol (e.g., "AAPL", "RELIANCE.NS")
 
     Returns:
-        Dict with symbol, last_close_price, and date
-        Example: {"symbol": "AAPL", "last_close_price": 150.25, "date": "2024-01-15"}
+        On Success:
+        {"symbol": ticker_symbol, "last_close_price": last_close_price, "date": date}
+        On Failure:
+        {"symbol": ticker_symbol, "last_close_price": None, "date": None, "error": error}
     """
     if not symbol_name:
         raise ValueError("Symbol name is required.")

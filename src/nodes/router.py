@@ -1,17 +1,16 @@
 """Router node for deciding between portfolio and news nodes."""
 
 from typing import Callable, Final, Literal
-
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableLambda
 from langchain_openai import ChatOpenAI
-from langgraph.runtime import get_runtime  # 🔹 NEW
+from langgraph.runtime import get_runtime
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from src.core.enums import LLMModel, Nodes
 from src.core.json_logging import logger_for
-from src.schemas.agent_state import AgentContext  # 🔹 make sure this path matches your project
+from src.schemas.agent_state import AgentContext
 from src.schemas.agent_state import AgentState
 
 logger = logger_for(__name__)
@@ -53,6 +52,7 @@ Return: "{portfolio_node}" or "{news_node}".
 
 Examples
  - "What's the latest NSE circular on NIFTY 50 rebalancing?" → "{news_node}"
+ - "Last year's balance sheet of RELIANCE?" → "{portfolio_node}"
  - "Latest news on RELIANCE results" → "{news_node}"
  - "News on Adani Green Energy?" → "{news_node}"
  - "Infosys Q2 results?" → "{portfolio_node}"

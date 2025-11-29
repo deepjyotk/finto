@@ -7,7 +7,7 @@ def calculate_profit_or_loss(quantity: float, average_price: float, current_pric
         current_price: Current market price per share
 
     Returns:
-        dict: {"profit": float} - Profit or loss amount (negative for loss)
+        dict: {"profit_or_loss": float} - Profit or loss amount (negative for loss)
     """
     quantity = float(quantity)
     average_price = float(average_price)

@@ -18,10 +18,11 @@ logger = logger_for(__name__)
 class ChatService:
     """Service layer for chat operations"""
 
-    def __init__(self):
-        """Initialize ChatService."""
+    def __init__(self, graph: Graph):
+        """Initialize ChatService with an injected Graph builder."""
+        self.graph = graph
 
-    def query(self, request: ChatRequest, thread_id: UUID, user_id: UUID) -> AgentMessage:
+    async def query(self, request: ChatRequest, thread_id: UUID, user_id: UUID) -> AgentMessage:
         """
         Run the agent on the provided question and return the AIMessage as AgentMessage.
 
@@ -41,7 +42,7 @@ class ChatService:
             if not isinstance(question, str) or not question.strip():
                 raise ValueError("question must be a non-empty string")
 
-            graph = Graph.get_graph()
+            graph_runner = await self.graph.get_graph()
 
             logger.info(f"Starting chat session with thread_id: {thread_id}")
 
@@ -68,7 +69,7 @@ class ChatService:
             }
 
             try:
-                out = graph.invoke(initial_state, config=config, context=context)
+                out = await graph_runner.ainvoke(initial_state, config=config, context=context)
             except Exception as e:
                 # If the error looks like a DB connection problem, try rebuilding the graph once and retry
                 msg = str(e).lower()
@@ -81,8 +82,10 @@ class ChatService:
                         "DB connection error detected, rebuilding graph and retrying once"
                     )
                     try:
-                        graph = Graph.get_graph()
-                        out = graph.invoke(initial_state, config=config, context=context)
+                        graph_runner = await self.graph.get_graph()
+                        out = await graph_runner.ainvoke(
+                            initial_state, config=config, context=context
+                        )
                     except Exception:
                         # fall through to outer exception handling
                         raise

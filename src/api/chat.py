@@ -1,4 +1,3 @@
-import asyncio
 import uuid
 
 from fastapi import APIRouter, Depends
@@ -38,10 +37,9 @@ async def chat(
     Returns a chat response message.
     """
 
-    # Call the LLM query; run in a thread to avoid blocking the event loop
     thread_id = uuid.uuid4()
     user_id = uuid.UUID(user["user_id"])
-    response = await asyncio.to_thread(chat_service.query, request, thread_id, user_id)
+    response = await chat_service.query(request, thread_id, user_id)
     # If we received an AgentMessage, use its content; otherwise stringify
     if isinstance(response, AgentMessage):
         response_text = response.content

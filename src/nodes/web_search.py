@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import Final
+from typing import Callable, Final
 
 from langchain_core.messages import AIMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -45,8 +45,8 @@ Boundaries
 - Never infer prices from articles—state "price data requires market-data tool"
 - If results are thin, say so and cite best available sources"""
 
-    def __init__(self):
-        pass
+    def __init__(self, llm_factory: Callable[[LLMModel], ChatOpenAI]):
+        self._llm_factory = llm_factory
 
     def _agent_prompt_template(self) -> ChatPromptTemplate:
         now_utc = datetime.now(timezone.utc).isoformat()
@@ -69,9 +69,7 @@ Boundaries
             context = runtime.context
             news_model = context.get("news_model", LLMModel.GPT4oMini)
 
-            # Use model name and kwargs from enum
-            llm_kwargs = {"model": news_model.model_name, **news_model.llm_kwargs}
-            llm = ChatOpenAI(**llm_kwargs)
+            llm = self._llm_factory(news_model)
             chain = prompt | llm.with_structured_output(WebSearchResult)
 
             messages = state.get("messages", [])

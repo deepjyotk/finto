@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 from functools import lru_cache
 from typing import Any, Dict, Mapping
 from uuid import uuid4
@@ -17,7 +18,7 @@ from langsmith.schemas import Example, Run
 from pydantic import BaseModel, Field
 
 from src.core.enums import LLMModel
-from src.graph import Graph
+from src.dependencies import build_agent_graph
 import dotenv
 
 dotenv.load_dotenv()
@@ -36,7 +37,7 @@ NEWS_MODEL = LLMModel.GPT4oMini
 @lru_cache(maxsize=1)
 def _get_compiled_graph():
     """Compile and cache the LangGraph for reuse during evaluation."""
-    return Graph.get_graph()
+    return asyncio.run(build_agent_graph().get_graph())
 
 
 def _message_content_to_str(message: Any) -> str:

@@ -1,17 +1,16 @@
 """Router node for deciding between portfolio and news nodes."""
 
-from typing import Final, Literal
-
+from typing import Callable, Final, Literal
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableLambda
 from langchain_openai import ChatOpenAI
-from langgraph.runtime import get_runtime  # 🔹 NEW
+from langgraph.runtime import get_runtime
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from src.core.enums import LLMModel, Nodes
 from src.core.json_logging import logger_for
-from src.schemas.agent_state import AgentContext  # 🔹 make sure this path matches your project
+from src.schemas.agent_state import AgentContext
 from src.schemas.agent_state import AgentState
 
 logger = logger_for(__name__)
@@ -30,10 +29,6 @@ class RouterNode:
     _ROUTER_PROMPT_TEMPLATE: Final[
         str
     ] = """
-Here’s an edited version of your router prompt with the new bias:
-
----
-
 You are a router that must select exactly one destination for the user's query.
 
 Return ONLY a JSON object conforming to RouteResponse (no prose, no extra fields).
@@ -57,6 +52,7 @@ Return: "{portfolio_node}" or "{news_node}".
 
 Examples
  - "What's the latest NSE circular on NIFTY 50 rebalancing?" → "{news_node}"
+ - "Last year's balance sheet of RELIANCE?" → "{portfolio_node}"
  - "Latest news on RELIANCE results" → "{news_node}"
  - "News on Adani Green Energy?" → "{news_node}"
  - "Infosys Q2 results?" → "{portfolio_node}"
@@ -66,8 +62,9 @@ Examples
  - "Will the Union Budget impact my SIPs?" → "{portfolio_node}"
     """
 
-    def __init__(self):
-        """Initialize the RouterNode."""
+    def __init__(self, llm_factory: Callable[[LLMModel], ChatOpenAI]):
+        """Initialize the RouterNode with an injected LLM factory."""
+        self._llm_factory = llm_factory
 
     def _router_prompt_template(self) -> ChatPromptTemplate:
         router_prompt_template = self._ROUTER_PROMPT_TEMPLATE.format(
@@ -94,9 +91,7 @@ Examples
                 "Router node invoked for user_id=%s with model=%s", user_id, router_model.model_name
             )
 
-            # Use model name and kwargs from enum
-            llm_kwargs = {"model": router_model.model_name, **router_model.llm_kwargs}
-            llm = ChatOpenAI(**llm_kwargs)
+            llm = self._llm_factory(router_model)
             chain = prompt | llm.with_structured_output(RouteResponse)
 
             messages = state.get("messages", [])

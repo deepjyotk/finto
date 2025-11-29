@@ -21,7 +21,7 @@ from src.core.db import SessionLocal
 from src.core.json_logging import logger_for
 from src.core.middleware import require_auth
 from src.core.settings import whatsapp_settings
-from src.dependencies import get_whatsapp_service
+from src.dependencies import build_agent_graph, get_whatsapp_service
 from src.repositories.whatsapp_repo import WhatsAppRepository
 from src.services.chat import ChatService
 from src.services.whatsapp import WhatsAppService
@@ -41,7 +41,8 @@ async def _process_webhook_background(webhook_data: WhatsAppWebhook) -> None:
     async with SessionLocal() as session:
         try:
             repo = WhatsAppRepository(session)
-            chat_service = ChatService()
+
+            chat_service = ChatService(graph=build_agent_graph())
             svc = WhatsAppService(repo=repo, chat_service=chat_service)
             await svc.process_webhook(webhook_data=webhook_data)
         except Exception as e:

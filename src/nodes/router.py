@@ -1,17 +1,17 @@
 """Router node for deciding between portfolio and news nodes."""
 
-from typing import Callable, Final, Literal
+from typing import Final, Literal
+
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableLambda
-from langchain_openai import ChatOpenAI
 from langgraph.runtime import get_runtime
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from src.core.enums import LLMModel, Nodes
 from src.core.json_logging import logger_for
-from src.schemas.agent_state import AgentContext
-from src.schemas.agent_state import AgentState
+from src.dependencies import LLMFactory
+from src.schemas.agent_state import AgentContext, AgentState
 
 logger = logger_for(__name__)
 
@@ -62,7 +62,7 @@ Examples
  - "Will the Union Budget impact my SIPs?" → "{portfolio_node}"
     """
 
-    def __init__(self, llm_factory: Callable[[LLMModel], ChatOpenAI]):
+    def __init__(self, llm_factory: LLMFactory):
         """Initialize the RouterNode with an injected LLM factory."""
         self._llm_factory = llm_factory
 

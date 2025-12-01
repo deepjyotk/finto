@@ -1,13 +1,13 @@
 """Dependency injection providers - thin wiring layer only"""
 
-from typing import Annotated, AsyncIterator, Callable
+from typing import Annotated
 
 from fastapi import Depends
 from langchain_openai import ChatOpenAI
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.db import SessionLocal, get_session
-from src.core.enums import LLMModel
+from src.core.llm import LLMFactory
 from src.core.settings import settings
 from src.graph import Graph
 from src.nodes.code_generation import CodeGenerationNode
@@ -17,17 +17,16 @@ from src.nodes.portfolio import PortfolioNode
 from src.nodes.router import RouterNode
 from src.nodes.web_search import WebSearchNode
 from src.repositories.broker_repo import BrokerRepository
+from src.repositories.chat_repo import ChatRepository
 from src.repositories.holdings_repo import HoldingsRepository
 from src.repositories.user_repo import UserRepository
 from src.repositories.whatsapp_repo import WhatsAppRepository
 from src.services.auth import AuthService
 from src.services.broker import BrokerService
 from src.services.chat import ChatService
+from src.services.chat_thesys_service import ThesysChatService
 from src.services.holdings import HoldingsService
 from src.services.whatsapp import WhatsAppService
-
-LLMFactory = Callable[[LLMModel], ChatOpenAI]
-HoldingsServiceDependency = Callable[[], AsyncIterator[HoldingsService]]
 
 
 def get_llm_factory() -> LLMFactory:
@@ -42,11 +41,11 @@ def _get_holdings_repository(
     return HoldingsRepository(session)
 
 
-def _get_holdings_service(
-    repo: Annotated[HoldingsRepository, Depends(_get_holdings_repository)],
-) -> HoldingsService:
-    """Provide HoldingsService with its own session scope."""
-    return HoldingsService(repo=repo)
+# def _get_holdings_service(
+#     repo: Annotated[HoldingsRepository, Depends(_get_holdings_repository)],
+# ) -> HoldingsService:
+#     """Provide HoldingsService with its own session scope."""
+#     return HoldingsService(repo=repo)
 
 
 def get_holdings_service(
@@ -92,7 +91,7 @@ def _get_final_response_node(
 
 
 def _get_execute_code_node(
-    holdings_service: Annotated[HoldingsService, Depends(_get_holdings_service)],
+    holdings_service: Annotated[HoldingsService, Depends(get_holdings_service)],
 ) -> ExecuteCodeNode:
     """Provide ExecuteCodeNode with injected holdings service."""
     return ExecuteCodeNode(holding_service=holdings_service)
@@ -216,6 +215,30 @@ def get_chat_service(graph: Annotated[Graph, Depends(get_graph)]) -> ChatService
         Configured ChatService instance
     """
     return ChatService(graph=graph)
+
+
+def _get_chat_repository(
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ChatRepository:
+    """
+    Provide ChatRepository instance.
+
+    Returns:
+        Configured ChatRepository instance
+    """
+    return ChatRepository(session)
+
+
+def get_thesys_chat_service(
+    graph: Annotated[Graph, Depends(get_graph)],
+    chat_repo: Annotated[ChatRepository, Depends(_get_chat_repository)],
+) -> ThesysChatService:
+    """
+    Provide ThesysChatService instance.
+    Returns:
+        Configured ThesysChatService instance
+    """
+    return ThesysChatService(graph=graph, chat_repo=chat_repo)
 
 
 def _get_broker_repository(

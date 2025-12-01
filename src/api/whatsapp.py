@@ -148,7 +148,7 @@ async def receive(request: Request):
         return Response(status_code=200, content="Error (logged)")
 
 
-@router.post("/api/whatsapp/send-text", response_model=SendTextResponse)
+@router.post("/whatsapp/send-text", response_model=SendTextResponse)
 async def send_text(
     body: SendTextRequest,
     svc: Annotated[WhatsAppService, Depends(get_whatsapp_service)],
@@ -167,7 +167,7 @@ async def send_text(
         return Response(status_code=500, content=str(e))
 
 
-@router.post("/api/whatsapp/send-template", response_model=SendTemplateResponse)
+@router.post("/whatsapp/send-template", response_model=SendTemplateResponse)
 async def send_template(
     body: SendTemplateRequest,
     svc: Annotated[WhatsAppService, Depends(get_whatsapp_service)],
@@ -190,7 +190,7 @@ async def send_template(
         raise HTTPException(status_code=e.status_code, detail=str(e))
 
 
-@router.post("/api/whatsapp/connect-intent", response_model=ConnectIntentResponse)
+@router.post("/whatsapp/connect-intent", response_model=ConnectIntentResponse)
 async def create_connect_intent(
     body: ConnectIntentRequest,
     svc: Annotated[WhatsAppService, Depends(get_whatsapp_service)],
@@ -210,7 +210,7 @@ async def create_connect_intent(
         raise HTTPException(status_code=e.status_code, detail=str(e))
 
 
-@router.delete("/api/whatsapp/{integration_id}")
+@router.delete("/whatsapp/{integration_id}")
 async def delete_integration(
     integration_id: UUID,
     svc: Annotated[WhatsAppService, Depends(get_whatsapp_service)],

@@ -5,12 +5,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from src.api.auth import router as auth_router
-from src.api.chat import router as chat_router
-from src.api.holdings import router as holdings_router
-from src.api.home import router as home_router
-from src.api.kiteconnect_integration import router as kite_router
-from src.api.whatsapp import router as whatsapp_router
+from src.api.routes import api_router
 from src.core.json_logging import logger_for, setup_json_logging
 
 load_dotenv()
@@ -25,8 +20,7 @@ app = FastAPI(
     openapi_tags=[
         {
             "name": "authentication",
-            "description": "User authentication operations including register, login, and \
-            token management",
+            "description": "User authentication operations including register, login, and token management",
         },
         {
             "name": "chat",
@@ -125,13 +119,8 @@ async def health_check():
     return {"status": "healthy", "service": "finto-api"}
 
 
-# Include routers
-app.include_router(auth_router)
-app.include_router(chat_router)
-app.include_router(holdings_router)
-app.include_router(home_router)
-app.include_router(kite_router)
-app.include_router(whatsapp_router)
+# Include API router with /api/v1/ prefix
+app.include_router(api_router)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -4,6 +4,12 @@ from enum import Enum
 from typing import Any, Dict
 
 
+class ThesysModel(Enum):
+    """Supported Thesys models."""
+
+    THESYS_CLAUDE_SONNET_4 = "c1/anthropic/claude-sonnet-4/v-20250617"
+
+
 class LLMModel(Enum):
     """Supported AI models with associated LLM kwargs.
 
@@ -76,6 +82,13 @@ class LLMModel(Enum):
             if member.model_name == model_name:
                 return member
         raise ValueError(f"No LLMModel found with model name: {model_name}")
+
+
+class ChatMessageType(str, Enum):
+    """Enum for chat message types."""
+
+    USER = "User"
+    AI = "AI"
 
 
 class Nodes:

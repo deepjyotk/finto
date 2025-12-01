@@ -661,6 +661,7 @@ dependencies = [
     { name = "tabulate" },
     { name = "tavily" },
     { name = "tenacity" },
+    { name = "thesys-genui-sdk" },
     { name = "uvicorn" },
     { name = "yfinance" },
 ]
@@ -713,6 +714,7 @@ requires-dist = [
     { name = "tabulate", specifier = ">=0.9.0" },
     { name = "tavily", specifier = ">=1.1.0" },
     { name = "tenacity", specifier = ">=8.2.0" },
+    { name = "thesys-genui-sdk", specifier = ">=0.1.0" },
     { name = "uvicorn", specifier = ">=0.38.0" },
     { name = "yfinance", specifier = ">=0.2.66" },
 ]
@@ -2960,6 +2962,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/0a/d4/2b0cd0fe285e14b36db076e78c93766ff1d529d70408bd1d2a5a84f1d929/tenacity-9.1.2.tar.gz", hash = "sha256:1169d376c297e7de388d18b4481760d478b0e99a777cad3a9c86e556f4b697cb", size = 48036 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e5/30/643397144bfbfec6f6ef821f36f33e57d35946c44a2352d3c9f0ae847619/tenacity-9.1.2-py3-none-any.whl", hash = "sha256:f77bf36710d8b73a50b2dd155c97b870017ad21afe6ab300326b0371b3b05138", size = 28248 },
+]
+
+[[package]]
+name = "thesys-genui-sdk"
+version = "0.1.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/f9/d2/c1d4ac5fa2a8575f68669ede4c5026b361c6012e3af65d85c7e62341cf95/thesys_genui_sdk-0.1.2.tar.gz", hash = "sha256:1c1525c0e3c9eff96f440332d921180e279dbd613930954795aaf2b8a63c8602", size = 4303 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/09/a7/c521bae79b61a3e139425dd8f92a4df35ba524e6fe166c6f5c30d470ab8c/thesys_genui_sdk-0.1.2-py3-none-any.whl", hash = "sha256:a0f9a5e5956880f2e37430b3b1fa109dbaec9ade82f416843f6d8496b6b5aa8c", size = 5611 },
 ]
 
 [[package]]

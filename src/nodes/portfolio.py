@@ -1,16 +1,16 @@
 """Portfolio symbol extraction node."""
 
-from typing import Callable, List, Literal
+from typing import List, Literal
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableLambda
-from langchain_openai import ChatOpenAI
 from langgraph.runtime import get_runtime
 from pydantic import BaseModel
 
 from src.core.enums import LLMModel
 from src.core.json_logging import logger_for
+from src.core.llm import LLMFactory
 from src.schemas.agent_state import AgentContext, AgentState
 from src.tools.get_symbol_name import get_symbol_names
 
@@ -32,7 +32,7 @@ class QueryTypeResult(BaseModel):
 class PortfolioNode:
     """Portfolio node responsible for extracting symbol names."""
 
-    def __init__(self, llm_factory: Callable[[LLMModel], ChatOpenAI]):
+    def __init__(self, llm_factory: LLMFactory):
         """Initialize PortfolioNode with injected LLM factory."""
         self._llm_factory = llm_factory
 

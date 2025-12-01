@@ -1,13 +1,13 @@
 from datetime import datetime, timedelta, timezone
-from typing import Callable, Final
+from typing import Final
 
 from langchain_core.messages import AIMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableLambda, RunnableSequence
-from langchain_openai import ChatOpenAI
 from langgraph.runtime import get_runtime
 
 from src.core.enums import LLMModel
+from src.core.llm import LLMFactory
 from src.schemas.agent_state import AgentContext, AgentState
 from src.schemas.web_search import WebSearchResult
 
@@ -45,7 +45,7 @@ Boundaries
 - Never infer prices from articles—state "price data requires market-data tool"
 - If results are thin, say so and cite best available sources"""
 
-    def __init__(self, llm_factory: Callable[[LLMModel], ChatOpenAI]):
+    def __init__(self, llm_factory: LLMFactory):
         self._llm_factory = llm_factory
 
     def _agent_prompt_template(self) -> ChatPromptTemplate:

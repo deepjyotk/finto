@@ -10,7 +10,7 @@ from src.dependencies import get_broker_service, get_whatsapp_service
 from src.services.broker import BrokerService
 from src.services.whatsapp import WhatsAppService
 
-router = APIRouter(prefix="/api", tags=["home"])
+router = APIRouter(tags=["home"])
 
 logger = logger_for(__name__)
 

@@ -1,15 +1,14 @@
 """Code generation node for portfolio analysis."""
 
-from datetime import datetime
 import inspect
-from typing import Callable, List, Literal
+from datetime import datetime
+from typing import Callable, List
 from zoneinfo import ZoneInfo
 
 from langchain_core.messages import AIMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableLambda
 from langchain_openai import ChatOpenAI
-from langgraph.graph import END
 from langgraph.runtime import get_runtime
 
 from src.core.enums import LLMModel, Nodes

@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     # JWT Settings
     secret_key: str
     algorithm: str = "HS256"
-    access_token_expire_minutes: int = 30
+    access_token_expire_minutes: int = 120
 
     # Cookie Settings
     cookie_name: str = "access_token"
@@ -100,8 +100,18 @@ class PineconeSettings(BaseSettings):
     )
 
 
+class ThesysSettings(BaseSettings):
+    thesys_enabled: bool = Field(default=False, description="Whether Thesys is enabled")
+    thesys_api_key: str = Field(..., description="Thesys API key")
+    thesys_base_url: str = Field(..., description="Thesys base URL")
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
+    )
+
+
 settings = Settings()
 llm_settings = LLMSettings()
 tavily_settings = TavilySettings()
 whatsapp_settings = WhatsAppSettings()
 pinecone_settings = PineconeSettings()
+thesys_settings = ThesysSettings()

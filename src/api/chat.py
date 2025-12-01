@@ -21,6 +21,7 @@ router = APIRouter(prefix="/chat", tags=["chat"])
     summary="Send a chat message",
     description="Send a message to the chat system and receive a \
     response. Supports conversation history and optional file attachments.",
+    deprecated=True,
 )
 async def chat(
     request: ChatRequest,

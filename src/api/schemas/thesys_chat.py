@@ -1,0 +1,33 @@
+"""Schemas for the Thesys C1 streaming chat endpoint."""
+
+from pydantic import BaseModel
+
+
+class C1Message(BaseModel):
+    content: str
+
+
+class C1ChatRequest(BaseModel):
+    message_payload: C1Message
+    session_id: str
+
+
+class ChatSessionSchema(BaseModel):
+    """Schema for ChatSession model."""
+
+    session_id: str
+    started_at: str
+
+
+class SessionResponse(BaseModel):
+    session_id: str
+    started_at: str
+
+
+class SessionItem(BaseModel):
+    session_id: str
+    started_at: str
+
+
+class SessionsListResponse(BaseModel):
+    sessions: list[SessionItem]

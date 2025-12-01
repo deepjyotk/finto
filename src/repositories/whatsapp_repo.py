@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.models.chat_session import ChatSession
+from src.models.chat_session import WhatsappChatSession
 from src.models.whatsapp_cache import WhatsAppCache
 from src.models.whatsapp_metadata import WhatsAppMetadata
 
@@ -131,36 +131,36 @@ class WhatsAppRepository:
             delete(WhatsAppMetadata).where(WhatsAppMetadata.id == metadata_id)
         )
 
-    # ChatSession methods
-    async def get_active_session_by_user_id(self, user_id: UUID) -> Optional[ChatSession]:
+    # WhatsappChatSession methods
+    async def get_active_session_by_user_id(self, user_id: UUID) -> Optional[WhatsappChatSession]:
         """
-        Get the active chat session for a user.
+        Get the active WhatsApp chat session for a user.
 
         Args:
             user_id: UUID of the user
 
         Returns:
-            ChatSession if found, None otherwise
+            WhatsappChatSession if found, None otherwise
         """
         result = await self.session.execute(
-            select(ChatSession).where(
-                ChatSession.user_id == user_id,
-                ChatSession.is_active.is_(True),
+            select(WhatsappChatSession).where(
+                WhatsappChatSession.user_id == user_id,
+                WhatsappChatSession.whatsapp_is_active.is_(True),
             )
         )
         return result.scalar_one_or_none()
 
-    async def create_chat_session(self, user_id: UUID) -> ChatSession:
+    async def create_chat_session(self, user_id: UUID) -> WhatsappChatSession:
         """
-        Create a new chat session for a user.
+        Create a new WhatsApp chat session for a user.
 
         Args:
             user_id: UUID of the user
 
         Returns:
-            The created ChatSession object
+            The created WhatsappChatSession object
         """
-        session = ChatSession(user_id=user_id)
+        session = WhatsappChatSession(user_id=user_id)
         self.session.add(session)
         await self.session.flush()
         return session

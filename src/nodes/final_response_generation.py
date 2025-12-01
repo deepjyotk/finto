@@ -1,15 +1,14 @@
 """Final response generation node that turns execution output into a user-facing answer."""
 
-from typing import Callable
-
 from langchain_core.messages import AIMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableLambda
-from langchain_openai import ChatOpenAI
 from langgraph.runtime import get_runtime
 
 from src.core.enums import LLMModel
 from src.core.json_logging import logger_for
+from src.core.llm import LLMFactory, ThesysChatOpenAI
+from src.core.settings import thesys_settings
 from src.schemas.agent_state import AgentContext, AgentState
 
 logger = logger_for(__name__)
@@ -34,7 +33,7 @@ Guidelines:
 - Do not add extra analysis beyond what the output supports."""
     )
 
-    def __init__(self, llm_factory: Callable[[LLMModel], ChatOpenAI]):
+    def __init__(self, llm_factory: LLMFactory):
         self._llm_factory = llm_factory
 
     def get_runnable_sequence(self):
@@ -47,7 +46,12 @@ Guidelines:
             runtime = get_runtime(AgentContext)
             context = runtime.context
             model = context.get("portfolio_model", LLMModel.GPT4p1)
-            llm = self._llm_factory(model)
+
+            llm = None
+            if thesys_settings.thesys_enabled:
+                llm = ThesysChatOpenAI()
+            else:
+                llm = self._llm_factory(model)
 
             user_request = (state.get("user_request") or "").strip() or "No user request provided."
             execution_result = (state.get("last_output") or "").strip()

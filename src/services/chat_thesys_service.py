@@ -79,7 +79,7 @@ class ThesysChatService:
         session_id = UUID(thread_id)
 
         # Persist the User message to the chat_messages table
-        user_message = await self.chat_repo.create_user_message(
+        await self.chat_repo.create_user_message(
             session_id=session_id,
             user_id=user_id,
             content=question,

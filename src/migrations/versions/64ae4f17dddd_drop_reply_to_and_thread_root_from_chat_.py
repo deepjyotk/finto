@@ -8,10 +8,9 @@ Create Date: 2025-11-30 22:27:32.082598
 
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
-
 
 # revision identifiers, used by Alembic.
 revision: str = "64ae4f17dddd"
@@ -32,7 +31,7 @@ def upgrade() -> None:
             ) THEN
                 ALTER TABLE chat_messages DROP CONSTRAINT chat_messages_reply_to_id_fkey;
             END IF;
-            
+
             IF EXISTS (
                 SELECT 1 FROM pg_constraint 
                 WHERE conname = 'chat_messages_thread_root_id_fkey'

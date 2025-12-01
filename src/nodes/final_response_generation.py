@@ -28,7 +28,6 @@ Code execution output:
 
 Guidelines:
 - Base your response ONLY on the execution output and the user request.
-- Keep the answer concise and actionable; highlight key figures plainly.
 - If the execution failed or looks incomplete, explain the issue and what is needed to fix it.
 - Do not add extra analysis beyond what the output supports."""
     )

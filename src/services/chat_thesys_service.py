@@ -139,11 +139,9 @@ class ThesysChatService:
                 content = str(out)
 
             # Persist the AI message to the chat_messages table
-            # The AI message replies to the user message and uses the same thread_root_id
             await self.chat_repo.create_ai_message(
                 session_id=session_id,
                 content=content,
-                reply_to_id=user_message.id,
             )
             # Commit the transaction to persist both messages
             await self.chat_repo.session.commit()

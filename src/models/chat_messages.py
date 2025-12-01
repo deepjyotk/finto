@@ -57,16 +57,6 @@ class ChatMessage(Base):
         ),
         nullable=False,
     )
-    reply_to_id: Mapped[UUID | None] = mapped_column(
-        PG_UUID(as_uuid=True),
-        ForeignKey("chat_messages.id", ondelete="SET NULL"),
-        nullable=True,
-    )
-    thread_root_id: Mapped[UUID | None] = mapped_column(
-        PG_UUID(as_uuid=True),
-        ForeignKey("chat_messages.id", ondelete="SET NULL"),
-        nullable=True,
-    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

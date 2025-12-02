@@ -31,3 +31,14 @@ class SessionItem(BaseModel):
 
 class SessionsListResponse(BaseModel):
     sessions: list[SessionItem]
+
+
+class MessageItem(BaseModel):
+    id: str
+    seq_no: int
+    message_payload: str
+
+
+class SessionMessageConfig(BaseModel):
+    session_id: str
+    messages: list[MessageItem]

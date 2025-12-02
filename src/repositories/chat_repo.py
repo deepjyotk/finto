@@ -154,3 +154,20 @@ class ChatRepository:
         self.session.add(message)
         await self.session.flush()
         return message
+
+    async def get_messages_by_session_id(self, session_id: UUID) -> list[ChatMessage]:
+        """
+        Get all messages for a chat session, ordered by sequence number.
+
+        Args:
+            session_id: The session ID to search for
+
+        Returns:
+            List of ChatMessage objects ordered by seq_no
+        """
+        result = await self.session.execute(
+            select(ChatMessage)
+            .where(ChatMessage.session_id == session_id)
+            .order_by(ChatMessage.seq_no.asc())
+        )
+        return list(result.scalars().all())

@@ -6,7 +6,12 @@ import psycopg
 from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 
-from src.api.schemas.thesys_chat import C1ChatRequest, ChatSessionSchema
+from src.api.schemas.thesys_chat import (
+    C1ChatRequest,
+    ChatSessionSchema,
+    MessageItem,
+    SessionMessageConfig,
+)
 from src.core.enums import LLMModel
 from src.core.json_logging import logger_for
 from src.core.schema import AgentMessage
@@ -59,6 +64,42 @@ class ThesysChatService:
             )
             for session in sessions
         ]
+
+    async def get_session_messages(self, session_id: UUID, user_id: UUID) -> SessionMessageConfig:
+        """
+        Get all messages for a session, verifying the session belongs to the user.
+
+        Args:
+            session_id: The session ID
+            user_id: The user ID (for verification)
+
+        Returns:
+            SessionMessageConfig with session_id and messages list
+
+        Raises:
+            ValueError: If session not found or doesn't belong to user
+        """
+        # Verify session exists and belongs to user
+        session = await self.chat_repo.get_session_by_id(session_id)
+        if not session:
+            raise ValueError(f"Session {session_id} not found")
+        if session.user_id != user_id:
+            raise ValueError(f"Session {session_id} does not belong to user {user_id}")
+
+        # Get messages for the session
+        messages = await self.chat_repo.get_messages_by_session_id(session_id)
+
+        return SessionMessageConfig(
+            session_id=str(session_id),
+            messages=[
+                MessageItem(
+                    id=str(msg.id),
+                    seq_no=msg.seq_no,
+                    message_payload=msg.content,
+                )
+                for msg in messages
+            ],
+        )
 
     async def query(self, request: C1ChatRequest, user_id: UUID) -> AgentMessage:
         """

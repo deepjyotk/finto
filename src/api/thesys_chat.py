@@ -7,6 +7,7 @@ from thesys_genui_sdk.fast_api import with_c1_response
 from src.api.schemas.thesys_chat import (
     C1ChatRequest,
     SessionItem,
+    SessionMessageConfig,
     SessionResponse,
     SessionsListResponse,
 )
@@ -82,6 +83,34 @@ async def get_sessions(
             for session in sessions
         ]
     )
+
+
+@router.get(
+    "/session/{session_id}",
+    summary="Get messages for a specific session",
+    description="Returns all messages for a given session ID, ordered by sequence number.",
+    response_model=SessionMessageConfig,
+)
+async def get_session(
+    session_id: str,
+    thesys_chat_service: ThesysChatService = Depends(get_thesys_chat_service),
+    user: dict = Depends(require_auth),
+):
+    """
+    Get all messages for a specific chat session.
+    """
+    user_id = uuid.UUID(user["user_id"])
+    session_uuid = uuid.UUID(session_id)
+
+    logger.info(
+        "get_session_request",
+        extra={
+            "session_id": session_id,
+            "user_id": str(user_id),
+        },
+    )
+
+    return await thesys_chat_service.get_session_messages(session_uuid, user_id)
 
 
 @router.post(

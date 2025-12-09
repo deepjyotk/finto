@@ -126,68 +126,76 @@ class ThesysChatService:
             content=question,
         )
 
-        graph_runner = await self.graph.get_graph()
-
-        logger.info(f"Starting Thesys chat session with session_id: {thread_id}")
-
-        config: RunnableConfig = {"configurable": {"thread_id": str(thread_id)}}
-
-        initial_state = {
-            "messages": [HumanMessage(content=question)],
-            "symbol_names": [],
-            "user_request": question,
-            "attempts": 0,
-            "last_code_success": True,
-            "last_code": None,
-            "last_output": None,
-            "done": False,
-            "final_answer": None,
-        }
-        context = {
-            "user_id": user_id,
-            "router_model": LLMModel.GPT4oMini,
-            "portfolio_model": LLMModel.GPT4p1,
-            "news_model": LLMModel.GPT4oMini,
-        }
-
         try:
+            graph_runner = await self.graph.get_graph()
             try:
-                out = await graph_runner.ainvoke(initial_state, config=config, context=context)
-            except Exception as e:
-                msg = str(e).lower()
-                if (
-                    "connection is closed" in msg
-                    or "server closed the connection" in msg
-                    or isinstance(e, psycopg.OperationalError)
-                ):
-                    logger.warning(
-                        "DB connection error detected, rebuilding graph and retrying once"
-                    )
-                    graph_runner = await self.graph.get_graph()
+                logger.info(f"Starting Thesys chat session with session_id: {thread_id}")
+
+                config: RunnableConfig = {"configurable": {"thread_id": str(thread_id)}}
+
+                initial_state = {
+                    "messages": [HumanMessage(content=question)],
+                    "symbol_names": [],
+                    "user_request": question,
+                    "attempts": 0,
+                    "last_code_success": True,
+                    "last_code": None,
+                    "last_output": None,
+                    "done": False,
+                    "final_answer": None,
+                }
+                context = {
+                    "user_id": user_id,
+                    "router_model": LLMModel.GPT4oMini,
+                    "portfolio_model": LLMModel.GPT4p1,
+                    "news_model": LLMModel.GPT4oMini,
+                }
+
+                try:
                     out = await graph_runner.ainvoke(initial_state, config=config, context=context)
+                except Exception as e:
+                    msg = str(e).lower()
+                    if (
+                        "connection is closed" in msg
+                        or "server closed the connection" in msg
+                        or isinstance(e, psycopg.OperationalError)
+                    ):
+                        logger.warning(
+                            "DB connection error detected, resetting checkpointer and retrying once"
+                        )
+                        await self.graph.close_graph(graph_runner)
+                        await self.graph.reset_checkpointer()
+                        graph_runner = await self.graph.get_graph()
+                        out = await graph_runner.ainvoke(
+                            initial_state, config=config, context=context
+                        )
+                    else:
+                        raise
+
+                if isinstance(out, list):
+                    last_message = out[-1]
+                    content = (
+                        last_message.content
+                        if hasattr(last_message, "content")
+                        else str(last_message)
+                    )
+                elif isinstance(out, dict):
+                    messages = out.get("messages", [])
+                    content = messages[-1].content if messages else ""
                 else:
-                    raise
+                    content = str(out)
 
-            if isinstance(out, list):
-                last_message = out[-1]
-                content = (
-                    last_message.content if hasattr(last_message, "content") else str(last_message)
+                # Persist the AI message to the chat_messages table
+                await self.chat_repo.create_ai_message(
+                    session_id=session_id,
+                    content=content,
                 )
-            elif isinstance(out, dict):
-                messages = out.get("messages", [])
-                content = messages[-1].content if messages else ""
-            else:
-                content = str(out)
+                # Commit the transaction to persist both messages
+                await self.chat_repo.session.commit()
 
-            # Persist the AI message to the chat_messages table
-            await self.chat_repo.create_ai_message(
-                session_id=session_id,
-                content=content,
-            )
-            # Commit the transaction to persist both messages
-            await self.chat_repo.session.commit()
-
-            return AgentMessage(role="assistant", content=content)
+                return AgentMessage(role="assistant", content=content)
+            finally:
+                await self.graph.close_graph(graph_runner)
         except Exception as e:
             logger.error("Thesys agent run failed: %s", str(e), exc_info=True)
             raise RuntimeError(f"Thesys agent run failed: {e}") from e

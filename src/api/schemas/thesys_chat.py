@@ -2,6 +2,8 @@
 
 from pydantic import BaseModel
 
+from src.core.enums import ChatMessageType
+
 
 class C1Message(BaseModel):
     content: str
@@ -37,6 +39,7 @@ class MessageItem(BaseModel):
     id: str
     seq_no: int
     message_payload: str
+    message_type: ChatMessageType
 
 
 class SessionMessageConfig(BaseModel):

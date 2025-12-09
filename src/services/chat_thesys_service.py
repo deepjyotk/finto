@@ -96,6 +96,7 @@ class ThesysChatService:
                     id=str(msg.id),
                     seq_no=msg.seq_no,
                     message_payload=msg.content,
+                    message_type=msg.message_type,
                 )
                 for msg in messages
             ],

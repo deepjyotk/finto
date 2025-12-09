@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query
 from thesys_genui_sdk.context import write_content
 from thesys_genui_sdk.fast_api import with_c1_response
 
@@ -52,16 +52,36 @@ async def create_session(
 
 @router.get(
     "/session",
-    summary="Get all chat sessions for the authenticated user",
-    description="Returns all past chat sessions for the authenticated user, sorted by most recent first.",
+    summary="Get chat sessions for the authenticated user (paginated)",
+    description=(
+        "Returns past chat sessions for the authenticated user, sorted by most recent first. "
+        "Supports optional pagination via page and page_limit query parameters. "
+        "If not provided, defaults to page=1 and page_limit=10. Maximum page_limit is 100."
+    ),
     response_model=SessionsListResponse,
 )
 async def get_sessions(
+    page: int = Query(
+        default=1,
+        ge=1,
+        description="Page number (1-indexed). Optional, defaults to 1.",
+    ),
+    page_limit: int = Query(
+        default=10,
+        ge=1,
+        le=100,
+        description="Number of sessions per page. Optional, defaults to 10. Maximum is 100.",
+    ),
     thesys_chat_service: ThesysChatService = Depends(get_thesys_chat_service),
     user: dict = Depends(require_auth),
 ):
     """
     Get all chat sessions for the authenticated user, sorted by creation date (most recent first).
+    
+    Pagination is optional:
+    - If page and page_limit are not provided, defaults to page=1 and page_limit=10
+    - Uses database-level pagination (LIMIT/OFFSET) for efficient querying
+    - Returns pagination metadata including total_sessions, total_pages, and has_next_page
     """
     user_id = uuid.UUID(user["user_id"])
 
@@ -69,10 +89,19 @@ async def get_sessions(
         "get_sessions_request",
         extra={
             "user_id": str(user_id),
+            "page": page,
+            "page_limit": page_limit,
         },
     )
 
-    sessions = await thesys_chat_service.get_user_sessions(user_id)
+    # Get paginated sessions from service (which uses DB-level pagination)
+    sessions, total_sessions = await thesys_chat_service.get_user_sessions(
+        user_id, page=page, page_limit=page_limit
+    )
+    
+    # Calculate pagination metadata
+    total_pages = (total_sessions + page_limit - 1) // page_limit if total_sessions > 0 else 0
+    has_next_page = page < total_pages
 
     return SessionsListResponse(
         sessions=[
@@ -81,7 +110,12 @@ async def get_sessions(
                 started_at=session.started_at,
             )
             for session in sessions
-        ]
+        ],
+        page=page,
+        page_limit=page_limit,
+        total_sessions=total_sessions,
+        total_pages=total_pages,
+        has_next_page=has_next_page,
     )
 
 
@@ -111,6 +145,65 @@ async def get_session(
     )
 
     return await thesys_chat_service.get_session_messages(session_uuid, user_id)
+
+
+@router.delete(
+    "/session/{session_id}",
+    summary="Delete a chat session",
+    description="Deletes a chat session and all its associated messages. Only the owner of the session can delete it.",
+)
+async def delete_session(
+    session_id: str,
+    thesys_chat_service: ThesysChatService = Depends(get_thesys_chat_service),
+    user: dict = Depends(require_auth),
+):
+    """
+    Delete a chat session and all its associated messages.
+    
+    This endpoint deletes the chat session and all messages associated with it.
+    Only the owner of the session can delete it.
+    """
+    user_id = uuid.UUID(user["user_id"])
+    session_uuid = uuid.UUID(session_id)
+
+    logger.info(
+        "delete_session_request",
+        extra={
+            "session_id": session_id,
+            "user_id": str(user_id),
+        },
+    )
+
+    try:
+        await thesys_chat_service.delete_session(session_uuid, user_id)
+        logger.info(
+            "delete_session_success",
+            extra={
+                "session_id": session_id,
+                "user_id": str(user_id),
+            },
+        )
+        return {"message": "Session deleted successfully"}
+    except ValueError as e:
+        logger.error(
+            "delete_session_error",
+            extra={
+                "session_id": session_id,
+                "user_id": str(user_id),
+                "error": str(e),
+            },
+        )
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(
+            "delete_session_error",
+            extra={
+                "session_id": session_id,
+                "user_id": str(user_id),
+                "error": str(e),
+            },
+        )
+        raise HTTPException(status_code=500, detail=f"Error deleting session: {str(e)}")
 
 
 @router.post(

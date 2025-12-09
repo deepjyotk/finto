@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.enums import ChatMessageType
@@ -62,6 +62,34 @@ class ChatRepository:
             .order_by(ChatSession.started_at.desc())
         )
         return list(result.scalars().all())
+
+    async def get_sessions_by_user_id_paginated(
+        self, user_id: UUID, *, limit: int, offset: int
+    ) -> tuple[list[ChatSession], int]:
+        """
+        Get chat sessions for a user with pagination.
+
+        Args:
+            user_id: The user ID to search for
+            limit: Maximum number of sessions to return
+            offset: Number of sessions to skip (based on page calculation)
+
+        Returns:
+            A tuple containing the list of ChatSession objects and the total count
+        """
+        total_result = await self.session.execute(
+            select(func.count()).select_from(ChatSession).where(ChatSession.user_id == user_id)
+        )
+        total_sessions = total_result.scalar_one()
+
+        result = await self.session.execute(
+            select(ChatSession)
+            .where(ChatSession.user_id == user_id)
+            .order_by(ChatSession.started_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        return list(result.scalars().all()), total_sessions
 
     async def get_next_seq_no(self, session_id: UUID) -> int:
         """
@@ -171,3 +199,24 @@ class ChatRepository:
             .order_by(ChatMessage.seq_no.asc())
         )
         return list(result.scalars().all())
+
+    async def delete_session(self, session_id: UUID) -> bool:
+        """
+        Delete a chat session and all its associated messages.
+
+        Args:
+            session_id: The session ID to delete
+
+        Returns:
+            True if session was deleted, False if session not found
+        """
+        # First, delete all messages for this session
+        await self.session.execute(
+            delete(ChatMessage).where(ChatMessage.session_id == session_id)
+        )
+
+        # Then delete the session itself
+        result = await self.session.execute(
+            delete(ChatSession).where(ChatSession.chat_session_id == session_id)
+        )
+        return result.rowcount > 0

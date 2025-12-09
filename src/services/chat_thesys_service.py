@@ -46,24 +46,32 @@ class ThesysChatService:
             started_at=chat_session.started_at.isoformat(),
         )
 
-    async def get_user_sessions(self, user_id: UUID) -> list[ChatSessionSchema]:
+    async def get_user_sessions(
+        self, user_id: UUID, *, page: int = 1, page_limit: int = 10
+    ) -> tuple[list[ChatSessionSchema], int]:
         """
-        Get all chat sessions for a user, sorted by most recent first.
+        Get paginated chat sessions for a user, sorted by most recent first.
 
         Args:
             user_id: The user ID
+            page: Page number to fetch (1-indexed)
+            page_limit: Maximum number of sessions per page
 
         Returns:
-            List of ChatSessionSchema objects sorted by started_at descending
+            Tuple containing list of ChatSessionSchema objects and total session count
         """
-        sessions = await self.chat_repo.get_sessions_by_user_id(user_id)
-        return [
+        offset = (page - 1) * page_limit
+        sessions, total_sessions = await self.chat_repo.get_sessions_by_user_id_paginated(
+            user_id, limit=page_limit, offset=offset
+        )
+        session_schemas = [
             ChatSessionSchema(
                 session_id=str(session.chat_session_id),
                 started_at=session.started_at.isoformat(),
             )
             for session in sessions
         ]
+        return session_schemas, total_sessions
 
     async def get_session_messages(self, session_id: UUID, user_id: UUID) -> SessionMessageConfig:
         """
@@ -101,6 +109,32 @@ class ThesysChatService:
                 for msg in messages
             ],
         )
+
+    async def delete_session(self, session_id: UUID, user_id: UUID) -> None:
+        """
+        Delete a session and all its associated messages, verifying the session belongs to the user.
+
+        Args:
+            session_id: The session ID to delete
+            user_id: The user ID (for verification)
+
+        Raises:
+            ValueError: If session not found or doesn't belong to user
+        """
+        # Verify session exists and belongs to user
+        session = await self.chat_repo.get_session_by_id(session_id)
+        if not session:
+            raise ValueError(f"Session {session_id} not found")
+        if session.user_id != user_id:
+            raise ValueError(f"Session {session_id} does not belong to user {user_id}")
+
+        # Delete the session and its messages
+        deleted = await self.chat_repo.delete_session(session_id)
+        if not deleted:
+            raise ValueError(f"Session {session_id} could not be deleted")
+        
+        # Commit the transaction
+        await self.chat_repo.session.commit()
 
     async def query(self, request: C1ChatRequest, user_id: UUID) -> AgentMessage:
         """

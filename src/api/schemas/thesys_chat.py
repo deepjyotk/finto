@@ -33,6 +33,11 @@ class SessionItem(BaseModel):
 
 class SessionsListResponse(BaseModel):
     sessions: list[SessionItem]
+    page: int
+    page_limit: int
+    total_sessions: int
+    total_pages: int
+    has_next_page: bool
 
 
 class MessageItem(BaseModel):

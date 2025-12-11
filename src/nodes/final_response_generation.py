@@ -29,7 +29,10 @@ Code execution output:
 Guidelines:
 - Base your response ONLY on the execution output and the user request.
 - If the execution failed or looks incomplete, explain the issue and what is needed to fix it.
-- Do not add extra analysis beyond what the output supports."""
+- Do not add extra analysis beyond what the output supports.
+
+{output_format_instructions}
+"""
     )
 
     def __init__(self, llm_factory: LLMFactory):
@@ -47,11 +50,26 @@ Guidelines:
             model = context.get("portfolio_model", LLMModel.GPT4p1)
 
             llm = None
+            output_format_instructions = ""
             if thesys_settings.thesys_enabled:
                 llm = ThesysChatOpenAI()
             else:
                 llm = self._llm_factory(model)
+                output_format_instructions = """You must generate the final response in **valid Markdown** suitable for direct rendering in the UI.
+                    Follow these rules strictly:
 
+                    1. Use proper Markdown formatting at all times.
+                    2. Structure the response for maximum readability on the UI.
+                    3. Use:
+                    - **Headings** to organize sections
+                    - **Bold** and *italic* text for emphasis
+                    - **Bullet lists** and **numbered lists** where appropriate
+                    - **Tables** when presenting structured data
+                    4. If providing code, wrap it in fenced code blocks (```).
+                    5. Ensure the response is clean, well-formatted, and visually easy to scan.
+
+                    Your output should feel polished, professional, and user-friendly.
+                """
             user_request = (state.get("user_request") or "").strip() or "No user request provided."
             execution_result = (state.get("last_output") or "").strip()
             messages = state.get("messages", [])
@@ -68,7 +86,11 @@ Guidelines:
 
             chain = self._PROMPT_TEMPLATE | llm
             ai_response = chain.invoke(
-                {"user_request": user_request, "execution_result": execution_result}
+                {
+                    "user_request": user_request,
+                    "execution_result": execution_result,
+                    "output_format_instructions": output_format_instructions,
+                }
             )
             final_answer = (
                 ai_response.content if hasattr(ai_response, "content") else str(ai_response)

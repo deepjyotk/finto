@@ -14,10 +14,6 @@ substitutions:
 steps:
   - name: gcr.io/cloud-builders/gcloud
     entrypoint: bash
-    args: ["-c", "bash scripts/google-cloud/secrets/update-secrets.sh"]
-
-  - name: gcr.io/cloud-builders/gcloud
-    entrypoint: bash
     args: ["-lc", "echo TAG=${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPO}/${_IMAGE}:${COMMIT_SHA}"]
 
   - name: gcr.io/cloud-builders/docker

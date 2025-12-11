@@ -52,4 +52,3 @@ for secret_name in "${SECRETS[@]}"; do
 done
 
 echo "All secrets updated successfully"
-

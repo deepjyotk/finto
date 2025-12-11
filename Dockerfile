@@ -5,8 +5,7 @@ FROM python:3.13-slim AS runtime
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app \
-    UV_LINK_MODE=copy \
-    PORT=8000
+    UV_LINK_MODE=copy
 
 WORKDIR /app
 
@@ -34,4 +33,4 @@ USER app
 
 EXPOSE 8000
 
-CMD ["sh","-c","uvicorn src.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD uvicorn src.main:app --host 0.0.0.0 --port ${PORT:-8000}

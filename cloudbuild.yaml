@@ -12,7 +12,10 @@ substitutions:
   _RUNTIME_SA: "run-runtime@finto-477904.iam.gserviceaccount.com"
 
 steps:
-  # (optional) quick sanity echo
+  - name: gcr.io/cloud-builders/gcloud
+    entrypoint: bash
+    args: ["-c", "bash scripts/google-cloud/secrets/update-secrets.sh"]
+
   - name: gcr.io/cloud-builders/gcloud
     entrypoint: bash
     args: ["-lc", "echo TAG=${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPO}/${_IMAGE}:${COMMIT_SHA}"]
@@ -47,6 +50,15 @@ steps:
       - --set-secrets=WA_VERIFY_TOKEN=WA_VERIFY_TOKEN:latest
       - --set-secrets=WA_PHONE_NUMBER_ID=WA_PHONE_NUMBER_ID:latest
       - --set-secrets=WA_USER_OR_SYSTEM_TOKEN=WA_USER_OR_SYSTEM_TOKEN:latest
+      - --set-secrets=WA_SENDER_E164=WA_SENDER_E164:latest
+      - --set-secrets=LANGSMITH_TRACING=LANGSMITH_TRACING:latest
+      - --set-secrets=LANGSMITH_ENDPOINT=LANGSMITH_ENDPOINT:latest
+      - --set-secrets=LANGSMITH_API_KEY=LANGSMITH_API_KEY:latest
+      - --set-secrets=LANGSMITH_PROJECT=LANGSMITH_PROJECT:latest
+      - --set-secrets=PINECONE_API_KEY=PINECONE_API_KEY:latest
+      - --set-secrets=THESYS_API_KEY=THESYS_API_KEY:latest
+      - --set-secrets=THESYS_ENABLED=THESYS_ENABLED:latest
+      - --set-secrets=THESYS_BASE_URL=THESYS_BASE_URL:latest
 
 images:
   - "${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPO}/${_IMAGE}:${COMMIT_SHA}"

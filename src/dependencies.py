@@ -6,7 +6,7 @@ from fastapi import Depends
 from langchain_openai import ChatOpenAI
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.db import SessionLocal, get_session
+from src.core.db import get_session
 from src.core.llm import LLMFactory
 from src.core.settings import settings
 from src.graph import Graph
@@ -107,7 +107,7 @@ def build_agent_graph(session: AsyncSession | None = None) -> Graph:
     Returns:
         Configured Graph ready for execution.
     """
-    #! This is not used from the frontend, and no need to parse this method.
+    # ! This is not used from the frontend, and no need to parse this method.
     return Graph()
     # llm_factory = get_llm_factory()
 

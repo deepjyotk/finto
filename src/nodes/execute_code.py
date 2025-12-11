@@ -93,11 +93,11 @@ class ExecuteCodeNode:
                     "last_output": observation,
                     "last_code_success": False,
                 }
-            
+
             # --- START CHANGES ---
             # 1. Build a single environment dictionary
-            execution_env = self._build_execution_env() 
-            
+            execution_env = self._build_execution_env()
+
             runtime = get_runtime(AgentContext)
             context = runtime.context
             user_id = context.get("user_id")
@@ -109,7 +109,7 @@ class ExecuteCodeNode:
 
             # No need for separate global_env and local_env variables now
             # --- END CHANGES ---
-            
+
             stdout_capture = io.StringIO()
             error_text = None
             is_error = False
@@ -117,7 +117,7 @@ class ExecuteCodeNode:
             try:
                 with contextlib.redirect_stdout(stdout_capture):
                     # 3. Call exec, passing the same dictionary for both globals and locals
-                    exec(code, execution_env, execution_env) 
+                    exec(code, execution_env, execution_env)
                 stdout_text = stdout_capture.getvalue().strip() or "<no output printed to stdout>"
                 status = "success"
             except Exception as exc:  # pragma: no cover - executed code varies

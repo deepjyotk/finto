@@ -77,7 +77,7 @@ async def get_sessions(
 ):
     """
     Get all chat sessions for the authenticated user, sorted by creation date (most recent first).
-    
+
     Pagination is optional:
     - If page and page_limit are not provided, defaults to page=1 and page_limit=10
     - Uses database-level pagination (LIMIT/OFFSET) for efficient querying
@@ -98,7 +98,7 @@ async def get_sessions(
     sessions, total_sessions = await thesys_chat_service.get_user_sessions(
         user_id, page=page, page_limit=page_limit
     )
-    
+
     # Calculate pagination metadata
     total_pages = (total_sessions + page_limit - 1) // page_limit if total_sessions > 0 else 0
     has_next_page = page < total_pages
@@ -159,7 +159,7 @@ async def delete_session(
 ):
     """
     Delete a chat session and all its associated messages.
-    
+
     This endpoint deletes the chat session and all messages associated with it.
     Only the owner of the session can delete it.
     """

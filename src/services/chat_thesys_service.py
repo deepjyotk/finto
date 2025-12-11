@@ -132,7 +132,7 @@ class ThesysChatService:
         deleted = await self.chat_repo.delete_session(session_id)
         if not deleted:
             raise ValueError(f"Session {session_id} could not be deleted")
-        
+
         # Commit the transaction
         await self.chat_repo.session.commit()
 

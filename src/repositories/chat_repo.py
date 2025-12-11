@@ -211,9 +211,7 @@ class ChatRepository:
             True if session was deleted, False if session not found
         """
         # First, delete all messages for this session
-        await self.session.execute(
-            delete(ChatMessage).where(ChatMessage.session_id == session_id)
-        )
+        await self.session.execute(delete(ChatMessage).where(ChatMessage.session_id == session_id))
 
         # Then delete the session itself
         result = await self.session.execute(

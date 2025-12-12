@@ -58,6 +58,10 @@ steps:
       - --set-secrets=THESYS_API_KEY=THESYS_API_KEY:latest
       - --set-secrets=THESYS_ENABLED=THESYS_ENABLED:latest
       - --set-secrets=THESYS_BASE_URL=THESYS_BASE_URL:latest
+      - --set-secrets=THESYS_MODEL=THESYS_MODEL:latest
+      - --set-secrets=ROUTER_MODEL=ROUTER_MODEL:latest
+      - --set-secrets=PORTFOLIO_MODEL=PORTFOLIO_MODEL:latest
+      - --set-secrets=NEWS_MODEL=NEWS_MODEL:latest
 
 images:
   - "${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPO}/${_IMAGE}:${COMMIT_SHA}"

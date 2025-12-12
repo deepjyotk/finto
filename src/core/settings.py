@@ -91,7 +91,7 @@ class PineconeSettings(BaseSettings):
     """Pinecone vector database settings loaded from environment variables"""
 
     index_name: str = Field(
-        default="company-symbol-index",
+        default="company-symbols-mapping",
         description="Pinecone index name",
         validation_alias="PINECONE_INDEX",
     )

@@ -1,6 +1,6 @@
 from typing import Optional
 
-from pydantic import Field
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from src.core.enums import LLMModel, ThesysModel
@@ -22,9 +22,35 @@ class Settings(BaseSettings):
 
     # Cookie Settings
     cookie_name: str = "access_token"
-    cookie_secure: bool = False  # Set to True in production with HTTPS
+    cookie_secure: bool = Field(
+        default=False,
+        description="Set to True in production with HTTPS. Required when cookie_samesite='none' for cross-origin requests."
+    )
     cookie_httponly: bool = True
-    cookie_samesite: str = "lax"
+    cookie_samesite: str = Field(
+        default="lax",
+        description="Cookie SameSite attribute: 'strict', 'lax', or 'none'. Use 'none' for cross-origin requests (requires cookie_secure=True)."
+    )
+
+    @field_validator("cookie_samesite")
+    @classmethod
+    def validate_cookie_samesite(cls, v: str) -> str:
+        """Validate cookie_samesite value"""
+        valid_values = ["strict", "lax", "none"]
+        v_lower = v.lower() if isinstance(v, str) else v
+        if v_lower not in valid_values:
+            raise ValueError(f"cookie_samesite must be one of {valid_values}, got {v}")
+        return v_lower
+
+    @model_validator(mode="after")
+    def validate_cookie_secure_with_samesite(self):
+        """Ensure Secure=True when SameSite=None (required by browsers)"""
+        if self.cookie_samesite.lower() == "none" and not self.cookie_secure:
+            raise ValueError(
+                "cookie_secure must be True when cookie_samesite='none' "
+                "(required by browsers for cross-origin cookies)"
+            )
+        return self
 
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"

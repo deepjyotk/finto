@@ -67,6 +67,11 @@ steps:
       - --set-secrets=ROUTER_MODEL=ROUTER_MODEL:latest
       - --set-secrets=PORTFOLIO_MODEL=PORTFOLIO_MODEL:latest
       - --set-secrets=NEWS_MODEL=NEWS_MODEL:latest
+      # Cookie settings for cross-origin requests (allows localhost:3000)
+      # NOTE: For cross-origin (localhost:3000 → Cloud Run), browsers REQUIRE:
+      # - SameSite=None + Secure=True (minimum required, can't be less secure)
+      # For local testing (both on localhost), you can use: SameSite=lax + Secure=false
+      - --set-env-vars=COOKIE_SAMESITE=none,COOKIE_SECURE=true
 
 images:
   - "${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPO}/${_IMAGE}:${COMMIT_SHA}"

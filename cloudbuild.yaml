@@ -1,5 +1,4 @@
-# cloudbuild.yaml
-# Sends build logs to Cloud Logging only (required when a build service account is set)
+# cloudbuild.yaml (Corrected)
 options:
   logging: CLOUD_LOGGING_ONLY
 
@@ -17,6 +16,11 @@ steps:
     args: ["-lc", "echo TAG=${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPO}/${_IMAGE}:${COMMIT_SHA}"]
 
   - name: gcr.io/cloud-builders/docker
+    # ------------------------------------------------------------------
+    # 💥 CRITICAL FIX: Enable BuildKit using the environment variable 💥
+    env:
+      - 'DOCKER_BUILDKIT=1' 
+    # ------------------------------------------------------------------
     args:
       ["build",
        "-t","${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPO}/${_IMAGE}:${COMMIT_SHA}",
@@ -26,7 +30,8 @@ steps:
     args:
       ["push",
        "${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPO}/${_IMAGE}:${COMMIT_SHA}"]
-
+       
+# ... (rest of the Cloud Run deploy step is unchanged)
   - name: gcr.io/cloud-builders/gcloud
     args:
       - run

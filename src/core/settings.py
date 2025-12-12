@@ -11,8 +11,11 @@ class Settings(BaseSettings):
 
     # Database Settings
     database_url: str
-    db_pool_size: int = 15
-    db_max_overflow: int = 5
+    # Pool size for SQLAlchemy connections to the connection pooler
+    # With a pooler (40 pool size, 200 max clients), we can use more connections
+    # since the pooler multiplexes them. Keep below 200 total client connections.
+    db_pool_size: int = 30  # Can be higher with connection pooler (up to ~200 max clients)
+    db_max_overflow: int = 10  # Additional connections beyond pool_size (total = pool_size + max_overflow)
     db_pool_timeout: int = 30
 
     # JWT Settings

@@ -105,6 +105,7 @@ app.add_middleware(
         "http://localhost:3000",
         "http://localhost:3001",
         "https://finto-lry24myhi-deepjyot-kapoors-projects.vercel.app",
+        "https://finto-ui.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],

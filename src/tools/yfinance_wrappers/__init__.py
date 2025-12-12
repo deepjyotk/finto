@@ -8,8 +8,6 @@ from typing import Optional
 
 import yfinance as yf
 
-from src.utils.data_frame import _df_to_dict_safe
-
 
 def get_balance_sheet(symbol_name: str, freq: str = "yearly", pretty: bool = False) -> dict:
     """Fetch balance sheet (yearly or quarterly).
@@ -25,8 +23,15 @@ def get_balance_sheet(symbol_name: str, freq: str = "yearly", pretty: bool = Fal
     if not symbol_name:
         raise ValueError("Symbol name is required.")
     t = symbol_name.strip().upper()
-    df = yf.Ticker(t).get_balance_sheet(as_dict=False, pretty=pretty, freq=freq)
-    return {"symbol": t, "balance_sheet": _df_to_dict_safe(df)}
+    data = yf.Ticker(t).get_balance_sheet(as_dict=True, pretty=pretty, freq=freq)
+    
+    # Convert Timestamp keys to strings if data is a dict
+    if isinstance(data, dict):
+        balance_sheet = {str(k): v for k, v in data.items()}
+    else:
+        balance_sheet = data
+    
+    return {"symbol": t, "balance_sheet": balance_sheet}
 
 
 def get_income_statement(symbol_name: str, freq: str = "yearly", pretty: bool = False) -> dict:
@@ -43,8 +48,15 @@ def get_income_statement(symbol_name: str, freq: str = "yearly", pretty: bool = 
     if not symbol_name:
         raise ValueError("Symbol name is required.")
     t = symbol_name.strip().upper()
-    df = yf.Ticker(t).get_income_stmt(as_dict=False, pretty=pretty, freq=freq)
-    return {"symbol": t, "income_statement": _df_to_dict_safe(df)}
+    data = yf.Ticker(t).get_income_stmt(as_dict=True, pretty=pretty, freq=freq)
+    
+    # Convert Timestamp keys to strings if data is a dict
+    if isinstance(data, dict):
+        income_statement = {str(k): v for k, v in data.items()}
+    else:
+        income_statement = data
+    
+    return {"symbol": t, "income_statement": income_statement}
 
 
 def get_cash_flow(symbol_name: str, freq: str = "yearly", pretty: bool = False) -> dict:
@@ -61,8 +73,15 @@ def get_cash_flow(symbol_name: str, freq: str = "yearly", pretty: bool = False) 
     if not symbol_name:
         raise ValueError("Symbol name is required.")
     t = symbol_name.strip().upper()
-    df = yf.Ticker(t).get_cashflow(as_dict=False, pretty=pretty, freq=freq)
-    return {"symbol": t, "cash_flow": _df_to_dict_safe(df)}
+    data = yf.Ticker(t).get_cashflow(as_dict=True, pretty=pretty, freq=freq)
+    
+    # Convert Timestamp keys to strings if data is a dict
+    if isinstance(data, dict):
+        cash_flow = {str(k): v for k, v in data.items()}
+    else:
+        cash_flow = data
+    
+    return {"symbol": t, "cash_flow": cash_flow}
 
 
 def get_dividends(symbol_name: str, period: str = "max") -> dict:
@@ -123,7 +142,7 @@ def get_earnings(symbol_name: str, freq: str = "yearly") -> dict:
         raise ValueError("Symbol name is required.")
     t = symbol_name.strip().upper()
     data = yf.Ticker(t).get_earnings(as_dict=True, freq=freq)
-    return {"symbol": t, "earnings": _df_to_dict_safe(data)}
+    return {"symbol": t, "earnings": data if data else {}}
 
 
 def get_earnings_estimate(symbol_name: str) -> dict:
@@ -139,7 +158,7 @@ def get_earnings_estimate(symbol_name: str) -> dict:
         raise ValueError("Symbol name is required.")
     t = symbol_name.strip().upper()
     data = yf.Ticker(t).get_earnings_estimate()
-    return {"symbol": t, "earnings_estimate": _df_to_dict_safe(data)}
+    return {"symbol": t, "earnings_estimate": data if data is not None else {}}
 
 
 def get_revenue_estimate(symbol_name: str) -> dict:
@@ -155,7 +174,7 @@ def get_revenue_estimate(symbol_name: str) -> dict:
         raise ValueError("Symbol name is required.")
     t = symbol_name.strip().upper()
     data = yf.Ticker(t).get_revenue_estimate()
-    return {"symbol": t, "revenue_estimate": _df_to_dict_safe(data)}
+    return {"symbol": t, "revenue_estimate": data if data is not None else {}}
 
 
 def get_earnings_history(symbol_name: str) -> dict:
@@ -171,7 +190,7 @@ def get_earnings_history(symbol_name: str) -> dict:
         raise ValueError("Symbol name is required.")
     t = symbol_name.strip().upper()
     data = yf.Ticker(t).get_earnings_history()
-    return {"symbol": t, "earnings_history": _df_to_dict_safe(data)}
+    return {"symbol": t, "earnings_history": data if data is not None else {}}
 
 
 def get_eps_trend(symbol_name: str) -> dict:
@@ -187,7 +206,7 @@ def get_eps_trend(symbol_name: str) -> dict:
         raise ValueError("Symbol name is required.")
     t = symbol_name.strip().upper()
     data = yf.Ticker(t).get_eps_trend()
-    return {"symbol": t, "eps_trend": _df_to_dict_safe(data)}
+    return {"symbol": t, "eps_trend": data if data is not None else {}}
 
 
 def get_eps_revisions(symbol_name: str) -> dict:
@@ -203,7 +222,7 @@ def get_eps_revisions(symbol_name: str) -> dict:
         raise ValueError("Symbol name is required.")
     t = symbol_name.strip().upper()
     data = yf.Ticker(t).get_eps_revisions()
-    return {"symbol": t, "eps_revisions": _df_to_dict_safe(data)}
+    return {"symbol": t, "eps_revisions": data if data is not None else {}}
 
 
 def get_growth_estimates(symbol_name: str) -> dict:
@@ -219,7 +238,7 @@ def get_growth_estimates(symbol_name: str) -> dict:
         raise ValueError("Symbol name is required.")
     t = symbol_name.strip().upper()
     data = yf.Ticker(t).get_growth_estimates()
-    return {"symbol": t, "growth_estimates": _df_to_dict_safe(data)}
+    return {"symbol": t, "growth_estimates": data if data is not None else {}}
 
 
 def get_major_holders(symbol_name: str) -> dict:
@@ -235,7 +254,7 @@ def get_major_holders(symbol_name: str) -> dict:
         raise ValueError("Symbol name is required.")
     t = symbol_name.strip().upper()
     data = yf.Ticker(t).get_major_holders()
-    return {"symbol": t, "major_holders": _df_to_dict_safe(data)}
+    return {"symbol": t, "major_holders": data if data is not None else {}}
 
 
 def get_institutional_holders(symbol_name: str) -> dict:
@@ -251,7 +270,7 @@ def get_institutional_holders(symbol_name: str) -> dict:
         raise ValueError("Symbol name is required.")
     t = symbol_name.strip().upper()
     data = yf.Ticker(t).get_institutional_holders()
-    return {"symbol": t, "institutional_holders": _df_to_dict_safe(data)}
+    return {"symbol": t, "institutional_holders": data if data is not None else {}}
 
 
 def get_mutualfund_holders(symbol_name: str) -> dict:
@@ -267,7 +286,7 @@ def get_mutualfund_holders(symbol_name: str) -> dict:
         raise ValueError("Symbol name is required.")
     t = symbol_name.strip().upper()
     data = yf.Ticker(t).get_mutualfund_holders()
-    return {"symbol": t, "mutualfund_holders": _df_to_dict_safe(data)}
+    return {"symbol": t, "mutualfund_holders": data if data is not None else {}}
 
 
 def get_insider_purchases(symbol_name: str) -> dict:
@@ -283,7 +302,7 @@ def get_insider_purchases(symbol_name: str) -> dict:
         raise ValueError("Symbol name is required.")
     t = symbol_name.strip().upper()
     data = yf.Ticker(t).get_insider_purchases()
-    return {"symbol": t, "insider_purchases": _df_to_dict_safe(data)}
+    return {"symbol": t, "insider_purchases": data if data is not None else {}}
 
 
 def get_insider_transactions(symbol_name: str) -> dict:
@@ -299,7 +318,7 @@ def get_insider_transactions(symbol_name: str) -> dict:
         raise ValueError("Symbol name is required.")
     t = symbol_name.strip().upper()
     data = yf.Ticker(t).get_insider_transactions()
-    return {"symbol": t, "insider_transactions": _df_to_dict_safe(data)}
+    return {"symbol": t, "insider_transactions": data if data is not None else {}}
 
 
 def get_ticker_price(

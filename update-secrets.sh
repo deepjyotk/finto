@@ -31,7 +31,10 @@ SECRETS=(
   "THESYS_API_KEY"
   "THESYS_ENABLED"
   "THESYS_BASE_URL"
-  "HF_TOKEN"
+  "THESYS_MODEL"
+  "ROUTER_MODEL"
+  "PORTFOLIO_MODEL"
+  "NEWS_MODEL"
 )
 
 for secret_name in "${SECRETS[@]}"; do

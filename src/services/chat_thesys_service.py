@@ -15,6 +15,7 @@ from src.api.schemas.thesys_chat import (
 from src.core.enums import LLMModel
 from src.core.json_logging import logger_for
 from src.core.schema import AgentMessage
+from src.core.settings import LLMSettings
 from src.graph import Graph
 from src.repositories.chat_repo import ChatRepository
 
@@ -179,11 +180,20 @@ class ThesysChatService:
                     "done": False,
                     "final_answer": None,
                 }
+                llm_settings = LLMSettings()
+                router_model = llm_settings.router_model
+                portfolio_model = llm_settings.portfolio_model
+                news_model = llm_settings.news_model
+
+                logger.info(f"Router model: {router_model}")
+                logger.info(f"Portfolio model: {portfolio_model}")
+                logger.info(f"News model: {news_model}")
+
                 context = {
                     "user_id": user_id,
-                    "router_model": LLMModel.GPT4oMini,
-                    "portfolio_model": LLMModel.GPT4p1,
-                    "news_model": LLMModel.GPT4oMini,
+                    "router_model": LLMModel.from_model_name(router_model),
+                    "portfolio_model": LLMModel.from_model_name(portfolio_model),
+                    "news_model": LLMModel.from_model_name(news_model),
                 }
 
                 try:

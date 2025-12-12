@@ -8,6 +8,7 @@ class ThesysModel(Enum):
     """Supported Thesys models."""
 
     THESYS_CLAUDE_SONNET_4 = "c1/anthropic/claude-sonnet-4/v-20250617"
+    THESYS_GPT_41 = "c1-exp/openai/gpt-4.1/v-20250617"
 
 
 class LLMModel(Enum):

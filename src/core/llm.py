@@ -12,7 +12,7 @@ LLMFactory = Callable[[LLMModel | ThesysModel], ChatOpenAI]
 class ThesysChatOpenAI(ChatOpenAI):
     def __init__(self):
         super().__init__(
-            model=ThesysModel.THESYS_CLAUDE_SONNET_4.value,
+            model=thesys_settings.thesys_model,
             api_key=thesys_settings.thesys_api_key,
             base_url=thesys_settings.thesys_base_url,
         )

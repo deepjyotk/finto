@@ -2,10 +2,10 @@
 from typing import Iterable, Tuple
 
 import pandas as pd
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_openai import OpenAIEmbeddings
 from pinecone import Pinecone, ServerlessSpec
 
-from src.core.settings import pinecone_settings
+from src.core.settings import llm_settings, pinecone_settings
 
 
 def init_pinecone(index_name: str | None = None, dimension: int | None = None):
@@ -25,21 +25,20 @@ def init_pinecone(index_name: str | None = None, dimension: int | None = None):
             name=index_name,
             dimension=dimension,
             metric="cosine",
-            spec=ServerlessSpec(cloud="aws", region="us-east-1"),  # Change based on your preference
+            spec=ServerlessSpec(cloud="aws", region="us-east-1"),
         )
 
     index = pc.Index(index_name)
-    # Use embedding model from settings (runs locally, no API key needed)
-    embeddings = HuggingFaceEmbeddings(
-        model_name=pinecone_settings.embedding_model,
-        model_kwargs={"device": "cpu"},  # Change to 'cuda' if you have GPU
-        encode_kwargs={"normalize_embeddings": True},  # Normalize for better cosine similarity
+    # Use OpenAI embeddings (API-based, no local model needed)
+    embeddings = OpenAIEmbeddings(
+        model=pinecone_settings.embedding_model,
+        openai_api_key=llm_settings.openai_api_key,
     )
     return index, embeddings
 
 
 def upsert_symbols_from_iterable(
-    index, embeddings: HuggingFaceEmbeddings, items: Iterable[Tuple[str, str]], batch_size: int = 64
+    index, embeddings: OpenAIEmbeddings, items: Iterable[Tuple[str, str]], batch_size: int = 64
 ):
     """
     Upsert symbol/company pairs.
@@ -74,7 +73,7 @@ def upsert_symbols_from_iterable(
 
 def upsert_from_portfolio_excel(
     index,
-    embeddings: HuggingFaceEmbeddings,
+    embeddings: OpenAIEmbeddings,
     excel_path: str = "portfolio.xlsx",
     symbol_col: str = "Symbol",
     name_col: str = "Name",
@@ -87,7 +86,7 @@ def upsert_from_portfolio_excel(
     upsert_symbols_from_iterable(index, embeddings, items)
 
 
-def query_symbols(index, embeddings: HuggingFaceEmbeddings, query_text: str, top_k: int = 5):
+def query_symbols(index, embeddings: OpenAIEmbeddings, query_text: str, top_k: int = 5):
     """
     Query Pinecone with an embedding for the natural language query.
     Returns list of dicts: {id, score, metadata}

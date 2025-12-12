@@ -3,6 +3,8 @@ from typing import Optional
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from src.core.enums import LLMModel, ThesysModel
+
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables"""
@@ -34,6 +36,16 @@ class LLMSettings(BaseSettings):
 
     temperature: float = 0
     openai_api_key: str
+    router_model: str = Field(
+        default=LLMModel.GPT4oMini.value.get("model"), description="Router model to use"
+    )
+    portfolio_model: str = Field(
+        default=LLMModel.GPT4p1.value.get("model"), description="Portfolio model to use"
+    )
+    news_model: str = Field(
+        default=LLMModel.GPT4oMini.value.get("model"), description="News model to use"
+    )
+
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
     )
@@ -83,10 +95,12 @@ class PineconeSettings(BaseSettings):
         description="Pinecone index name",
         validation_alias="PINECONE_INDEX",
     )
-    dimension: int = Field(default=384, description="Vector dimension for all-MiniLM-L6-v2 model")
+    dimension: int = Field(
+        default=1536, description="Vector dimension for OpenAI text-embedding-3-small"
+    )
     embedding_model: str = Field(
-        default="sentence-transformers/all-MiniLM-L6-v2",
-        description="HuggingFace embedding model name",
+        default="text-embedding-3-small",
+        description="OpenAI embedding model name",
     )
     api_key: str = Field(..., description="Pinecone API key", validation_alias="PINECONE_API_KEY")
 
@@ -98,12 +112,15 @@ class PineconeSettings(BaseSettings):
         # Environment variables:
         # PINECONE_INDEX -> index_name
         # PINECONE_API_KEY -> api_key
-        # PINECONE_DIMENSION -> dimension (optional)
+        # PINECONE_DIMENSION -> dimension (optional, default: 1536 for text-embedding-3-small)
         # PINECONE_EMBEDDING_MODEL -> embedding_model (optional)
     )
 
 
 class ThesysSettings(BaseSettings):
+    thesys_model: str = Field(
+        default=ThesysModel.THESYS_GPT_41.value, description="Thesys model to use"
+    )
     thesys_enabled: bool = Field(default=False, description="Whether Thesys is enabled")
     thesys_api_key: str = Field(..., description="Thesys API key")
     thesys_base_url: str = Field(..., description="Thesys base URL")

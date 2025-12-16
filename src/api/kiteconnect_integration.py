@@ -186,3 +186,215 @@ async def kite_holdings(current_user: dict = Depends(require_auth)):
     # Clean holdings data for JSON (in case any datetime fields appear).
     clean_holdings = jsonable_encoder(holdings)
     return {"holdings": clean_holdings}
+
+
+@router.get("/positions")
+async def kite_positions(current_user: dict = Depends(require_auth)):
+    """
+    Fetch user's positions (net and day) via Kite Connect.
+    Returns both overnight positions (net) and day positions.
+    """
+    user_id = str(current_user.get("user_id"))
+    token_info = KITE_USER_TOKENS.get(user_id)
+    if not token_info or not token_info.get("access_token"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Kite account not connected or access token missing",
+        )
+
+    kite = KiteConnect(api_key=KITE_API_KEY)
+    kite.set_access_token(token_info["access_token"])
+
+    try:
+        positions = kite.positions()
+    except Exception as exc:
+        logger.error("kite_positions_failed", extra={"error": str(exc)})
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to fetch positions from Kite",
+        )
+
+    clean_positions = jsonable_encoder(positions)
+    return clean_positions
+
+
+@router.get("/orders")
+async def kite_orders(current_user: dict = Depends(require_auth)):
+    """
+    Fetch user's orders (order book) for today via Kite Connect.
+    Includes open, pending, and executed orders.
+    """
+    user_id = str(current_user.get("user_id"))
+    token_info = KITE_USER_TOKENS.get(user_id)
+    if not token_info or not token_info.get("access_token"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Kite account not connected or access token missing",
+        )
+
+    kite = KiteConnect(api_key=KITE_API_KEY)
+    kite.set_access_token(token_info["access_token"])
+
+    try:
+        orders = kite.orders()
+    except Exception as exc:
+        logger.error("kite_orders_failed", extra={"error": str(exc)})
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to fetch orders from Kite",
+        )
+
+    clean_orders = jsonable_encoder(orders)
+    return {"orders": clean_orders}
+
+
+@router.get("/trades")
+async def kite_trades(current_user: dict = Depends(require_auth)):
+    """
+    Fetch user's trades for today via Kite Connect.
+    """
+    user_id = str(current_user.get("user_id"))
+    token_info = KITE_USER_TOKENS.get(user_id)
+    if not token_info or not token_info.get("access_token"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Kite account not connected or access token missing",
+        )
+
+    kite = KiteConnect(api_key=KITE_API_KEY)
+    kite.set_access_token(token_info["access_token"])
+
+    try:
+        trades = kite.trades()
+    except Exception as exc:
+        logger.error("kite_trades_failed", extra={"error": str(exc)})
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to fetch trades from Kite",
+        )
+
+    clean_trades = jsonable_encoder(trades)
+    return {"trades": clean_trades}
+
+
+@router.get("/quote")
+async def kite_quote(symbols: str, current_user: dict = Depends(require_auth)):
+    """
+    Fetch quote data (OHLC, depth, etc.) for one or more symbols.
+    
+    Args:
+        symbols: Comma-separated symbols (e.g., "NSE:INFY,NSE:TCS")
+    """
+    user_id = str(current_user.get("user_id"))
+    token_info = KITE_USER_TOKENS.get(user_id)
+    if not token_info or not token_info.get("access_token"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Kite account not connected or access token missing",
+        )
+
+    kite = KiteConnect(api_key=KITE_API_KEY)
+    kite.set_access_token(token_info["access_token"])
+
+    try:
+        symbol_list = [s.strip() for s in symbols.split(",")]
+        quote_data = kite.quote(symbol_list)
+    except Exception as exc:
+        logger.error("kite_quote_failed", extra={"error": str(exc), "symbols": symbols})
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to fetch quote from Kite",
+        )
+
+    clean_quote = jsonable_encoder(quote_data)
+    return clean_quote
+
+
+@router.get("/ltp")
+async def kite_ltp(symbols: str, current_user: dict = Depends(require_auth)):
+    """
+    Fetch last traded price (LTP) for one or more symbols.
+    Lightweight endpoint compared to quote.
+    
+    Args:
+        symbols: Comma-separated symbols (e.g., "NSE:INFY,NSE:TCS")
+    """
+    user_id = str(current_user.get("user_id"))
+    token_info = KITE_USER_TOKENS.get(user_id)
+    if not token_info or not token_info.get("access_token"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Kite account not connected or access token missing",
+        )
+
+    kite = KiteConnect(api_key=KITE_API_KEY)
+    kite.set_access_token(token_info["access_token"])
+
+    try:
+        symbol_list = [s.strip() for s in symbols.split(",")]
+        ltp_data = kite.ltp(symbol_list)
+    except Exception as exc:
+        logger.error("kite_ltp_failed", extra={"error": str(exc), "symbols": symbols})
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to fetch LTP from Kite",
+        )
+
+    clean_ltp = jsonable_encoder(ltp_data)
+    return clean_ltp
+
+
+@router.get("/historical")
+async def kite_historical(
+    instrument_token: int,
+    interval: str,
+    from_date: str,
+    to_date: str,
+    current_user: dict = Depends(require_auth),
+):
+    """
+    Fetch historical candle data for an instrument.
+    
+    Args:
+        instrument_token: Token of the instrument
+        interval: Candle interval (minute, 3minute, 5minute, 15minute, 30minute, 60minute, day, week, month)
+        from_date: Start date (format: YYYY-MM-DD or YYYY-MM-DD HH:MM:SS)
+        to_date: End date (format: YYYY-MM-DD or YYYY-MM-DD HH:MM:SS)
+    
+    Returns:
+        Candles data with [timestamp, open, high, low, close, volume] format
+    """
+    user_id = str(current_user.get("user_id"))
+    token_info = KITE_USER_TOKENS.get(user_id)
+    if not token_info or not token_info.get("access_token"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Kite account not connected or access token missing",
+        )
+
+    kite = KiteConnect(api_key=KITE_API_KEY)
+    kite.set_access_token(token_info["access_token"])
+
+    try:
+        historical_data = kite.historical_data(
+            instrument_token=instrument_token,
+            interval=interval,
+            from_date=from_date,
+            to_date=to_date,
+        )
+    except Exception as exc:
+        logger.error(
+            "kite_historical_failed",
+            extra={
+                "error": str(exc),
+                "instrument_token": instrument_token,
+                "interval": interval,
+            },
+        )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to fetch historical data from Kite",
+        )
+
+    clean_historical = jsonable_encoder(historical_data)
+    return {"candles": clean_historical}

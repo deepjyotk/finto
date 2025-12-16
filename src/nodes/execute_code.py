@@ -13,6 +13,7 @@ from src.schemas.agent_state import AgentContext, AgentState
 from src.services.holdings import HoldingsService
 from src.tools import yfinance_wrappers
 from src.tools.calculate_profit_tool import calculate_profit_or_loss
+from src.tools.filters import growth_filter, value_filter
 from src.tools.portfolio_risk import (
     download_prices,
     max_drawdown,
@@ -70,6 +71,8 @@ class ExecuteCodeNode:
             "portfolio_volatility": portfolio_volatility,
             "max_drawdown": max_drawdown,
             "max_drawdown_asset": max_drawdown_asset,
+            "growth_filter": growth_filter,
+            "value_filter": value_filter,
         }
         for func_name in self._YF_FUNCTIONS:
             env[func_name] = getattr(yfinance_wrappers, func_name)

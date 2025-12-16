@@ -1,7 +1,9 @@
 from typing import Optional
 
-from pydantic import Field
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from src.core.enums import LLMModel, ThesysModel
 
 
 class Settings(BaseSettings):
@@ -9,8 +11,11 @@ class Settings(BaseSettings):
 
     # Database Settings
     database_url: str
-    db_pool_size: int = 15
-    db_max_overflow: int = 5
+    # Pool size for SQLAlchemy connections to the connection pooler
+    # With a pooler (40 pool size, 200 max clients), we can use more connections
+    # since the pooler multiplexes them. Keep below 200 total client connections.
+    db_pool_size: int = 30  # Can be higher with connection pooler (up to ~200 max clients)
+    db_max_overflow: int = 10  # Additional connections beyond pool_size (total = pool_size + max_overflow)
     db_pool_timeout: int = 30
 
     # JWT Settings
@@ -20,9 +25,35 @@ class Settings(BaseSettings):
 
     # Cookie Settings
     cookie_name: str = "access_token"
-    cookie_secure: bool = False  # Set to True in production with HTTPS
+    cookie_secure: bool = Field(
+        default=False,
+        description="Set to True in production with HTTPS. Required when cookie_samesite='none' for cross-origin requests."
+    )
     cookie_httponly: bool = True
-    cookie_samesite: str = "lax"
+    cookie_samesite: str = Field(
+        default="lax",
+        description="Cookie SameSite attribute: 'strict', 'lax', or 'none'. Use 'none' for cross-origin requests (requires cookie_secure=True)."
+    )
+
+    @field_validator("cookie_samesite")
+    @classmethod
+    def validate_cookie_samesite(cls, v: str) -> str:
+        """Validate cookie_samesite value"""
+        valid_values = ["strict", "lax", "none"]
+        v_lower = v.lower() if isinstance(v, str) else v
+        if v_lower not in valid_values:
+            raise ValueError(f"cookie_samesite must be one of {valid_values}, got {v}")
+        return v_lower
+
+    @model_validator(mode="after")
+    def validate_cookie_secure_with_samesite(self):
+        """Ensure Secure=True when SameSite=None (required by browsers)"""
+        if self.cookie_samesite.lower() == "none" and not self.cookie_secure:
+            raise ValueError(
+                "cookie_secure must be True when cookie_samesite='none' "
+                "(required by browsers for cross-origin cookies)"
+            )
+        return self
 
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
@@ -34,6 +65,16 @@ class LLMSettings(BaseSettings):
 
     temperature: float = 0
     openai_api_key: str
+    router_model: str = Field(
+        default=LLMModel.GPT4oMini.value.get("model"), description="Router model to use"
+    )
+    portfolio_model: str = Field(
+        default=LLMModel.GPT4p1.value.get("model"), description="Portfolio model to use"
+    )
+    news_model: str = Field(
+        default=LLMModel.GPT4oMini.value.get("model"), description="News model to use"
+    )
+
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
     )
@@ -79,14 +120,16 @@ class PineconeSettings(BaseSettings):
     """Pinecone vector database settings loaded from environment variables"""
 
     index_name: str = Field(
-        default="company-symbol-index",
+        default="company-symbols-mapping",
         description="Pinecone index name",
         validation_alias="PINECONE_INDEX",
     )
-    dimension: int = Field(default=384, description="Vector dimension for all-MiniLM-L6-v2 model")
+    dimension: int = Field(
+        default=1536, description="Vector dimension for OpenAI text-embedding-3-small"
+    )
     embedding_model: str = Field(
-        default="sentence-transformers/all-MiniLM-L6-v2",
-        description="HuggingFace embedding model name",
+        default="text-embedding-3-small",
+        description="OpenAI embedding model name",
     )
     api_key: str = Field(..., description="Pinecone API key", validation_alias="PINECONE_API_KEY")
 
@@ -98,12 +141,15 @@ class PineconeSettings(BaseSettings):
         # Environment variables:
         # PINECONE_INDEX -> index_name
         # PINECONE_API_KEY -> api_key
-        # PINECONE_DIMENSION -> dimension (optional)
+        # PINECONE_DIMENSION -> dimension (optional, default: 1536 for text-embedding-3-small)
         # PINECONE_EMBEDDING_MODEL -> embedding_model (optional)
     )
 
 
 class ThesysSettings(BaseSettings):
+    thesys_model: str = Field(
+        default=ThesysModel.THESYS_GPT_41.value, description="Thesys model to use"
+    )
     thesys_enabled: bool = Field(default=False, description="Whether Thesys is enabled")
     thesys_api_key: str = Field(..., description="Thesys API key")
     thesys_base_url: str = Field(..., description="Thesys base URL")

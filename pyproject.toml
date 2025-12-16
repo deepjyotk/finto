@@ -11,39 +11,34 @@ requires-python = ">=3.13,<4.0.0"
 dependencies = [
     "fastapi>=0.121.0",
     "httpx>=0.28.1",
-    "langchain>=1.0.3",
     "langgraph>=1.0.2",
     "python-json-logger>=3.2.1",
     "uvicorn>=0.38.0",
     "pyjwt>=2.10.1",
     "passlib[bcrypt]>=1.7.4",
-    "python-multipart>=0.0.20",
-    "email-validator>=2.2.0",
-    "sqlparse>=0.5.0",
+    "python-multipart>=0.0.20",  # Required for FastAPI File uploads
+    "email-validator>=2.2.0",  # Required for Pydantic email validation
     "python-dotenv>=1.0.0",
     "sqlalchemy>=2.0.0",
     "asyncpg>=0.29.0,<1.0.0",
+    "pydantic>=2.0.0",  # Explicit: used directly in schemas
     "pydantic-settings>=2.0.0",
-    "greenlet>=3.0.0,<4.0.0",
+    "greenlet>=3.0.0,<4.0.0",  # Required for SQLAlchemy async
     "yfinance>=0.2.66",
+    "langchain-core>=1.0.0",  # Explicit: used directly throughout
     "langchain-openai>=1.0.2",
-    "langchain-community>=0.4.1",
-    "tavily>=1.1.0",
-    "tenacity>=8.2.0",
-    "openpyxl>=3.1.5",
-    "tabulate>=0.9.0",
+    "openpyxl>=3.1.5",  # Required for pd.read_excel()
     "langchain-tavily>=0.2.13",
     "kiteconnect>=5.0.1",
     "google-auth>=2.35.0",
     "gspread>=6.1.2",
-    "langchain-experimental>=0.4.0",
     "alembic>=1.17.1",
     "pandas>=2.2.0",
+    "numpy>=2.0.0",  # Explicit: used in portfolio_risk.py
     "langgraph-checkpoint-postgres>=2.0.0",
     "pinecone>=7.3.0",
-    "langchain-huggingface>=1.0.1",
-    "sentence-transformers>=5.1.2",
-    "psycopg2>=2.9.11",
+    "psycopg>=3.2.0",  # Explicit: used directly in chat services
+    "psycopg-pool>=3.2.0",  # Explicit: used in graph.py
     "thesys-genui-sdk>=0.1.0",
 ]
 
@@ -52,6 +47,7 @@ dev = [
     "autoflake>=2.3.1",
     "bandit>=1.8.6",
     "black>=25.9.0",
+    "deptry>=0.15.0",  # Detect unused and missing dependencies
     "flake8>=7.3.0",
     "isort>=7.0.0",
     "mypy>=1.18.2",
@@ -59,6 +55,11 @@ dev = [
     "ruff>=0.14.3",
     # "pygraphviz>=1.14",  # Commented: requires Graphviz C libraries on Windows; use grandalf for LangGraph viz instead
     "grandalf>=0.8",  # Alternative for LangGraph visualization without C dependencies
+]
+
+[tool.deptry]
+ignore = [
+    "DEP003",  # Ignore transitive dependency warnings (we've made key ones explicit)
 ]
 
 [tool.black]

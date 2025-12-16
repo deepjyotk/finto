@@ -42,8 +42,18 @@ async def _reset_checkpointer_pool() -> None:
 async def _get_checkpointer() -> AsyncPostgresSaver:
     """
     Create (once) and return an AsyncPostgresSaver backed by a shared async pool.
-    We keep the pool small to stay under PgBouncer/session-mode limits and
-    initialize checkpoint tables on first use.
+    
+    The checkpointer is used by LangGraph to save state between graph node executions.
+    Each graph execution (e.g., a chat request) uses the checkpointer multiple times:
+    - After router node
+    - After portfolio/news node
+    - After code generation node
+    - After execution node
+    - After final response node
+    
+    With concurrent graph executions (multiple users chatting), we need enough
+    connections to avoid blocking. With a connection pooler (40 pool, 200 max clients),
+    we can use 8 connections to handle 4-8 concurrent graph executions efficiently.
     """
     global _CHECKPOINTER, _CHECKPOINTER_POOL
     async with _CHECKPOINTER_LOCK:
@@ -54,10 +64,16 @@ async def _get_checkpointer() -> AsyncPostgresSaver:
 
         if _CHECKPOINTER is None:
             try:
+                # Checkpointer pool size: Each graph execution uses checkpointer multiple times
+                # (after each node: router, portfolio/news, code_gen, execute, final_response)
+                # With connection pooler (40 pool, 200 max clients), we can use more connections
+                # to handle concurrent graph executions without blocking
                 _CHECKPOINTER_POOL = AsyncConnectionPool(
                     conninfo=settings.database_url,
-                    min_size=1,
-                    max_size=5,
+                    min_size=2,
+                    max_size=8,  # Increased to handle concurrent graph executions
+                    # Each graph execution may need 1-2 checkpoint connections
+                    # With 8 connections, can handle 4-8 concurrent graph executions
                 )
                 # Ensure pool is ready before passing to saver
                 await _CHECKPOINTER_POOL.open(wait=True)

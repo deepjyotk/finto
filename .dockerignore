@@ -44,3 +44,26 @@ Makefile
 scripts/render_graph.py
 
 wiki/
+
+scripts/*
+
+# Exclude large/unnecessary files
+artifacts/
+*.xlsx
+*.json
+!uv.lock
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.pdf
+
+# Exclude test and development files
+tests/
+test_*.py
+*_test.py
+.pytest_cache/
+
+# Exclude documentation
+*.md
+!README.md

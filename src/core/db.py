@@ -21,12 +21,14 @@ ssl_context.check_hostname = False
 ssl_context.verify_mode = ssl.CERT_NONE
 
 # Create async engine
+# Note: With a connection pooler (e.g., PgBouncer), max_overflow works normally.
+# The pooler handles multiplexing many client connections onto fewer DB connections.
 engine = create_async_engine(
     _ensure_async_driver(settings.database_url),
     pool_pre_ping=True,
     echo=False,  # Set to True for SQL query logging
     pool_size=settings.db_pool_size,
-    max_overflow=settings.db_max_overflow,  # avoid exceeding session-mode pool limits
+    max_overflow=settings.db_max_overflow,  # Works with connection pooler
     pool_timeout=settings.db_pool_timeout,
     connect_args={"ssl": ssl_context},
 )

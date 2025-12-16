@@ -21,13 +21,13 @@ def main():
     index, embeddings = init_pinecone()
 
     print("Loading portfolio data and creating embeddings...")
-    excel_path = "company-symbol-mapping.xlsx"  # Adjust path if needed
+    excel_path = "EQUITY_L.xlsx"  # Using EQUITY_L.xlsx
     upsert_from_portfolio_excel(
         index=index,
         embeddings=embeddings,
         excel_path=excel_path,
-        symbol_col="Symbol",
-        name_col="Company Name",
+        symbol_col="SYMBOL",
+        name_col="NAME OF COMPANY",
     )
 
     print("✓ Successfully populated Pinecone index with symbol embeddings!")

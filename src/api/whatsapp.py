@@ -48,7 +48,9 @@ async def _process_webhook_background(webhook_data: WhatsAppWebhook) -> None:
         except Exception as e:
             logger.exception(f"Error processing webhook in background: {e}")
         finally:
-            await session.rollback()
+            # Only rollback if session is still active
+            if session.is_active:
+                await session.rollback()
 
 
 @router.get("/webhooks/whatsapp", response_class=PlainTextResponse)

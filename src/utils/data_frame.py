@@ -5,5 +5,8 @@ def _df_to_dict_safe(df):
     if isinstance(df, dict):
         return df
     if hasattr(df, "to_dict"):
-        return df.to_dict(orient="records")
+        # Convert column names to strings to handle Timestamp columns
+        df_copy = df.copy()
+        df_copy.columns = [str(col) for col in df_copy.columns]
+        return df_copy.to_dict(orient="records")
     return {}

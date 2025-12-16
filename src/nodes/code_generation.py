@@ -16,6 +16,7 @@ from src.core.json_logging import logger_for
 from src.core.schema import EquityHoldingSchema
 from src.schemas.agent_state import AgentContext, AgentState
 from src.tools.calculate_profit_tool import calculate_profit_or_loss
+from src.tools.filters import growth_filter, value_filter
 from src.tools.portfolio_risk import (
     download_prices,
     max_drawdown,
@@ -137,6 +138,9 @@ The following functions are already implemented and imported in the runtime envi
 ## Ownership & Insider Activity:
 {yf_ownership_and_insider_activity_function_with_doc_string}
 
+# STOCK FILTERING FUNCTIONS:
+{filter_functions_with_doc_string}
+
 # STRICT RULES:
 - Always respect all argument types and argument descriptions when calling any function.
 - Prefer batch functions whenever working with multiple items.
@@ -233,6 +237,9 @@ Your output must:
             profit_calculation_function_with_doc_string: str = get_function_with_doc_string(
                 [calculate_profit_or_loss]
             )
+            filter_functions_with_doc_string: str = get_function_with_doc_string(
+                [growth_filter, value_filter]
+            )
 
             user_request = state.get("user_request", "").strip()
             messages = state.get("messages", [])
@@ -269,6 +276,7 @@ Your output must:
                     "yf_ownership_and_insider_activity_function_with_doc_string": yf_ownership_and_insider_activity_function_with_doc_string,
                     "profit_calculation_function_with_doc_string": profit_calculation_function_with_doc_string,
                     "risk_functions_with_doc_string": risk_functions_with_doc_string,
+                    "filter_functions_with_doc_string": filter_functions_with_doc_string,
                     "current_date_time": current_date_time_ist,
                 }
             )

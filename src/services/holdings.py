@@ -61,17 +61,28 @@ class HoldingsService:
         self, holdings_list: list[HoldingsRequestSchema], user_id: UUID
     ) -> int:
         """
-        Save multiple equity holdings for a user (bulk insert).
+        Save multiple equity holdings for a user (upsert).
 
-        This is the use-case boundary - handles the full bulk holding creation transaction.
+        If holdings already exist for the user-broker pair:
+        - Updates existing holdings (matched by ISIN), preserving created_at
+        - Inserts new holdings
+        - Deletes holdings that are not in the new list
+
+        This is the use-case boundary - handles the full bulk holding transaction.
 
         Args:
             holdings_list: List of holdings data to save
             user_id: UUID of the user
 
         Returns:
-            Number of holdings created
+            Number of holdings processed (updated + inserted)
         """
+        if not holdings_list:
+            return 0
+
+        # All holdings in the list share the same broker_id
+        broker_id = holdings_list[0].broker_id
+
         # Create list of EquityHolding objects
         holdings = [
             EquityHolding(
@@ -89,13 +100,15 @@ class HoldingsService:
             for holding in holdings_list
         ]
 
-        # Bulk insert all holdings
-        await self.repo.add_all(holdings)
+        # Upsert holdings (update existing, insert new, delete removed)
+        updated_count, inserted_count = await self.repo.upsert_holdings(
+            user_id=user_id, broker_id=broker_id, holdings=holdings
+        )
 
         # Commit at the use-case boundary
         await self.repo.session.commit()
 
-        return len(holdings)
+        return updated_count + inserted_count
 
     async def get_portfolio_df(
         self, user_id: UUID, broker_id: Optional[UUID] = None

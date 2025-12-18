@@ -14,7 +14,7 @@ from src.models.base import Base
 class EquityHolding(Base):
     """Equity holding model for equity_holdings_in table"""
 
-    __tablename__ = "equity_holdings_in"
+    __tablename__ = "zerodha_equity_holdings_in"
 
     id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
@@ -31,21 +31,13 @@ class EquityHolding(Base):
 
     # Quantities (integer values)
     qty_available: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    qty_discrepant: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     qty_long_term: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     qty_pledged_margin: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    qty_pledged_loan: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     # Prices (decimal with precision)
     avg_price: Mapped[Decimal] = mapped_column(Numeric(precision=20, scale=4), nullable=False)
     prev_close_price: Mapped[Decimal] = mapped_column(
         Numeric(precision=20, scale=4), nullable=False
-    )
-
-    # PnL values (can be negative)
-    unrealized_pnl: Mapped[Decimal] = mapped_column(Numeric(precision=20, scale=4), nullable=False)
-    unrealized_pnl_pct: Mapped[Decimal] = mapped_column(
-        Numeric(precision=10, scale=4), nullable=False
     )
 
     # Timestamps

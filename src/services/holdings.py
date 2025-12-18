@@ -46,14 +46,10 @@ class HoldingsService:
             isin=holding_schema.isin,
             sector=holding_schema.sector,
             qty_available=holding_schema.qty_available,
-            qty_discrepant=holding_schema.qty_discrepant,
             qty_long_term=holding_schema.qty_long_term,
             qty_pledged_margin=holding_schema.qty_pledged_margin,
-            qty_pledged_loan=holding_schema.qty_pledged_loan,
             avg_price=holding_schema.avg_price,
             prev_close_price=holding_schema.prev_close_price,
-            unrealized_pnl=holding_schema.unrealized_pnl,
-            unrealized_pnl_pct=holding_schema.unrealized_pnl_pct,
         )
 
         # Commit at the use-case boundary
@@ -85,14 +81,10 @@ class HoldingsService:
                 isin=holding.isin,
                 sector=holding.sector,
                 qty_available=holding.qty_available,
-                qty_discrepant=holding.qty_discrepant,
                 qty_long_term=holding.qty_long_term,
                 qty_pledged_margin=holding.qty_pledged_margin,
-                qty_pledged_loan=holding.qty_pledged_loan,
                 avg_price=holding.avg_price,
                 prev_close_price=holding.prev_close_price,
-                unrealized_pnl=holding.unrealized_pnl,
-                unrealized_pnl_pct=holding.unrealized_pnl_pct,
             )
             for holding in holdings_list
         ]

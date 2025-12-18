@@ -24,14 +24,10 @@ class HoldingsRepository:
         isin: str,
         sector: str | None,
         qty_available: int,
-        qty_discrepant: int,
         qty_long_term: int,
         qty_pledged_margin: int,
-        qty_pledged_loan: int,
         avg_price: Decimal,
         prev_close_price: Decimal,
-        unrealized_pnl: Decimal,
-        unrealized_pnl_pct: Decimal,
     ) -> EquityHolding:
         """
         Add a new equity holding to the database.
@@ -43,14 +39,10 @@ class HoldingsRepository:
             isin: ISIN code
             sector: Sector (optional)
             qty_available: Available quantity
-            qty_discrepant: Discrepant quantity
             qty_long_term: Long term quantity
             qty_pledged_margin: Quantity pledged for margin
-            qty_pledged_loan: Quantity pledged for loan
             avg_price: Average purchase price
             prev_close_price: Previous closing price
-            unrealized_pnl: Unrealized profit/loss
-            unrealized_pnl_pct: Unrealized PnL percentage
 
         Returns:
             The created EquityHolding object
@@ -62,14 +54,10 @@ class HoldingsRepository:
             isin=isin,
             sector=sector,
             qty_available=qty_available,
-            qty_discrepant=qty_discrepant,
             qty_long_term=qty_long_term,
             qty_pledged_margin=qty_pledged_margin,
-            qty_pledged_loan=qty_pledged_loan,
             avg_price=avg_price,
             prev_close_price=prev_close_price,
-            unrealized_pnl=unrealized_pnl,
-            unrealized_pnl_pct=unrealized_pnl_pct,
         )
         self.session.add(holding)
         await self.session.flush()  # Get the holding with auto-generated fields

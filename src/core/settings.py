@@ -15,7 +15,9 @@ class Settings(BaseSettings):
     # With a pooler (40 pool size, 200 max clients), we can use more connections
     # since the pooler multiplexes them. Keep below 200 total client connections.
     db_pool_size: int = 30  # Can be higher with connection pooler (up to ~200 max clients)
-    db_max_overflow: int = 10  # Additional connections beyond pool_size (total = pool_size + max_overflow)
+    db_max_overflow: int = (
+        10  # Additional connections beyond pool_size (total = pool_size + max_overflow)
+    )
     db_pool_timeout: int = 30
 
     # JWT Settings
@@ -27,12 +29,12 @@ class Settings(BaseSettings):
     cookie_name: str = "access_token"
     cookie_secure: bool = Field(
         default=False,
-        description="Set to True in production with HTTPS. Required when cookie_samesite='none' for cross-origin requests."
+        description="Set to True in production with HTTPS. Required when cookie_samesite='none' for cross-origin requests.",
     )
     cookie_httponly: bool = True
     cookie_samesite: str = Field(
         default="lax",
-        description="Cookie SameSite attribute: 'strict', 'lax', or 'none'. Use 'none' for cross-origin requests (requires cookie_secure=True)."
+        description="Cookie SameSite attribute: 'strict', 'lax', or 'none'. Use 'none' for cross-origin requests (requires cookie_secure=True).",
     )
 
     @field_validator("cookie_samesite")

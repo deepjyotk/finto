@@ -104,14 +104,10 @@ async def upload_holdings_file(
     - ISIN
     - Sector (optional)
     - Quantity Available
-    - Quantity Discrepant
     - Quantity Long Term
     - Quantity Pledged (Margin)
-    - Quantity Pledged (Loan)
     - Average Price
     - Previous Closing Price
-    - Unrealized P&L
-    - Unrealized P&L Pct.
 
     The broker_id is provided as form data, and user_id is extracted from
     the authenticated user's JWT token.

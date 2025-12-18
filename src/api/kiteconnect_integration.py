@@ -281,7 +281,7 @@ async def kite_trades(current_user: dict = Depends(require_auth)):
 async def kite_quote(symbols: str, current_user: dict = Depends(require_auth)):
     """
     Fetch quote data (OHLC, depth, etc.) for one or more symbols.
-    
+
     Args:
         symbols: Comma-separated symbols (e.g., "NSE:INFY,NSE:TCS")
     """
@@ -315,7 +315,7 @@ async def kite_ltp(symbols: str, current_user: dict = Depends(require_auth)):
     """
     Fetch last traded price (LTP) for one or more symbols.
     Lightweight endpoint compared to quote.
-    
+
     Args:
         symbols: Comma-separated symbols (e.g., "NSE:INFY,NSE:TCS")
     """
@@ -354,13 +354,13 @@ async def kite_historical(
 ):
     """
     Fetch historical candle data for an instrument.
-    
+
     Args:
         instrument_token: Token of the instrument
         interval: Candle interval (minute, 3minute, 5minute, 15minute, 30minute, 60minute, day, week, month)
         from_date: Start date (format: YYYY-MM-DD or YYYY-MM-DD HH:MM:SS)
         to_date: End date (format: YYYY-MM-DD or YYYY-MM-DD HH:MM:SS)
-    
+
     Returns:
         Candles data with [timestamp, open, high, low, close, volume] format
     """

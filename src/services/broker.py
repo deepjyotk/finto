@@ -20,14 +20,10 @@ class BrokerService:
         "ISIN": "isin",
         "Sector": "sector",
         "Quantity Available": "qty_available",
-        "Quantity Discrepant": "qty_discrepant",
         "Quantity Long Term": "qty_long_term",
         "Quantity Pledged (Margin)": "qty_pledged_margin",
-        "Quantity Pledged (Loan)": "qty_pledged_loan",
         "Average Price": "avg_price",
         "Previous Closing Price": "prev_close_price",
-        "Unrealized P&L": "unrealized_pnl",
-        "Unrealized P&L Pct.": "unrealized_pnl_pct",
     }
 
     def __init__(self, repo: BrokerRepository):
@@ -102,8 +98,6 @@ class BrokerService:
             "isin",
             "avg_price",
             "prev_close_price",
-            "unrealized_pnl",
-            "unrealized_pnl_pct",
         ]
         missing_columns = [field for field in required_fields if field not in df.columns]
         if missing_columns:
@@ -117,22 +111,16 @@ class BrokerService:
             df["sector"] = None
         if "qty_available" not in df.columns:
             df["qty_available"] = 0
-        if "qty_discrepant" not in df.columns:
-            df["qty_discrepant"] = 0
         if "qty_long_term" not in df.columns:
             df["qty_long_term"] = 0
         if "qty_pledged_margin" not in df.columns:
             df["qty_pledged_margin"] = 0
-        if "qty_pledged_loan" not in df.columns:
-            df["qty_pledged_loan"] = 0
 
         # Replace NaN values with defaults (handle numeric and string columns separately)
         numeric_cols = [
             "qty_available",
-            "qty_discrepant",
             "qty_long_term",
             "qty_pledged_margin",
-            "qty_pledged_loan",
         ]
         for col in numeric_cols:
             if col in df.columns:
@@ -148,14 +136,10 @@ class BrokerService:
                     isin=str(row["isin"]).strip(),
                     sector=str(row["sector"]).strip() if pd.notna(row["sector"]) else None,
                     qty_available=int(row["qty_available"]),
-                    qty_discrepant=int(row["qty_discrepant"]),
                     qty_long_term=int(row["qty_long_term"]),
                     qty_pledged_margin=int(row["qty_pledged_margin"]),
-                    qty_pledged_loan=int(row["qty_pledged_loan"]),
                     avg_price=Decimal(str(row["avg_price"])),
                     prev_close_price=Decimal(str(row["prev_close_price"])),
-                    unrealized_pnl=Decimal(str(row["unrealized_pnl"])),
-                    unrealized_pnl_pct=Decimal(str(row["unrealized_pnl_pct"])),
                 )
                 holdings_list.append(holding)
             except Exception as e:

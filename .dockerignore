@@ -46,6 +46,7 @@ scripts/render_graph.py
 wiki/
 
 scripts/*
+tests/*
 
 # Exclude large/unnecessary files
 artifacts/

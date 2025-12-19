@@ -24,13 +24,13 @@ def get_balance_sheet(symbol_name: str, freq: str = "yearly", pretty: bool = Fal
         raise ValueError("Symbol name is required.")
     t = symbol_name.strip().upper()
     data = yf.Ticker(t).get_balance_sheet(as_dict=True, pretty=pretty, freq=freq)
-    
+
     # Convert Timestamp keys to strings if data is a dict
     if isinstance(data, dict):
         balance_sheet = {str(k): v for k, v in data.items()}
     else:
         balance_sheet = data
-    
+
     return {"symbol": t, "balance_sheet": balance_sheet}
 
 
@@ -49,13 +49,13 @@ def get_income_statement(symbol_name: str, freq: str = "yearly", pretty: bool = 
         raise ValueError("Symbol name is required.")
     t = symbol_name.strip().upper()
     data = yf.Ticker(t).get_income_stmt(as_dict=True, pretty=pretty, freq=freq)
-    
+
     # Convert Timestamp keys to strings if data is a dict
     if isinstance(data, dict):
         income_statement = {str(k): v for k, v in data.items()}
     else:
         income_statement = data
-    
+
     return {"symbol": t, "income_statement": income_statement}
 
 
@@ -74,13 +74,13 @@ def get_cash_flow(symbol_name: str, freq: str = "yearly", pretty: bool = False) 
         raise ValueError("Symbol name is required.")
     t = symbol_name.strip().upper()
     data = yf.Ticker(t).get_cashflow(as_dict=True, pretty=pretty, freq=freq)
-    
+
     # Convert Timestamp keys to strings if data is a dict
     if isinstance(data, dict):
         cash_flow = {str(k): v for k, v in data.items()}
     else:
         cash_flow = data
-    
+
     return {"symbol": t, "cash_flow": cash_flow}
 
 

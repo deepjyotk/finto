@@ -31,6 +31,7 @@ class PortfolioUpdates(BaseModel):
 
     broker_id: str
     broker_name: str
+    broker_user_id: str
     last_updated_at: datetime
     uploaded_via: str
     additional_metadata: dict[str, str]

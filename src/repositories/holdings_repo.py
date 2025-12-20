@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import and_, select, update
+from sqlalchemy import and_, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models.broker import Broker
@@ -79,6 +79,29 @@ class HoldingsRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_metadata_by_user_broker_id(
+        self, user_broker_id: UUID, user_id: UUID
+    ) -> Optional[EquityHoldingMetadata]:
+        """
+        Get metadata record by user_broker_id, verifying it belongs to the user.
+
+        Args:
+            user_broker_id: UUID of the user-broker metadata
+            user_id: UUID of the user (for ownership verification)
+
+        Returns:
+            EquityHoldingMetadata object if found and owned by user, None otherwise
+        """
+        result = await self.session.execute(
+            select(EquityHoldingMetadata).where(
+                and_(
+                    EquityHoldingMetadata.user_broker_id == user_broker_id,
+                    EquityHoldingMetadata.user_id == user_id,
+                )
+            )
+        )
+        return result.scalar_one_or_none()
+
     async def get_user_brokers(self, user_id: UUID) -> list[dict]:
         """
         Get all brokers that a user has holdings with.
@@ -120,6 +143,7 @@ class HoldingsRepository:
             select(
                 EquityHoldingMetadata.broker_id,
                 cast(Broker.broker_name, String).label("broker_name"),
+                EquityHoldingMetadata.user_broker_id,
                 EquityHoldingMetadata.updated_at,
                 cast(EquityHoldingMetadata.uploaded_via, String).label("uploaded_via"),
                 EquityHoldingMetadata.extra_metadata,
@@ -131,6 +155,7 @@ class HoldingsRepository:
             {
                 "broker_id": row.broker_id,
                 "broker_name": row.broker_name,
+                "user_broker_id": row.user_broker_id,
                 "updated_at": row.updated_at,
                 "uploaded_via": row.uploaded_via,
                 "extra_metadata": row.extra_metadata,
@@ -394,3 +419,90 @@ class HoldingsRepository:
 
         await self.session.flush()
         return updated_count, inserted_count
+
+    async def upsert_holdings_by_user_broker_id(
+        self,
+        user_broker_id: UUID,
+        holdings: list[EquityHolding],
+    ) -> tuple[int, int, int]:
+        """
+        Upsert holdings for a given user_broker_id.
+
+        - Updates existing holdings (matched by symbol)
+        - Inserts new holdings
+        - Deletes holdings that are not in the new list
+
+        Args:
+            user_broker_id: The user_broker_id (metadata PK)
+            holdings: List of new EquityHolding objects
+
+        Returns:
+            Tuple of (updated_count, inserted_count, deleted_count)
+        """
+        if not holdings:
+            return 0, 0, 0
+
+        # Get existing holdings for this user_broker_id
+        existing_holdings = await self.by_user_broker_id(user_broker_id)
+
+        # Create a map of normalized symbol -> existing holding
+        existing_by_symbol: dict[str, EquityHolding] = {
+            h.symbol.strip().upper(): h for h in existing_holdings
+        }
+
+        # Track normalized symbols in the new data
+        new_symbols: set[str] = {h.symbol.strip().upper() for h in holdings}
+
+        updated_count = 0
+        inserted_count = 0
+        deleted_count = 0
+
+        for new_holding in holdings:
+            normalized_symbol = new_holding.symbol.strip().upper()
+            existing = existing_by_symbol.get(normalized_symbol)
+
+            if existing:
+                # Update existing holding using explicit UPDATE statement
+                stmt = (
+                    update(EquityHolding)
+                    .where(EquityHolding.id == existing.id)
+                    .values(
+                        company_name=new_holding.company_name,
+                        sector=new_holding.sector,
+                        qty_available=new_holding.qty_available,
+                        qty_long_term=new_holding.qty_long_term,
+                        qty_pledged_margin=new_holding.qty_pledged_margin,
+                        avg_price=new_holding.avg_price,
+                        prev_close_price=new_holding.prev_close_price,
+                    )
+                )
+                await self.session.execute(stmt)
+                updated_count += 1
+            else:
+                # Insert new holding with the correct user_broker_id
+                new_holding.user_broker_id = user_broker_id
+                self.session.add(new_holding)
+                inserted_count += 1
+
+        # Delete holdings that are not in the new list
+        for symbol, existing in existing_by_symbol.items():
+            if symbol not in new_symbols:
+                await self.session.delete(existing)
+                deleted_count += 1
+
+        await self.session.flush()
+        return updated_count, inserted_count, deleted_count
+
+    async def update_metadata_timestamp(self, user_broker_id: UUID) -> None:
+        """
+        Update the updated_at timestamp for a metadata record.
+
+        Args:
+            user_broker_id: The user_broker_id (metadata PK)
+        """
+        stmt = (
+            update(EquityHoldingMetadata)
+            .where(EquityHoldingMetadata.user_broker_id == user_broker_id)
+            .values(updated_at=func.now())
+        )
+        await self.session.execute(stmt)

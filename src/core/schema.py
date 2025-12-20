@@ -28,7 +28,7 @@ class EquityHoldingSchema(BaseModel):
 
     @staticmethod
     def get_supported_columns() -> list[str]:
-        return ["symbol", "sector", "qty_available", "avg_price"]
+        return ["symbol", "company_name", "sector", "qty_available", "avg_price"]
 
     @staticmethod
     def get_holdings_schema() -> str:

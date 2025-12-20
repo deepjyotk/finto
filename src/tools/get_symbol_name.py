@@ -21,10 +21,14 @@ def get_symbol_names(user_query: str) -> List[str]:
     """Extracts the stock symbols from a user's query using vector similarity search.
 
     Input: user's query string like "I want to calculate the total value of my holdings in adani green and tata motors"
-    Returns: A list with symbol name strings like "ADANIGREEN.NS", "TATAMOTORS.NS"
+    Returns: A list with symbol name strings like "ADANIGREEN", "TATAMOTORS"
     """
     normalized_query = (user_query or "").strip()
     if not normalized_query:
         return []
 
-    return [_get_symbol_for_query(normalized_query)]
+    return_symbol = _get_symbol_for_query(normalized_query)
+    # if .NS is present, can you remove it and return the symbol without .NS
+    if return_symbol.endswith(".NS"):
+        return [return_symbol[:-3]]
+    return [return_symbol]

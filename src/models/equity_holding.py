@@ -1,14 +1,17 @@
 """Equity Holding model for SQLAlchemy"""
 
-from datetime import datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, Text, func
+from sqlalchemy import ForeignKey, Integer, Numeric, Text, func
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models.base import Base
+
+if TYPE_CHECKING:
+    from src.models.equity_holding_metadata import EquityHoldingMetadata
 
 
 class EquityHolding(Base):
@@ -19,14 +22,13 @@ class EquityHolding(Base):
     id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
     )
-    user_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("f_users.user_id", ondelete="CASCADE"), nullable=False
-    )
-    broker_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("brokers.broker_id", ondelete="CASCADE"), nullable=False
+    user_broker_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("equity_holdings_in_metadata.user_broker_id", ondelete="CASCADE"),
+        nullable=False,
     )
     symbol: Mapped[str] = mapped_column(Text, nullable=False)
-    isin: Mapped[str] = mapped_column(Text, nullable=False)
+    company_name: Mapped[str] = mapped_column(Text, nullable=False)
     sector: Mapped[str] = mapped_column(Text, nullable=True)
 
     # Quantities (integer values)
@@ -40,19 +42,13 @@ class EquityHolding(Base):
         Numeric(precision=20, scale=4), nullable=False
     )
 
-    # Timestamps
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
+    # Relationship to metadata
+    holding_metadata: Mapped["EquityHoldingMetadata"] = relationship(
+        "EquityHoldingMetadata", back_populates="holdings"
     )
 
     def __repr__(self) -> str:
         return (
-            f"<EquityHolding(id={self.id}, user_id={self.user_id}, "
+            f"<EquityHolding(id={self.id}, user_broker_id={self.user_broker_id}, "
             f"symbol={self.symbol}, qty={self.qty_available})>"
         )

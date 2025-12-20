@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel
@@ -25,8 +26,19 @@ class BrokerPayload(BaseModel):
     country: str
 
 
-class HomeFeedSchema(BaseModel):
-    """Home feed response schema"""
+class PortfolioUpdates(BaseModel):
+    """Portfolio updates"""
+
+    broker_id: str
+    broker_name: str
+    last_updated_at: datetime
+    uploaded_via: str
+    additional_metadata: dict[str, str]
+
+
+class HoldingsMetadataSchema(BaseModel):
+    """Holdings metadata response schema"""
 
     chat_integrations: list[ChatIntegration]
     available_brokers: list[BrokerPayload]
+    portfolio_updates: list[PortfolioUpdates]

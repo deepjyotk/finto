@@ -5,7 +5,6 @@ from fastapi import APIRouter
 from src.api.auth import router as auth_router
 from src.api.chat import router as chat_router
 from src.api.holdings import router as holdings_router
-from src.api.home import router as home_router
 from src.api.kiteconnect_integration import router as kite_router
 from src.api.thesys_chat import router as thesys_chat_router
 from src.api.whatsapp import router as whatsapp_router
@@ -17,7 +16,6 @@ api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(auth_router)
 api_router.include_router(chat_router)
 api_router.include_router(holdings_router)
-api_router.include_router(home_router)
 api_router.include_router(kite_router)
 api_router.include_router(thesys_chat_router)
 api_router.include_router(whatsapp_router)

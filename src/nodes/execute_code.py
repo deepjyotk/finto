@@ -104,8 +104,8 @@ class ExecuteCodeNode:
             runtime = get_runtime(AgentContext)
             context = runtime.context
             user_id = context.get("user_id")
-
-            portfolio_df = await self._holding_service.get_portfolio_df(user_id)
+            broker_id = context.get("broker_id")
+            portfolio_df = await self._holding_service.get_portfolio_df(user_id, broker_id)
 
             # 2. Inject 'df' into the consolidated environment
             execution_env["df"] = portfolio_df

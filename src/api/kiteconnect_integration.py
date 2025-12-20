@@ -18,12 +18,12 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from kiteconnect import KiteConnect
 from pydantic import BaseModel
 
+from src.api.schemas.holdings import HoldingsRequestSchema
+from src.core.db import get_session
 from src.core.json_logging import logger_for
 from src.core.middleware import get_current_user_optional, require_auth
-from src.services.holdings import HoldingsService
 from src.repositories.holdings_repo import HoldingsRepository
-from src.core.db import get_session
-from src.api.schemas.holdings import HoldingsRequestSchema
+from src.services.holdings import HoldingsService
 
 logger = logger_for(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -408,6 +408,7 @@ async def kite_historical(
 
 class SyncHoldingsRequest(BaseModel):
     """Request schema for syncing holdings data from Kite"""
+
     holdings: list[dict]
 
 
@@ -419,35 +420,35 @@ async def sync_holdings(
 ):
     """
     Sync Kite Connect holdings data to the database.
-    
+
     Takes holdings data from Kite and stores them in the database for the logged-in user.
     This endpoint clears old holdings and inserts fresh data for the user.
-    
+
     Args:
         request: Request containing list of holdings from Kite
         current_user: Authenticated user info
         session: Database session
-    
+
     Returns:
         Success message with count of synced holdings
     """
     try:
         user_id = UUID(str(current_user.get("user_id")))
         holdings_data = request.holdings
-        
+
         if not holdings_data:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No holdings data provided",
             )
-        
+
         # Initialize repository and service
         holdings_repo = HoldingsRepository(session)
         holdings_service = HoldingsService(holdings_repo)
-        
+
         # Delete existing holdings for this user to avoid duplicates
         await holdings_repo.delete_by_user_id(user_id)
-        
+
         # Transform Kite holdings data to HoldingsRequestSchema format
         holdings_schemas = []
         for holding in holdings_data:
@@ -470,31 +471,27 @@ async def sync_holdings(
                 holdings_schemas.append(schema)
             except (ValueError, KeyError) as e:
                 logger.warning(
-                    "sync_holdings_invalid_holding",
-                    extra={"error": str(e), "holding": holding}
+                    "sync_holdings_invalid_holding", extra={"error": str(e), "holding": holding}
                 )
                 continue
-        
+
         if not holdings_schemas:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No valid holdings could be parsed",
             )
-        
+
         # Save all holdings to database
         count = await holdings_service.save_user_holdings(holdings_schemas, user_id)
-        
-        logger.info(
-            "sync_holdings_success",
-            extra={"user_id": user_id, "holdings_count": count}
-        )
-        
+
+        logger.info("sync_holdings_success", extra={"user_id": user_id, "holdings_count": count})
+
         return {
             "status": "success",
             "message": f"Successfully synced {count} holdings to database",
             "holdings_count": count,
         }
-        
+
     except ValueError as e:
         logger.error("sync_holdings_invalid_user_id", extra={"error": str(e)})
         raise HTTPException(

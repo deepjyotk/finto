@@ -154,6 +154,7 @@ class ThesysChatService:
 
         thread_id = request.session_id
         session_id = UUID(thread_id)
+        broker_id = UUID(request.broker_id)
 
         # Persist the User message to the chat_messages table
         await self.chat_repo.create_user_message(
@@ -194,6 +195,7 @@ class ThesysChatService:
                     "router_model": LLMModel.from_model_name(router_model),
                     "portfolio_model": LLMModel.from_model_name(portfolio_model),
                     "news_model": LLMModel.from_model_name(news_model),
+                    "broker_id": broker_id,
                 }
 
                 try:

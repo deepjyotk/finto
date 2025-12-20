@@ -30,10 +30,6 @@ app = FastAPI(
             "name": "holdings",
             "description": "Equity holdings management endpoints",
         },
-        {
-            "name": "home",
-            "description": "Home feed endpoints for user integrations",
-        },
     ],
 )
 

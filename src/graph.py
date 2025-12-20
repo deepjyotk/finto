@@ -3,6 +3,7 @@
 import asyncio
 from typing import Awaitable, Callable
 
+import psycopg
 from langchain_core.messages import AIMessage
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.graph import END, StateGraph
@@ -78,7 +79,33 @@ async def _get_checkpointer() -> AsyncPostgresSaver:
                 # Ensure pool is ready before passing to saver
                 await _CHECKPOINTER_POOL.open(wait=True)
                 _CHECKPOINTER = AsyncPostgresSaver(_CHECKPOINTER_POOL)
-                await _CHECKPOINTER.setup()  # ensure checkpoint tables exist
+
+                # Setup checkpoint tables with autocommit enabled
+                # CREATE INDEX CONCURRENTLY cannot run inside a transaction block
+                # We need to run setup with autocommit, so create a connection factory
+                # that always enables autocommit
+                async def autocommit_conn_factory():
+                    conn = await psycopg.AsyncConnection.connect(
+                        settings.database_url, autocommit=True
+                    )
+                    return conn
+
+                # Create a temporary pool that uses autocommit connections
+                setup_pool = AsyncConnectionPool(
+                    conninfo=settings.database_url,
+                    min_size=1,
+                    max_size=1,
+                    kwargs={"autocommit": True},  # Enable autocommit for all connections
+                )
+                try:
+                    await setup_pool.open(wait=True)
+                    # Create temporary saver with autocommit pool for setup
+                    setup_saver = AsyncPostgresSaver(setup_pool)
+                    await setup_saver.setup()
+                finally:
+                    await setup_pool.close()
+
+                # Main checkpointer is ready to use (tables/indexes now exist)
             except Exception:
                 # Tear down partial initialization so the next caller can retry cleanly
                 if _CHECKPOINTER_POOL and not _CHECKPOINTER_POOL.closed:

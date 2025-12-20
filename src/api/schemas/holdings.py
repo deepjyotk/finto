@@ -13,7 +13,9 @@ class HoldingsRequestSchema(BaseModel):
         ..., description="ID of the broker", example="123e4567-e89b-12d3-a456-426614174000"
     )
     symbol: str = Field(..., description="Trading symbol", example="RELIANCE")
-    isin: str = Field(..., description="ISIN code", example="INE002A01018")
+    company_name: str = Field(
+        ..., description="Company name", example="Reliance Industries Limited"
+    )
     sector: str | None = Field(None, description="Sector of the equity", example="Energy")
 
     # Quantities
@@ -30,7 +32,7 @@ class HoldingsRequestSchema(BaseModel):
             "example": {
                 "broker_id": "123e4567-e89b-12d3-a456-426614174000",
                 "symbol": "RELIANCE",
-                "isin": "INE002A01018",
+                "company_name": "Reliance Industries Limited",
                 "sector": "Energy",
                 "qty_available": 100,
                 "qty_long_term": 50,
@@ -48,8 +50,9 @@ class HoldingsResponseSchema(BaseModel):
     id: UUID = Field(..., description="Unique holding identifier")
     user_id: UUID = Field(..., description="User identifier")
     broker_id: UUID = Field(..., description="Broker identifier")
+    user_broker_id: UUID = Field(..., description="User-broker metadata identifier")
     symbol: str = Field(..., description="Trading symbol")
-    isin: str = Field(..., description="ISIN code")
+    company_name: str = Field(..., description="Company name")
     sector: str | None = Field(None, description="Sector of the equity")
 
     qty_available: int = Field(..., description="Available quantity")

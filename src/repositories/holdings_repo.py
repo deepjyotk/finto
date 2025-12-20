@@ -4,10 +4,12 @@ from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import and_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.models.broker import Broker
 from src.models.equity_holding import EquityHolding
+from src.models.equity_holding_metadata import EquityHoldingMetadata, UploadedVia
 
 
 class HoldingsRepository:
@@ -16,18 +18,139 @@ class HoldingsRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
+    async def get_or_create_metadata(
+        self,
+        user_id: UUID,
+        broker_id: UUID,
+        uploaded_via: UploadedVia = UploadedVia.USER_FILE_UPLOAD,
+    ) -> EquityHoldingMetadata:
+        """
+        Get existing metadata record or create a new one for the user-broker pair.
+
+        Args:
+            user_id: UUID of the user
+            broker_id: UUID of the broker
+            uploaded_via: How the holdings were uploaded
+
+        Returns:
+            The existing or newly created EquityHoldingMetadata object
+        """
+        result = await self.session.execute(
+            select(EquityHoldingMetadata).where(
+                and_(
+                    EquityHoldingMetadata.user_id == user_id,
+                    EquityHoldingMetadata.broker_id == broker_id,
+                )
+            )
+        )
+        metadata = result.scalar_one_or_none()
+
+        if metadata is None:
+            metadata = EquityHoldingMetadata(
+                user_id=user_id,
+                broker_id=broker_id,
+                uploaded_via=uploaded_via,
+            )
+            self.session.add(metadata)
+            await self.session.flush()
+
+        return metadata
+
+    async def get_metadata_by_user_and_broker(
+        self, user_id: UUID, broker_id: UUID
+    ) -> Optional[EquityHoldingMetadata]:
+        """
+        Get metadata record for a user-broker pair.
+
+        Args:
+            user_id: UUID of the user
+            broker_id: UUID of the broker
+
+        Returns:
+            EquityHoldingMetadata object if found, None otherwise
+        """
+        result = await self.session.execute(
+            select(EquityHoldingMetadata).where(
+                and_(
+                    EquityHoldingMetadata.user_id == user_id,
+                    EquityHoldingMetadata.broker_id == broker_id,
+                )
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def get_user_brokers(self, user_id: UUID) -> list[dict]:
+        """
+        Get all brokers that a user has holdings with.
+
+        Args:
+            user_id: UUID of the user
+
+        Returns:
+            List of dicts with broker_id and broker_name
+        """
+        from sqlalchemy import cast
+        from sqlalchemy.types import String
+
+        result = await self.session.execute(
+            select(
+                Broker.broker_id,
+                cast(Broker.broker_name, String).label("broker_name"),
+            )
+            .join(
+                EquityHoldingMetadata,
+                EquityHoldingMetadata.broker_id == Broker.broker_id,
+            )
+            .where(EquityHoldingMetadata.user_id == user_id)
+        )
+
+        return [{"broker_id": row.broker_id, "broker_name": row.broker_name} for row in result]
+
+    async def get_metadata_by_user_id(self, user_id: UUID) -> list[EquityHoldingMetadata]:
+        result = await self.session.execute(
+            select(EquityHoldingMetadata).where(EquityHoldingMetadata.user_id == user_id)
+        )
+        return list(result.scalars().all())
+
+    async def get_metadata_with_broker_name(self, user_id: UUID) -> list[dict]:
+        from sqlalchemy import cast
+        from sqlalchemy.types import String
+
+        result = await self.session.execute(
+            select(
+                EquityHoldingMetadata.broker_id,
+                cast(Broker.broker_name, String).label("broker_name"),
+                EquityHoldingMetadata.updated_at,
+                cast(EquityHoldingMetadata.uploaded_via, String).label("uploaded_via"),
+                EquityHoldingMetadata.extra_metadata,
+            )
+            .join(Broker, Broker.broker_id == EquityHoldingMetadata.broker_id)
+            .where(EquityHoldingMetadata.user_id == user_id)
+        )
+        return [
+            {
+                "broker_id": row.broker_id,
+                "broker_name": row.broker_name,
+                "updated_at": row.updated_at,
+                "uploaded_via": row.uploaded_via,
+                "extra_metadata": row.extra_metadata,
+            }
+            for row in result
+        ]
+
     async def add(
         self,
         user_id: UUID,
         broker_id: UUID,
         symbol: str,
-        isin: str,
+        company_name: str,
         sector: str | None,
         qty_available: int,
         qty_long_term: int,
         qty_pledged_margin: int,
         avg_price: Decimal,
         prev_close_price: Decimal,
+        uploaded_via: UploadedVia = UploadedVia.USER_FILE_UPLOAD,
     ) -> EquityHolding:
         """
         Add a new equity holding to the database.
@@ -35,23 +158,26 @@ class HoldingsRepository:
         Args:
             user_id: UUID of the user
             broker_id: UUID of the broker
-            symbol: Trading symbol
-            isin: ISIN code
+            symbol: Trading symbol (FK to in_equities.symbol)
+            company_name: Company name (FK to in_equities.company_name)
             sector: Sector (optional)
             qty_available: Available quantity
             qty_long_term: Long term quantity
             qty_pledged_margin: Quantity pledged for margin
             avg_price: Average purchase price
             prev_close_price: Previous closing price
+            uploaded_via: How the holdings were uploaded
 
         Returns:
             The created EquityHolding object
         """
+        # Get or create metadata for this user-broker pair
+        metadata = await self.get_or_create_metadata(user_id, broker_id, uploaded_via)
+
         holding = EquityHolding(
-            user_id=user_id,
-            broker_id=broker_id,
+            user_broker_id=metadata.user_broker_id,
             symbol=symbol,
-            isin=isin,
+            company_name=company_name,
             sector=sector,
             qty_available=qty_available,
             qty_long_term=qty_long_term,
@@ -60,7 +186,7 @@ class HoldingsRepository:
             prev_close_price=prev_close_price,
         )
         self.session.add(holding)
-        await self.session.flush()  # Get the holding with auto-generated fields
+        await self.session.flush()
         return holding
 
     async def by_id(self, holding_id: UUID) -> Optional[EquityHolding]:
@@ -88,8 +214,15 @@ class HoldingsRepository:
         Returns:
             List of EquityHolding objects
         """
+        # Get all metadata records for this user
+        metadata_list = await self.get_metadata_by_user_id(user_id)
+        if not metadata_list:
+            return []
+
+        user_broker_ids = [m.user_broker_id for m in metadata_list]
+
         result = await self.session.execute(
-            select(EquityHolding).where(EquityHolding.user_id == user_id)
+            select(EquityHolding).where(EquityHolding.user_broker_id.in_(user_broker_ids))
         )
         return list(result.scalars().all())
 
@@ -104,10 +237,28 @@ class HoldingsRepository:
         Returns:
             List of EquityHolding objects
         """
+        # Get the metadata for this user-broker pair
+        metadata = await self.get_metadata_by_user_and_broker(user_id, broker_id)
+        if metadata is None:
+            return []
+
         result = await self.session.execute(
-            select(EquityHolding).where(
-                EquityHolding.user_id == user_id, EquityHolding.broker_id == broker_id
-            )
+            select(EquityHolding).where(EquityHolding.user_broker_id == metadata.user_broker_id)
+        )
+        return list(result.scalars().all())
+
+    async def by_user_broker_id(self, user_broker_id: UUID) -> list[EquityHolding]:
+        """
+        Find all holdings for a user_broker_id.
+
+        Args:
+            user_broker_id: The user_broker_id to search for
+
+        Returns:
+            List of EquityHolding objects
+        """
+        result = await self.session.execute(
+            select(EquityHolding).where(EquityHolding.user_broker_id == user_broker_id)
         )
         return list(result.scalars().all())
 
@@ -122,7 +273,7 @@ class HoldingsRepository:
             List of created EquityHolding objects
         """
         self.session.add_all(holdings)
-        await self.session.flush()  # Get all holdings with auto-generated fields
+        await self.session.flush()
         return holdings
 
     async def delete_by_user_and_broker(self, user_id: UUID, broker_id: UUID) -> int:
@@ -138,20 +289,44 @@ class HoldingsRepository:
         """
         from sqlalchemy import delete
 
+        # Get the metadata for this user-broker pair
+        metadata = await self.get_metadata_by_user_and_broker(user_id, broker_id)
+        if metadata is None:
+            return 0
+
         result = await self.session.execute(
-            delete(EquityHolding).where(
-                EquityHolding.user_id == user_id, EquityHolding.broker_id == broker_id
-            )
+            delete(EquityHolding).where(EquityHolding.user_broker_id == metadata.user_broker_id)
+        )
+        return result.rowcount
+
+    async def delete_by_user_broker_id(self, user_broker_id: UUID) -> int:
+        """
+        Delete all holdings for a user_broker_id.
+
+        Args:
+            user_broker_id: The user_broker_id
+
+        Returns:
+            Number of deleted records
+        """
+        from sqlalchemy import delete
+
+        result = await self.session.execute(
+            delete(EquityHolding).where(EquityHolding.user_broker_id == user_broker_id)
         )
         return result.rowcount
 
     async def upsert_holdings(
-        self, user_id: UUID, broker_id: UUID, holdings: list[EquityHolding]
+        self,
+        user_id: UUID,
+        broker_id: UUID,
+        holdings: list[EquityHolding],
+        uploaded_via: UploadedVia = UploadedVia.USER_FILE_UPLOAD,
     ) -> tuple[int, int]:
         """
         Upsert holdings for a user-broker pair.
 
-        - Updates existing holdings (matched by ISIN), preserving created_at
+        - Updates existing holdings (matched by ISIN)
         - Inserts new holdings
         - Deletes holdings that are not in the new list
 
@@ -159,37 +334,38 @@ class HoldingsRepository:
             user_id: The user ID
             broker_id: The broker ID
             holdings: List of new EquityHolding objects
+            uploaded_via: How the holdings were uploaded
 
         Returns:
             Tuple of (updated_count, inserted_count)
         """
-        from sqlalchemy import func, update
-
         if not holdings:
             return 0, 0
 
-        # Get existing holdings for this user-broker pair
-        existing_holdings = await self.by_user_and_broker(user_id, broker_id)
+        # Get or create metadata for this user-broker pair
+        metadata = await self.get_or_create_metadata(user_id, broker_id, uploaded_via)
 
-        # Create a map of normalized ISIN -> existing holding
-        # Normalize ISINs to handle case/whitespace differences
-        existing_by_isin: dict[str, EquityHolding] = {
-            h.isin.strip().upper(): h for h in existing_holdings
+        # Get existing holdings for this user-broker pair
+        existing_holdings = await self.by_user_broker_id(metadata.user_broker_id)
+
+        # Create a map of normalized company_name -> existing holding
+        # Normalize company_name to handle case/whitespace differences
+        existing_by_company_name: dict[str, EquityHolding] = {
+            h.company_name.strip().upper(): h for h in existing_holdings
         }
 
-        # Track normalized ISINs in the new data
-        new_isins: set[str] = {h.isin.strip().upper() for h in holdings}
+        # Track normalized company_names in the new data
+        new_company_names: set[str] = {h.company_name.strip().upper() for h in holdings}
 
         updated_count = 0
         inserted_count = 0
 
         for new_holding in holdings:
-            normalized_isin = new_holding.isin.strip().upper()
-            existing = existing_by_isin.get(normalized_isin)
+            normalized_company_name = new_holding.company_name.strip().upper()
+            existing = existing_by_company_name.get(normalized_company_name)
 
             if existing:
                 # Update existing holding using explicit UPDATE statement
-                # Explicitly set updated_at since onupdate doesn't trigger for raw SQL
                 stmt = (
                     update(EquityHolding)
                     .where(EquityHolding.id == existing.id)
@@ -201,19 +377,19 @@ class HoldingsRepository:
                         qty_pledged_margin=new_holding.qty_pledged_margin,
                         avg_price=new_holding.avg_price,
                         prev_close_price=new_holding.prev_close_price,
-                        updated_at=func.now(),
                     )
                 )
                 await self.session.execute(stmt)
                 updated_count += 1
             else:
-                # Insert new holding
+                # Insert new holding with the correct user_broker_id
+                new_holding.user_broker_id = metadata.user_broker_id
                 self.session.add(new_holding)
                 inserted_count += 1
 
         # Delete holdings that are not in the new list
-        for isin, existing in existing_by_isin.items():
-            if isin not in new_isins:
+        for company_name, existing in existing_by_company_name.items():
+            if company_name not in new_company_names:
                 await self.session.delete(existing)
 
         await self.session.flush()

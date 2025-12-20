@@ -5,72 +5,83 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 
-from src.api.schemas.holdings import (
-    BulkHoldingsUploadResponse,
-    HoldingsRequestSchema,
-    HoldingsResponseSchema,
+from src.api.schemas.holdings import BulkHoldingsUploadResponse
+from src.api.schemas.home import (
+    BrokerPayload,
+    ChatIntegration,
+    HoldingsMetadataSchema,
+    PortfolioUpdates,
+    WhatsAppPayload,
 )
 from src.core.json_logging import logger_for
 from src.core.middleware import require_auth
-from src.dependencies import get_broker_service, get_holdings_service
+from src.dependencies import get_broker_service, get_holdings_service, get_whatsapp_service
 from src.services.broker import BrokerService
 from src.services.holdings import HoldingsService
+from src.services.whatsapp import WhatsAppService
 
 logger = logger_for(__name__)
 
 router = APIRouter(prefix="/holdings", tags=["holdings"])
 
 
-@router.post(
-    "",
-    response_model=HoldingsResponseSchema,
-    status_code=status.HTTP_201_CREATED,
-    summary="Create a new equity holding",
-    description="Save equity holding information for the authenticated user.",
-    responses={
-        201: {"description": "Holding successfully created"},
-        401: {"description": "Not authenticated or invalid token"},
-    },
-)
-async def create_holding(
-    holding: HoldingsRequestSchema,
-    svc: Annotated[HoldingsService, Depends(get_holdings_service)],
+@router.get("/metadata", response_model=HoldingsMetadataSchema)
+async def get_holdings_metadata(
+    whatsapp_svc: Annotated[WhatsAppService, Depends(get_whatsapp_service)],
+    broker_svc: Annotated[BrokerService, Depends(get_broker_service)],
+    holdings_svc: Annotated[HoldingsService, Depends(get_holdings_service)],
     user: dict = Depends(require_auth),
-) -> HoldingsResponseSchema:
-    """
-    Create a new equity holding for the authenticated user.
+):
+    user_id = UUID(user["user_id"])
 
-    Saves equity holding information including:
-    - Broker details
-    - Symbol and ISIN
-    - Quantities (available, long-term, pledged, etc.)
-    - Prices and P&L information
+    try:
+        whatsapp_data = await whatsapp_svc.get_whatsapp_data_by_user_id(user_id)
 
-    **Authentication required**: Yes (JWT token in cookie)
+        chat_integrations = []
+        if whatsapp_data:
+            chat_integrations.append(
+                ChatIntegration(
+                    whatsapp=WhatsAppPayload(
+                        id=whatsapp_data["id"],
+                        user_e164=whatsapp_data["user_e164"],
+                    )
+                )
+            )
+        else:
+            chat_integrations.append(ChatIntegration(whatsapp=None))
 
-    Returns the created holding information.
-    """
-    logger.info(
-        "create_holding_attempt",
-        extra={
-            "user_id": str(user["user_id"]),
-            "broker_id": str(holding.broker_id),
-            "symbol": holding.symbol,
-        },
-    )
+        brokers_data = await broker_svc.get_all_brokers()
+        available_brokers = [
+            BrokerPayload(
+                broker_id=broker["broker_id"],
+                broker_name=broker["broker_name"],
+                broker_type=broker["broker_type"],
+                country=broker["country"],
+            )
+            for broker in brokers_data
+        ]
 
-    result = await svc.save_user_holding(holding_schema=holding, user_id=user["user_id"])
+        portfolio_updates_data = await holdings_svc.get_portfolio_updates(user_id)
+        portfolio_updates = [
+            PortfolioUpdates(
+                broker_id=p["broker_id"],
+                broker_name=p["broker_name"],
+                last_updated_at=p["last_updated_at"],
+                uploaded_via=p["uploaded_via"],
+                additional_metadata=p["additional_metadata"],
+            )
+            for p in portfolio_updates_data
+        ]
 
-    logger.info(
-        "create_holding_success",
-        extra={
-            "user_id": str(user["user_id"]),
-            "holding_id": str(result.id),
-            "symbol": result.symbol,
-        },
-    )
+        return HoldingsMetadataSchema(
+            chat_integrations=chat_integrations,
+            available_brokers=available_brokers,
+            portfolio_updates=portfolio_updates,
+        )
 
-    return result
+    except Exception as e:
+        logger.error(f"Error getting holdings metadata: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post(
@@ -143,7 +154,7 @@ async def upload_holdings_file(
         file_content = await file.read()
 
         # Parse file to holdings list using broker service
-        holdings_list = broker_svc.parse_holdings_file(
+        holdings_list, discrepancies = await broker_svc.parse_holdings_file(
             file_content=file_content, filename=file.filename, broker_id=broker_id
         )
 
@@ -169,10 +180,15 @@ async def upload_holdings_file(
             },
         )
 
+        message = f"Successfully uploaded {records_processed} holdings"
+        if discrepancies:
+            symbols_list = ", ".join(discrepancies.keys())
+            message += f". Note: Some symbols had issues - {symbols_list}"
+
         return BulkHoldingsUploadResponse(
             success=True,
             records_processed=records_processed,
-            message=f"Successfully uploaded {records_processed} holdings",
+            message=message,
         )
 
     except ValueError as e:

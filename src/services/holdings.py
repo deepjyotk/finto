@@ -5,9 +5,10 @@ from uuid import UUID
 
 import pandas as pd
 
-from src.api.schemas.holdings import HoldingsRequestSchema, HoldingsResponseSchema
+from src.api.schemas.holdings import HoldingsRequestSchema
 from src.core.schema import EquityHoldingSchema
 from src.models.equity_holding import EquityHolding
+from src.models.equity_holding_metadata import UploadedVia
 from src.repositories.holdings_repo import HoldingsRepository
 
 
@@ -23,48 +24,17 @@ class HoldingsService:
         """
         self.repo = repo
 
-    async def save_user_holding(
-        self, holding_schema: HoldingsRequestSchema, user_id: UUID
-    ) -> HoldingsResponseSchema:
-        """
-        Save a new equity holding for a user.
-
-        This is the use-case boundary - handles the full holding creation transaction.
-
-        Args:
-            holding_schema: Holdings data to save
-            user_id: UUID of the user
-
-        Returns:
-            HoldingsResponseSchema with the created holding
-        """
-        # Create holding
-        holding = await self.repo.add(
-            user_id=user_id,
-            broker_id=holding_schema.broker_id,
-            symbol=holding_schema.symbol,
-            isin=holding_schema.isin,
-            sector=holding_schema.sector,
-            qty_available=holding_schema.qty_available,
-            qty_long_term=holding_schema.qty_long_term,
-            qty_pledged_margin=holding_schema.qty_pledged_margin,
-            avg_price=holding_schema.avg_price,
-            prev_close_price=holding_schema.prev_close_price,
-        )
-
-        # Commit at the use-case boundary
-        await self.repo.session.commit()
-
-        return HoldingsResponseSchema.model_validate(holding)
-
     async def save_user_holdings(
-        self, holdings_list: list[HoldingsRequestSchema], user_id: UUID
+        self,
+        holdings_list: list[HoldingsRequestSchema],
+        user_id: UUID,
+        uploaded_via: UploadedVia = UploadedVia.USER_FILE_UPLOAD,
     ) -> int:
         """
         Save multiple equity holdings for a user (upsert).
 
         If holdings already exist for the user-broker pair:
-        - Updates existing holdings (matched by ISIN), preserving created_at
+        - Updates existing holdings (matched by ISIN)
         - Inserts new holdings
         - Deletes holdings that are not in the new list
 
@@ -73,6 +43,7 @@ class HoldingsService:
         Args:
             holdings_list: List of holdings data to save
             user_id: UUID of the user
+            uploaded_via: How the holdings were uploaded
 
         Returns:
             Number of holdings processed (updated + inserted)
@@ -83,13 +54,12 @@ class HoldingsService:
         # All holdings in the list share the same broker_id
         broker_id = holdings_list[0].broker_id
 
-        # Create list of EquityHolding objects
+        # Create list of EquityHolding objects (user_broker_id will be set by upsert_holdings)
         holdings = [
             EquityHolding(
-                user_id=user_id,
-                broker_id=holding.broker_id,
+                user_broker_id=None,  # Will be set by upsert_holdings
                 symbol=holding.symbol,
-                isin=holding.isin,
+                company_name=holding.company_name,
                 sector=holding.sector,
                 qty_available=holding.qty_available,
                 qty_long_term=holding.qty_long_term,
@@ -102,7 +72,10 @@ class HoldingsService:
 
         # Upsert holdings (update existing, insert new, delete removed)
         updated_count, inserted_count = await self.repo.upsert_holdings(
-            user_id=user_id, broker_id=broker_id, holdings=holdings
+            user_id=user_id,
+            broker_id=broker_id,
+            holdings=holdings,
+            uploaded_via=uploaded_via,
         )
 
         # Commit at the use-case boundary
@@ -121,13 +94,13 @@ class HoldingsService:
             broker_id: Optional UUID of the broker. If None, returns holdings for all brokers.
 
         Returns:
-            pandas.DataFrame of holdings with id/user_id/broker_id columns removed
+            pandas.DataFrame of holdings with id/user_broker_id columns removed
         """
         # Use the table definition to keep a stable column order and drop identity fields
         columns = [
             column.name
             for column in EquityHolding.__table__.columns
-            if column.name not in {"id", "user_id", "broker_id"}
+            if column.name not in {"id", "user_broker_id"}
         ]
 
         # Get holdings based on whether broker_id is provided
@@ -141,3 +114,16 @@ class HoldingsService:
 
         data = [{col: getattr(holding, col) for col in columns} for holding in holdings]
         return pd.DataFrame(data, columns=EquityHoldingSchema.get_supported_columns())
+
+    async def get_portfolio_updates(self, user_id: UUID) -> list[dict]:
+        metadata_list = await self.repo.get_metadata_with_broker_name(user_id)
+        return [
+            {
+                "broker_id": str(m["broker_id"]),
+                "broker_name": m["broker_name"],
+                "last_updated_at": m["updated_at"],
+                "uploaded_via": m["uploaded_via"],
+                "additional_metadata": m["extra_metadata"] or {},
+            }
+            for m in metadata_list
+        ]

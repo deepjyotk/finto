@@ -1,8 +1,9 @@
 """Broker repository - data access for broker operations"""
 
 from typing import Any
+from uuid import UUID
 
-from sqlalchemy import cast, select
+from sqlalchemy import cast, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.types import String
 
@@ -14,6 +15,19 @@ class BrokerRepository:
 
     def __init__(self, session: AsyncSession):
         self.session = session
+
+    async def get_broker_name_by_id(self, broker_id: UUID) -> str | None:
+        result = await self.session.execute(
+            select(cast(Broker.broker_name, String)).where(Broker.broker_id == broker_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def get_company_names_by_symbols(self, symbols: list[str]) -> dict[str, str]:
+        result = await self.session.execute(
+            text("SELECT symbol, company_name FROM in_equities WHERE symbol = ANY(:symbols)"),
+            {"symbols": symbols},
+        )
+        return {row[0]: row[1] for row in result}
 
     async def get_all_brokers(self) -> list[dict[str, Any]]:
         """

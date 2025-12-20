@@ -8,16 +8,18 @@ from uuid import UUID
 import pandas as pd
 
 from src.api.schemas.holdings import HoldingsRequestSchema
+from src.core.json_logging import logger_for
 from src.repositories.broker_repo import BrokerRepository
+
+logger = logger_for(__name__)
 
 
 class BrokerService:
     """Service layer for broker operations"""
 
-    # Column mapping from Excel format to schema field names
     COLUMN_MAPPING = {
         "Symbol": "symbol",
-        "ISIN": "isin",
+        "Company Name": "company_name",
         "Sector": "sector",
         "Quantity Available": "qty_available",
         "Quantity Long Term": "qty_long_term",
@@ -25,25 +27,16 @@ class BrokerService:
         "Average Price": "avg_price",
         "Previous Closing Price": "prev_close_price",
     }
+    EXISTING_ZEODHA_SYMBOL_MAPPINGS_DISCREPANCY = {
+        "HBLPOWER.NS": "HBLENGINE.NS",
+        "RSIL.NS": "RSYSTEMS.NS",
+    }
 
     def __init__(self, repo: BrokerRepository):
-        """
-        Initialize BrokerService.
-
-        Args:
-            repo: BrokerRepository instance for data access
-        """
         self.repo = repo
 
     async def get_all_brokers(self) -> list[dict[str, Any]]:
-        """
-        Get all available brokers.
-
-        Returns:
-            List of broker dictionaries with broker information
-        """
         brokers = await self.repo.get_all_brokers()
-        # Repository now returns dicts with string values, just convert UUIDs to strings
         return [
             {
                 "broker_id": str(broker["broker_id"]),
@@ -54,87 +47,84 @@ class BrokerService:
             for broker in brokers
         ]
 
-    def parse_holdings_file(
+    async def parse_holdings_file(
         self, file_content: bytes, filename: str, broker_id: UUID
-    ) -> list[HoldingsRequestSchema]:
-        """
-        Parse uploaded Excel or CSV file to list of HoldingsRequestSchema.
-
-        Args:
-            file_content: Binary content of the uploaded file
-            filename: Name of the uploaded file (to determine file type)
-            broker_id: UUID of the broker (from form data)
-
-        Returns:
-            List of HoldingsRequestSchema objects
-
-        Raises:
-            ValueError: If file format is not supported or parsing fails
-        """
-        # Determine file type and read into DataFrame
+    ) -> (list[HoldingsRequestSchema], dict[str, str]):
         file_lower = filename.lower()
 
         try:
             if file_lower.endswith((".xlsx", ".xls")):
-                # Read Excel file
                 df = pd.read_excel(io.BytesIO(file_content))
             elif file_lower.endswith(".csv"):
-                # Read CSV file
                 df = pd.read_csv(io.BytesIO(file_content))
             else:
-                raise ValueError(
-                    f"Unsupported file format: {filename}. "
-                    "Please upload .xlsx, .xls, or .csv files."
-                )
+                raise ValueError(f"Unsupported file format: {filename}.")
         except Exception as e:
             raise ValueError(f"Failed to read file: {str(e)}") from e
 
-        # Rename columns according to mapping
         df = df.rename(columns=self.COLUMN_MAPPING)
 
-        # Validate required columns exist
-        required_fields = [
-            "symbol",
-            "isin",
-            "avg_price",
-            "prev_close_price",
-        ]
-        missing_columns = [field for field in required_fields if field not in df.columns]
-        if missing_columns:
-            raise ValueError(
-                f"Missing required columns in file: {', '.join(missing_columns)}. "
-                f"Expected columns: {', '.join(self.COLUMN_MAPPING.keys())}"
+        broker_name = await self.repo.get_broker_name_by_id(broker_id)
+        is_zerodha = broker_name and broker_name.lower() == "zerodha"
+
+        if is_zerodha:
+            required_fields = {"symbol", "qty_available", "avg_price", "prev_close_price"}
+            missing = required_fields - set(df.columns)
+            if missing:
+                raise ValueError(f"Missing required columns for Zerodha: {', '.join(missing)}")
+
+            discrepancies = {}
+            original_symbols = df["symbol"].str.strip().tolist()
+
+            # Track remapped symbols
+            for s in original_symbols:
+                if s in self.EXISTING_ZEODHA_SYMBOL_MAPPINGS_DISCREPANCY:
+                    discrepancies[s] = (
+                        f"remapped to {self.EXISTING_ZEODHA_SYMBOL_MAPPINGS_DISCREPANCY[s]}"
+                    )
+
+            symbols = [
+                self.EXISTING_ZEODHA_SYMBOL_MAPPINGS_DISCREPANCY.get(s, s) for s in original_symbols
+            ]
+            symbols = [s[:-3] if s.endswith(".NS") or s.endswith(".BO") else s for s in symbols]
+            symbol_to_company = await self.repo.get_company_names_by_symbols(symbols)
+
+            # Track missing symbols
+            for s in symbols:
+                if s not in symbol_to_company:
+                    discrepancies[s] = "not found in in_equities, using symbol as company_name"
+
+            if discrepancies:
+                logger.warning(f"Symbol discrepancies: {discrepancies}")
+
+            # Clean symbols and update DataFrame
+            df["symbol"] = (
+                df["symbol"].str.strip().replace(self.EXISTING_ZEODHA_SYMBOL_MAPPINGS_DISCREPANCY)
             )
+            df["symbol"] = df["symbol"].str.replace(r"\.(NS|BO)$", "", regex=True)
+            df["company_name"] = df["symbol"].map(lambda s: symbol_to_company.get(s, s))
+        else:
+            discrepancies = {}
+            required_fields = ["symbol", "company_name", "avg_price", "prev_close_price"]
+            missing = [f for f in required_fields if f not in df.columns]
+            if missing:
+                raise ValueError(f"Missing required columns: {', '.join(missing)}")
 
-        # Fill missing optional columns with default values
-        if "sector" not in df.columns:
-            df["sector"] = None
-        if "qty_available" not in df.columns:
-            df["qty_available"] = 0
-        if "qty_long_term" not in df.columns:
-            df["qty_long_term"] = 0
-        if "qty_pledged_margin" not in df.columns:
-            df["qty_pledged_margin"] = 0
+        for col in ["sector", "qty_available", "qty_long_term", "qty_pledged_margin"]:
+            if col not in df.columns:
+                df[col] = None if col == "sector" else 0
 
-        # Replace NaN values with defaults (handle numeric and string columns separately)
-        numeric_cols = [
-            "qty_available",
-            "qty_long_term",
-            "qty_pledged_margin",
-        ]
-        for col in numeric_cols:
-            if col in df.columns:
-                df[col] = df[col].fillna(0)
+        for col in ["qty_available", "qty_long_term", "qty_pledged_margin"]:
+            df[col] = df[col].fillna(0)
 
-        # Convert DataFrame rows to HoldingsRequestSchema objects
         holdings_list = []
         for idx, row in df.iterrows():
             try:
                 holding = HoldingsRequestSchema(
                     broker_id=broker_id,
                     symbol=str(row["symbol"]).strip(),
-                    isin=str(row["isin"]).strip(),
-                    sector=str(row["sector"]).strip() if pd.notna(row["sector"]) else None,
+                    company_name=str(row["company_name"]).strip(),
+                    sector=str(row["sector"]).strip() if pd.notna(row.get("sector")) else None,
                     qty_available=int(row["qty_available"]),
                     qty_long_term=int(row["qty_long_term"]),
                     qty_pledged_margin=int(row["qty_pledged_margin"]),
@@ -148,4 +138,4 @@ class BrokerService:
         if not holdings_list:
             raise ValueError("No valid holdings found in file")
 
-        return holdings_list
+        return holdings_list, discrepancies

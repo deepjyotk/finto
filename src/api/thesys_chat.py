@@ -6,15 +6,18 @@ from thesys_genui_sdk.fast_api import with_c1_response
 
 from src.api.schemas.thesys_chat import (
     C1ChatRequest,
+    ChatMetadataResponse,
     SessionItem,
     SessionMessageConfig,
     SessionResponse,
     SessionsListResponse,
+    UserBrokerItem,
 )
 from src.core.json_logging import logger_for
 from src.core.middleware import require_auth
-from src.dependencies import get_thesys_chat_service
+from src.dependencies import get_holdings_service, get_thesys_chat_service
 from src.services.chat_thesys_service import ThesysChatService
+from src.services.holdings import HoldingsService
 
 logger = logger_for("api.thesys_chat")
 router = APIRouter(prefix="/thesys", tags=["thesys-chat"])
@@ -204,6 +207,39 @@ async def delete_session(
             },
         )
         raise HTTPException(status_code=500, detail=f"Error deleting session: {str(e)}")
+
+
+@router.get(
+    "/chat_metadata",
+    summary="Get chat metadata for the authenticated user",
+    description="Returns all available brokers that the user has holdings with.",
+    response_model=ChatMetadataResponse,
+)
+async def get_chat_metadata(
+    holdings_service: HoldingsService = Depends(get_holdings_service),
+    user: dict = Depends(require_auth),
+):
+    """
+    Get chat metadata for the authenticated user.
+
+    Returns all brokers that the user has uploaded holdings for.
+    """
+    user_id = uuid.UUID(user["user_id"])
+
+    logger.info(
+        "get_chat_metadata_request",
+        extra={
+            "user_id": str(user_id),
+        },
+    )
+
+    brokers = await holdings_service.repo.get_user_brokers(user_id)
+
+    return ChatMetadataResponse(
+        brokers=[
+            UserBrokerItem(broker_id=b["broker_id"], broker_name=b["broker_name"]) for b in brokers
+        ]
+    )
 
 
 @router.post(

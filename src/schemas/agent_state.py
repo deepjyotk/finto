@@ -25,6 +25,7 @@ class AgentContext(TypedDict, total=False):
     """Context for the StateGraph, holding the user_id and model configurations."""
 
     user_id: UUID
+    broker_id: UUID
     router_model: LLMModel
     portfolio_model: LLMModel
     news_model: LLMModel

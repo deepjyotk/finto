@@ -23,12 +23,13 @@ class FinalResponseGenerationNode:
 User request:
 {user_request}
 
-Code execution output:
+Analysis result or execution output:
 {execution_result}
 
 Guidelines:
-- Base your response ONLY on the execution output and the user request.
-- If the execution failed or looks incomplete, explain the issue and what is needed to fix it.
+- Base your response ONLY on the provided result/output and the user request.
+- If the result is from code execution and looks incomplete or failed, explain the issue and what is needed to fix it.
+- If the result is from news search, present it in a clear, well-formatted way with proper citations.
 - Do not add extra analysis beyond what the output supports.
 
 {output_format_instructions}
@@ -73,6 +74,14 @@ Guidelines:
             user_request = (state.get("user_request") or "").strip() or "No user request provided."
             execution_result = (state.get("last_output") or "").strip()
             messages = state.get("messages", [])
+
+            # If no execution result from code, check for news response in messages
+            if not execution_result:
+                # Look for the last AIMessage which might contain news search results
+                for msg in reversed(messages):
+                    if isinstance(msg, AIMessage) and msg.content:
+                        execution_result = msg.content
+                        break
 
             if not execution_result:
                 fallback = "No code execution output was available to generate a final response."

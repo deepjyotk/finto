@@ -211,7 +211,7 @@ class Graph:
 
         builder.add_edge(Nodes.unknown.get("name"), END)
         builder.add_edge(Nodes.final_response.get("name"), END)
-        builder.add_edge(Nodes.news_tools.get("name"), END)
+        builder.add_edge(Nodes.news_tools.get("name"), Nodes.final_response.get("name"))
 
         builder.set_entry_point(Nodes.router.get("name"))
 

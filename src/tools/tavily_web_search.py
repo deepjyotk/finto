@@ -7,6 +7,7 @@ from typing import Any, Dict, Literal, Optional
 
 from langchain_core.tools import tool
 from langchain_tavily import TavilySearch
+from langgraph.prebuilt import ToolNode
 
 from src.core.json_logging import logger_for
 from src.core.settings import tavily_settings
@@ -127,3 +128,6 @@ if __name__ == "__main__":
             # Uncomment to see raw content
             # if r.get("raw_content"):
             #     print(f"   Raw content: {r['raw_content'][:200]}...")
+
+# News agent tools - focused on web search and basic symbol/price lookup
+news_agent_tools = ToolNode([tavily_web_search])

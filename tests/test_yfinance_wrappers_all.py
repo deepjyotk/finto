@@ -31,13 +31,13 @@ def print_result(function_name: str, result: dict):
     print(f"\n{'='*80}")
     print(f"Testing: {function_name}")
     print(f"{'='*80}")
-    
+
     # Check if there's an error
     if "error" in result or "message" in result:
         print(f"❌ Error: {result.get('error') or result.get('message')}")
     else:
         print(f"✅ Success")
-    
+
     # Print result preview (truncated for large data)
     result_str = json.dumps(result, indent=2, default=str)
     if len(result_str) > 10000:
@@ -51,27 +51,27 @@ def test_financial_statements(symbol: str):
     print(f"\n\n{'#'*80}")
     print(f"# TESTING FINANCIAL STATEMENTS - {symbol}")
     print(f"{'#'*80}")
-    
+
     # Balance Sheet
     try:
         result = get_balance_sheet(symbol, freq="yearly")
         print_result("get_balance_sheet (yearly)", result)
     except Exception as e:
         print(f"❌ get_balance_sheet failed: {e}")
-    
+
     try:
         result = get_balance_sheet(symbol, freq="quarterly")
         print_result("get_balance_sheet (quarterly)", result)
     except Exception as e:
         print(f"❌ get_balance_sheet (quarterly) failed: {e}")
-    
+
     # Income Statement
     try:
         result = get_income_statement(symbol, freq="yearly")
         print_result("get_income_statement (yearly)", result)
     except Exception as e:
         print(f"❌ get_income_statement failed: {e}")
-    
+
     # Cash Flow
     try:
         result = get_cash_flow(symbol, freq="yearly")
@@ -85,28 +85,28 @@ def test_price_and_returns(symbol: str):
     print(f"\n\n{'#'*80}")
     print(f"# TESTING PRICE & RETURNS - {symbol}")
     print(f"{'#'*80}")
-    
+
     # Last Close Price
     try:
         result = get_last_close_price(symbol)
         print_result("get_last_close_price", result)
     except Exception as e:
         print(f"❌ get_last_close_price failed: {e}")
-    
+
     # Ticker Price
     try:
         result = get_ticker_price(symbol, period="1mo", interval="1d")
         print_result("get_ticker_price (1mo, 1d)", result)
     except Exception as e:
         print(f"❌ get_ticker_price failed: {e}")
-    
+
     # Dividends
     try:
         result = get_dividends(symbol, period="5y")
         print_result("get_dividends (5y)", result)
     except Exception as e:
         print(f"❌ get_dividends failed: {e}")
-    
+
     # Capital Gains
     try:
         result = get_capital_gains(symbol, period="5y")
@@ -120,42 +120,42 @@ def test_earnings_and_estimates(symbol: str):
     print(f"\n\n{'#'*80}")
     print(f"# TESTING EARNINGS & ESTIMATES - {symbol}")
     print(f"{'#'*80}")
-    
+
     # Earnings Estimate
     try:
         result = get_earnings_estimate(symbol)
         print_result("get_earnings_estimate", result)
     except Exception as e:
         print(f"❌ get_earnings_estimate failed: {e}")
-    
+
     # Revenue Estimate
     try:
         result = get_revenue_estimate(symbol)
         print_result("get_revenue_estimate", result)
     except Exception as e:
         print(f"❌ get_revenue_estimate failed: {e}")
-    
+
     # Earnings History
     try:
         result = get_earnings_history(symbol)
         print_result("get_earnings_history", result)
     except Exception as e:
         print(f"❌ get_earnings_history failed: {e}")
-    
+
     # EPS Trend
     try:
         result = get_eps_trend(symbol)
         print_result("get_eps_trend", result)
     except Exception as e:
         print(f"❌ get_eps_trend failed: {e}")
-    
+
     # EPS Revisions
     try:
         result = get_eps_revisions(symbol)
         print_result("get_eps_revisions", result)
     except Exception as e:
         print(f"❌ get_eps_revisions failed: {e}")
-    
+
     # Growth Estimates
     try:
         result = get_growth_estimates(symbol)
@@ -169,35 +169,35 @@ def test_ownership_and_insider(symbol: str):
     print(f"\n\n{'#'*80}")
     print(f"# TESTING OWNERSHIP & INSIDER DATA - {symbol}")
     print(f"{'#'*80}")
-    
+
     # Major Holders
     try:
         result = get_major_holders(symbol)
         print_result("get_major_holders", result)
     except Exception as e:
         print(f"❌ get_major_holders failed: {e}")
-    
+
     # Institutional Holders
     try:
         result = get_institutional_holders(symbol)
         print_result("get_institutional_holders", result)
     except Exception as e:
         print(f"❌ get_institutional_holders failed: {e}")
-    
+
     # Mutual Fund Holders
     try:
         result = get_mutualfund_holders(symbol)
         print_result("get_mutualfund_holders", result)
     except Exception as e:
         print(f"❌ get_mutualfund_holders failed: {e}")
-    
+
     # Insider Purchases
     try:
         result = get_insider_purchases(symbol)
         print_result("get_insider_purchases", result)
     except Exception as e:
         print(f"❌ get_insider_purchases failed: {e}")
-    
+
     # Insider Transactions
     try:
         result = get_insider_transactions(symbol)
@@ -212,23 +212,23 @@ if __name__ == "__main__":
     print(f"\n\n{'*'*80}")
     print(f"* STARTING TESTS FOR US STOCK: {us_symbol}")
     print(f"{'*'*80}")
-    
+
     # test_financial_statements(us_symbol)
     # test_price_and_returns(us_symbol)
     # test_earnings_and_estimates(us_symbol)
-    #test_ownership_and_insider(us_symbol)
-    
+    # test_ownership_and_insider(us_symbol)
+
     # Test with Indian stock
     indian_symbol = "RELIANCE.NS"
     print(f"\n\n{'*'*80}")
     print(f"* STARTING TESTS FOR INDIAN STOCK: {indian_symbol}")
     print(f"{'*'*80}")
-    
+
     # test_financial_statements(indian_symbol)
     test_price_and_returns(indian_symbol)
     test_earnings_and_estimates(indian_symbol)
     test_ownership_and_insider(indian_symbol)
-    
+
     print(f"\n\n{'*'*80}")
     print(f"* ALL TESTS COMPLETED")
     print(f"{'*'*80}\n")

@@ -19,7 +19,7 @@ from src.nodes.portfolio import PortfolioNode
 from src.nodes.router import RouterNode
 from src.nodes.web_search import WebSearchNode
 from src.schemas.agent_state import AgentContext, AgentState
-from src.tools.execute_tools import news_agent_tools
+from src.tools.tavily_web_search import news_agent_tools
 
 logger = logger_for(__name__)
 

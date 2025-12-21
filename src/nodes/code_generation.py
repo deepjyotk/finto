@@ -18,17 +18,17 @@ from src.schemas.agent_state import AgentContext, AgentState
 from src.tools.calculate_profit_tool import calculate_profit_or_loss
 from src.tools.filters import growth_filter, value_filter
 from src.tools.portfolio_metrics import (
-    roi,
+    cagr,
+    calculate_all_metrics,
+    current_ratio,
+    debt_to_equity_ratio,
+    dividend_yield,
+    profit_margin,
     roe,
+    roi,
     sharpe_ratio,
     sortino_ratio,
-    cagr,
-    dividend_yield,
-    debt_to_equity_ratio,
-    current_ratio,
-    profit_margin,
     win_rate,
-    calculate_all_metrics,
 )
 from src.tools.portfolio_risk import (
     download_prices,

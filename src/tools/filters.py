@@ -1,9 +1,15 @@
 import yfinance as yf
 
+from src.tools.common_utils import normalize_symbol
 
-def growth_filter(symbols):
+
+def growth_filter(symbol_names):
     """
-    Filter stocks based on growth criteria.
+    Args:
+        symbol_names: List of stock symbol_name
+
+    Returns:
+        List of stock symbols that meet the growth criteria
 
     Growth criteria (any of the following):
     - Revenue growth > 8% AND Earnings growth > 10%
@@ -12,9 +18,9 @@ def growth_filter(symbols):
     """
     growth_stocks = []
 
-    for sym in symbols:
+    for sym in symbol_names:
         try:
-            ticker = yf.Ticker(sym)
+            ticker = yf.Ticker(normalize_symbol(sym))
             info = ticker.info
 
             # Get growth metrics
@@ -49,9 +55,14 @@ def growth_filter(symbols):
     return growth_stocks
 
 
-def value_filter(symbols):
+def value_filter(symbol_names):
     """
     Filter stocks based on value criteria.
+    Args:
+        symbol_names: List of stock symbol_name
+
+    Returns:
+        List of stock symbols that meet the value criteria
 
     Value criteria (must meet at least one):
     - Trailing P/E < 20 AND (Price to Book < 5 OR Price to Sales < 3)
@@ -60,9 +71,9 @@ def value_filter(symbols):
     """
     value_stocks = []
 
-    for sym in symbols:
+    for sym in symbol_names:
         try:
-            ticker = yf.Ticker(sym)
+            ticker = yf.Ticker(normalize_symbol(sym))
             info = ticker.info
 
             # Get valuation metrics
@@ -115,12 +126,13 @@ def value_filter(symbols):
 
 
 if __name__ == "__main__":
-    symbols = ["AAPL", "MSFT", "GOOGL", "TSLA", "JPM", "KO", "WMT", "XOM"]
+    # symbols = ["AAPL", "MSFT", "GOOGL", "TSLA", "JPM", "KO", "WMT", "XOM"]
+    indian_symbol_names = ["RELIANCE.NS", "INDIGO.NS"]
 
     print("\n" + "=" * 60)
     print("GROWTH FILTER")
     print("=" * 60)
-    growth = growth_filter(symbols)
+    growth = growth_filter(indian_symbol_names)
     print(f"\n{'=' * 60}")
     print(f"Growth Stocks Found: {growth}")
     print(f"{'=' * 60}")
@@ -128,7 +140,7 @@ if __name__ == "__main__":
     print("\n" + "=" * 60)
     print("VALUE FILTER")
     print("=" * 60)
-    value = value_filter(symbols)
+    value = value_filter(indian_symbol_names)
     print(f"\n{'=' * 60}")
     print(f"Value Stocks Found: {value}")
     print(f"{'=' * 60}")

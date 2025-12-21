@@ -4,30 +4,11 @@ These functions mirror the langchain tools but are plain Python functions
 that can be called directly in generated code without the langchain tool wrapper.
 """
 
-import re
 from typing import Optional
 
 import yfinance as yf
 
-INDIAN_EXCHANGE_SUFFIXES = {"NS", "BO"}
-
-
-def normalize_symbol(symbol: str, default_exchange: str = "NS") -> str:
-    if not symbol:
-        raise ValueError("Symbol is required")
-
-    s = symbol.strip().upper()
-
-    # If exchange suffix already exists, keep it
-    if "." in s and s.split(".")[1] in INDIAN_EXCHANGE_SUFFIXES:
-        return s
-
-    # Heuristic: assume Indian equity and default to NSE
-    if re.fullmatch(r"[A-Z][A-Z0-9&\-]{1,20}", s):
-        normalized = f"{s}.{default_exchange}"
-        return normalized
-
-    return s
+from src.tools.common_utils import normalize_symbol
 
 
 def get_balance_sheet(symbol_name: str, freq: str = "yearly", pretty: bool = False) -> dict:
@@ -82,9 +63,7 @@ def get_balance_sheet(symbol_name: str, freq: str = "yearly", pretty: bool = Fal
             balance_sheet = {}
             for date_key, fields in data.items():
                 filtered_fields = {
-                    field: value
-                    for field, value in fields.items()
-                    if field in important_fields
+                    field: value for field, value in fields.items() if field in important_fields
                 }
                 balance_sheet[str(date_key)] = filtered_fields
         else:
@@ -136,9 +115,7 @@ def get_income_statement(symbol_name: str, freq: str = "yearly", pretty: bool = 
             income_statement = {}
             for date_key, fields in data.items():
                 filtered_fields = {
-                    field: value
-                    for field, value in fields.items()
-                    if field in important_fields
+                    field: value for field, value in fields.items() if field in important_fields
                 }
                 income_statement[str(date_key)] = filtered_fields
         else:
@@ -210,9 +187,7 @@ def get_cash_flow(symbol_name: str, freq: str = "yearly", pretty: bool = False) 
             cash_flow = {}
             for date_key, fields in data.items():
                 filtered_fields = {
-                    field: value
-                    for field, value in fields.items()
-                    if field in important_fields
+                    field: value for field, value in fields.items() if field in important_fields
                 }
                 cash_flow[str(date_key)] = filtered_fields
         else:
@@ -352,7 +327,7 @@ def get_earnings_history(symbol_name: str) -> dict:
 
         normalized_symbol = normalize_symbol(symbol_name.strip().upper())
         data = yf.Ticker(normalized_symbol).get_earnings_history(as_dict=True)
-        
+
         # Convert Timestamp keys to strings in nested dictionaries
         if isinstance(data, dict):
             history_dict = {}
@@ -363,7 +338,7 @@ def get_earnings_history(symbol_name: str) -> dict:
                     history_dict[metric] = dates_dict
         else:
             history_dict = data if data is not None else {}
-        
+
         return {"symbol": symbol_name, "earnings_history": history_dict}
     except Exception as e:
         print(f"ERROR: Failed to fetch earnings history for symbol: {symbol_name} - {e}")
@@ -385,13 +360,13 @@ def get_eps_trend(symbol_name: str) -> dict:
             raise ValueError("Symbol name is required.")
         normalized_symbol = normalize_symbol(symbol_name.strip().upper())
         data = yf.Ticker(normalized_symbol).get_eps_trend(as_dict=True)
-        
+
         # Convert Timestamp keys to strings if needed
         if isinstance(data, dict):
             eps_dict = {str(k): v for k, v in data.items()}
         else:
             eps_dict = data if data is not None else {}
-        
+
         return {"symbol": symbol_name, "eps_trend": eps_dict}
     except Exception as e:
         print(f"ERROR: Failed to fetch EPS trend for symbol: {symbol_name} - {e}")
@@ -434,18 +409,21 @@ def get_growth_estimates(symbol_name: str) -> dict:
             raise ValueError("Symbol name is required.")
         normalized_symbol = normalize_symbol(symbol_name.strip().upper())
         data = yf.Ticker(normalized_symbol).get_growth_estimates(as_dict=True)
-        
+
         # Convert NaN values to None for JSON serialization
         if isinstance(data, dict):
             growth_dict = {}
             for trend_key, trend_data in data.items():
                 if isinstance(trend_data, dict):
-                    growth_dict[trend_key] = {k: (None if (isinstance(v, float) and v != v) else v) for k, v in trend_data.items()}
+                    growth_dict[trend_key] = {
+                        k: (None if (isinstance(v, float) and v != v) else v)
+                        for k, v in trend_data.items()
+                    }
                 else:
                     growth_dict[trend_key] = trend_data
         else:
             growth_dict = data if data is not None else {}
-        
+
         return {"symbol": symbol_name, "growth_estimates": growth_dict}
     except Exception as e:
         print(f"ERROR: Failed to fetch growth estimates for symbol: {symbol_name} - {e}")
@@ -667,33 +645,33 @@ def get_last_close_price(symbol_name: str) -> dict:
 
 def get_ticker_info(symbol: str) -> dict:
     """Fetch comprehensive ticker information with 24+ stable metrics.
-    
+
     Returns key financial metrics for valuation, growth, profitability, financial health, dividends, and price.
-    
+
     Args:
         symbol: Stock ticker symbol (e.g., "AAPL", "RELIANCE.NS")
-    
+
     Returns:
         {"symbol": t, "marketCap": ..., "trailingPE": ..., ...} containing:
-        
+
         Valuation metrics:
         - trailingPE, forwardPE, priceToBook, priceToSalesTrailing12Months, enterpriseValue, marketCap
-        
+
         Growth metrics:
         - revenueGrowth, earningsGrowth, earningsQuarterlyGrowth
-        
+
         Profitability metrics:
         - profitMargins, grossMargins, operatingMargins, returnOnEquity, returnOnAssets
-        
+
         Financial Health metrics:
         - debtToEquity, currentRatio, quickRatio, totalDebt, totalCash
-        
+
         Dividend metrics:
         - dividendYield, payoutRatio, dividendRate
-        
+
         Price metrics:
         - currentPrice, fiftyTwoWeekHigh, fiftyTwoWeekLow
-    
+
     Example:
         info = get_ticker_info("AAPL")
         market_cap = info.get("marketCap")
@@ -702,7 +680,7 @@ def get_ticker_info(symbol: str) -> dict:
     """
     if not symbol:
         raise ValueError("Symbol is required")
-    
+
     # Allowed and stable keys only
     allowed_keys = {
         # Valuation
@@ -737,20 +715,19 @@ def get_ticker_info(symbol: str) -> dict:
         "fiftyTwoWeekHigh",
         "fiftyTwoWeekLow",
     }
-    
+
     try:
         normalized_symbol = normalize_symbol(symbol.strip().upper())
         ticker = yf.Ticker(normalized_symbol)
         info = ticker.info
-        
+
         # Filter to only allowed keys and include symbol
         result = {"symbol": symbol}
         if isinstance(info, dict):
             filtered_info = {k: v for k, v in info.items() if k in allowed_keys}
             result.update(filtered_info)
-        
+
         return result
     except Exception as e:
         print(f"ERROR: Failed to fetch ticker info for {symbol}: {str(e)}")
         return {"symbol": symbol, "error": str(e)}
-

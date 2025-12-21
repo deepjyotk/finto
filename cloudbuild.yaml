@@ -42,9 +42,11 @@ steps:
       - --service-account=${_RUNTIME_SA}
       - --allow-unauthenticated
       - --port=8000
-      - --timeout=300
-      - --cpu=2
-      - --memory=2Gi
+      - --timeout=60
+      - --cpu=1
+      - --memory=512Mi
+      - --min-instances=0
+      - --max-instances=1
       # Secrets must exist in Secret Manager and the runtime SA must have secretAccessor
       - --set-secrets=SECRET_KEY=SECRET_KEY:latest
       - --set-secrets=DATABASE_URL=DATABASE_URL:latest

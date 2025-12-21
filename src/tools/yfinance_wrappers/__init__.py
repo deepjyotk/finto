@@ -666,49 +666,39 @@ def get_last_close_price(symbol_name: str) -> dict:
 
 
 def get_ticker_info(symbol: str) -> dict:
-    """
-    ## Comprehensive Ticker Info (Fallback - Use Only If Needed):
-    Fetch comprehensive ticker information with 180+ metrics.
+    """Fetch comprehensive ticker information with 24+ stable metrics.
     
-    Returns all available ticker metrics including:
-    - Valuation: PE, PB, PS, market cap, enterprise value, book value
-    - Growth: revenue growth, earnings growth, earnings quarterly growth, EPS
-    - Financial: debt-to-equity, profit margins, ROE, ROA, current ratio, quick ratio
-    - Dividends: yield, payout ratio, dividend rate
-    - Price data: current price, 52-week high/low, day high/low
-    - And 150+ other metrics available from yfinance
+    Returns key financial metrics for valuation, growth, profitability, financial health, dividends, and price.
     
     Args:
         symbol: Stock ticker symbol (e.g., "AAPL", "RELIANCE.NS")
     
     Returns:
-        Dictionary containing all available ticker metrics. Use .get() to access specific fields.
+        {"symbol": t, "marketCap": ..., "trailingPE": ..., ...} containing:
         
-    Allowed and stable keys (use only these unless explicitly needed):
-    Valuation:
-    - trailingPE, forwardPE, priceToBook, priceToSalesTrailing12Months, enterpriseValue, marketCap
-
-    Growth:
-    - revenueGrowth, earningsGrowth, earningsQuarterlyGrowth
-
-    Profitability:
-    - profitMargins, grossMargins, operatingMargins, returnOnEquity, returnOnAssets
-
-    Financial Health:
-    - debtToEquity, currentRatio, quickRatio, totalDebt, totalCash
-
-    Dividends:
-    - dividendYield, payoutRatio, dividendRate
-
-    Price Stats:
-    - currentPrice, fiftyTwoWeekHigh, fiftyTwoWeekLow
+        Valuation metrics:
+        - trailingPE, forwardPE, priceToBook, priceToSalesTrailing12Months, enterpriseValue, marketCap
+        
+        Growth metrics:
+        - revenueGrowth, earningsGrowth, earningsQuarterlyGrowth
+        
+        Profitability metrics:
+        - profitMargins, grossMargins, operatingMargins, returnOnEquity, returnOnAssets
+        
+        Financial Health metrics:
+        - debtToEquity, currentRatio, quickRatio, totalDebt, totalCash
+        
+        Dividend metrics:
+        - dividendYield, payoutRatio, dividendRate
+        
+        Price metrics:
+        - currentPrice, fiftyTwoWeekHigh, fiftyTwoWeekLow
     
     Example:
         info = get_ticker_info("AAPL")
+        market_cap = info.get("marketCap")
         pe = info.get("trailingPE")
-        pb = info.get("priceToBook")
         revenue_growth = info.get("revenueGrowth")
-        profit_margin = info.get("profitMargins")
     """
     if not symbol:
         raise ValueError("Symbol is required")
@@ -753,14 +743,14 @@ def get_ticker_info(symbol: str) -> dict:
         ticker = yf.Ticker(normalized_symbol)
         info = ticker.info
         
-        # Filter to only allowed keys
+        # Filter to only allowed keys and include symbol
+        result = {"symbol": symbol}
         if isinstance(info, dict):
             filtered_info = {k: v for k, v in info.items() if k in allowed_keys}
-        else:
-            filtered_info = {}
+            result.update(filtered_info)
         
-        return {"symbol": symbol, "info": filtered_info}
+        return result
     except Exception as e:
         print(f"ERROR: Failed to fetch ticker info for {symbol}: {str(e)}")
-        return {"symbol": symbol, "info": {}, "error": str(e)}
+        return {"symbol": symbol, "error": str(e)}
 

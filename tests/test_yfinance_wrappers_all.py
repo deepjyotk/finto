@@ -10,7 +10,6 @@ from src.tools.yfinance_wrappers import (
     get_cash_flow,
     get_dividends,
     get_capital_gains,
-    get_earnings,
     get_earnings_estimate,
     get_revenue_estimate,
     get_earnings_history,
@@ -122,13 +121,6 @@ def test_earnings_and_estimates(symbol: str):
     print(f"# TESTING EARNINGS & ESTIMATES - {symbol}")
     print(f"{'#'*80}")
     
-    # Earnings
-    try:
-        result = get_earnings(symbol, freq="yearly")
-        print_result("get_earnings (yearly)", result)
-    except Exception as e:
-        print(f"❌ get_earnings failed: {e}")
-    
     # Earnings Estimate
     try:
         result = get_earnings_estimate(symbol)
@@ -224,7 +216,7 @@ if __name__ == "__main__":
     # test_financial_statements(us_symbol)
     # test_price_and_returns(us_symbol)
     # test_earnings_and_estimates(us_symbol)
-    test_ownership_and_insider(us_symbol)
+    #test_ownership_and_insider(us_symbol)
     
     # Test with Indian stock
     indian_symbol = "RELIANCE.NS"
@@ -232,7 +224,7 @@ if __name__ == "__main__":
     print(f"* STARTING TESTS FOR INDIAN STOCK: {indian_symbol}")
     print(f"{'*'*80}")
     
-    test_financial_statements(indian_symbol)
+    # test_financial_statements(indian_symbol)
     test_price_and_returns(indian_symbol)
     test_earnings_and_estimates(indian_symbol)
     test_ownership_and_insider(indian_symbol)

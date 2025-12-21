@@ -17,6 +17,19 @@ from src.core.schema import EquityHoldingSchema
 from src.schemas.agent_state import AgentContext, AgentState
 from src.tools.calculate_profit_tool import calculate_profit_or_loss
 from src.tools.filters import growth_filter, value_filter
+from src.tools.portfolio_metrics import (
+    roi,
+    roe,
+    sharpe_ratio,
+    sortino_ratio,
+    cagr,
+    dividend_yield,
+    debt_to_equity_ratio,
+    current_ratio,
+    profit_margin,
+    win_rate,
+    calculate_all_metrics,
+)
 from src.tools.portfolio_risk import (
     download_prices,
     max_drawdown,
@@ -28,7 +41,6 @@ from src.tools.yfinance_wrappers import (
     get_capital_gains,
     get_cash_flow,
     get_dividends,
-    get_earnings,
     get_earnings_estimate,
     get_earnings_history,
     get_eps_revisions,
@@ -42,6 +54,7 @@ from src.tools.yfinance_wrappers import (
     get_major_holders,
     get_mutualfund_holders,
     get_revenue_estimate,
+    get_ticker_info,
 )
 
 logger = logger_for(__name__)
@@ -138,8 +151,25 @@ The following functions are already implemented and imported in the runtime envi
 ## Ownership & Insider Activity:
 {yf_ownership_and_insider_activity_function_with_doc_string}
 
+## Comprehensive Ticker Info:
+{ticker_info_function_with_doc_string}
+
 # STOCK FILTERING FUNCTIONS:
 {filter_functions_with_doc_string}
+
+# PORTFOLIO METRICS FUNCTIONS:
+{metrics_functions_with_doc_string}
+
+# METRIC PRIORITY POLICY (IMPORTANT)
+- Always prioritize metrics computed using the provided functions (roi, roe, cagr, sharpe_ratio, value_filter, growth_filter, etc.).
+- Only use get_ticker_info as a fallback when:
+    • the required financial statement / price data is not available
+    • OR the corresponding computation function does not exist
+- Never mix computed values and ticker.info values for the same metric.
+- If both sources exist and produce different values:
+    • Use the computed value
+    • Print a warning: "Note: ticker.info reported a different value for <metric>. Using computed metric as source-of-truth."
+- Do NOT fetch from ticker.info unless absolutely required.
 
 # STRICT RULES:
 - Always respect all argument types and argument descriptions when calling any function.
@@ -154,6 +184,7 @@ The following functions are already implemented and imported in the runtime envi
 - Write a single, linear Python script that can be executed as-is in the current environment.
 - Bases all calculations strictly on the user request and available data.
 - If any symbol has missing values, print a clear warning listing them. Write the code such that execution never fails because of missing data — simply skip those entries and continue with the rest.
+- If a metric has a corresponding computation function, you MUST use that computation function instead of ticker.info.
 
 
 # CODING REQUIREMENTS
@@ -214,7 +245,6 @@ Your output must:
             )
             yf_earnings_and_estimates_function_with_doc_string: str = get_function_with_doc_string(
                 [
-                    get_earnings,
                     get_earnings_estimate,
                     get_revenue_estimate,
                     get_earnings_history,
@@ -239,6 +269,24 @@ Your output must:
             )
             filter_functions_with_doc_string: str = get_function_with_doc_string(
                 [growth_filter, value_filter]
+            )
+            metrics_functions_with_doc_string: str = get_function_with_doc_string(
+                [
+                    roi,
+                    roe,
+                    sharpe_ratio,
+                    sortino_ratio,
+                    cagr,
+                    dividend_yield,
+                    debt_to_equity_ratio,
+                    current_ratio,
+                    profit_margin,
+                    win_rate,
+                    calculate_all_metrics,
+                ]
+            )
+            ticker_info_function_with_doc_string: str = get_function_with_doc_string(
+                [get_ticker_info]
             )
 
             user_request = state.get("user_request", "").strip()
@@ -277,6 +325,8 @@ Your output must:
                     "profit_calculation_function_with_doc_string": profit_calculation_function_with_doc_string,
                     "risk_functions_with_doc_string": risk_functions_with_doc_string,
                     "filter_functions_with_doc_string": filter_functions_with_doc_string,
+                    "metrics_functions_with_doc_string": metrics_functions_with_doc_string,
+                    "ticker_info_function_with_doc_string": ticker_info_function_with_doc_string,
                     "current_date_time": current_date_time_ist,
                 }
             )

@@ -14,6 +14,19 @@ from src.services.holdings import HoldingsService
 from src.tools import yfinance_wrappers
 from src.tools.calculate_profit_tool import calculate_profit_or_loss
 from src.tools.filters import growth_filter, value_filter
+from src.tools.portfolio_metrics import (
+    roi,
+    roe,
+    sharpe_ratio,
+    sortino_ratio,
+    cagr,
+    dividend_yield,
+    debt_to_equity_ratio,
+    current_ratio,
+    profit_margin,
+    win_rate,
+    calculate_all_metrics,
+)
 from src.tools.portfolio_risk import (
     download_prices,
     max_drawdown,
@@ -33,7 +46,6 @@ class ExecuteCodeNode:
         "get_cash_flow",
         "get_dividends",
         "get_capital_gains",
-        "get_earnings",
         "get_earnings_estimate",
         "get_revenue_estimate",
         "get_earnings_history",
@@ -47,6 +59,7 @@ class ExecuteCodeNode:
         "get_insider_transactions",
         "get_ticker_price",
         "get_last_close_price",
+        "get_ticker_info",
     ]
 
     def __init__(
@@ -73,6 +86,17 @@ class ExecuteCodeNode:
             "max_drawdown_asset": max_drawdown_asset,
             "growth_filter": growth_filter,
             "value_filter": value_filter,
+            "roi": roi,
+            "roe": roe,
+            "sharpe_ratio": sharpe_ratio,
+            "sortino_ratio": sortino_ratio,
+            "cagr": cagr,
+            "dividend_yield": dividend_yield,
+            "debt_to_equity_ratio": debt_to_equity_ratio,
+            "current_ratio": current_ratio,
+            "profit_margin": profit_margin,
+            "win_rate": win_rate,
+            "calculate_all_metrics": calculate_all_metrics,
         }
         for func_name in self._YF_FUNCTIONS:
             env[func_name] = getattr(yfinance_wrappers, func_name)

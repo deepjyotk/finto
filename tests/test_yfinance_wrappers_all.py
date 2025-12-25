@@ -1,6 +1,7 @@
 """Test script for all YFinance wrapper functions."""
 
 from typing import Optional
+import pandas as pd
 
 import yfinance as yf
 import json
@@ -225,10 +226,32 @@ if __name__ == "__main__":
     print(f"{'*'*80}")
 
     # test_financial_statements(indian_symbol)
-    test_price_and_returns(indian_symbol)
-    test_earnings_and_estimates(indian_symbol)
-    test_ownership_and_insider(indian_symbol)
+    # test_price_and_returns(indian_symbol)
+    # test_earnings_and_estimates(indian_symbol)
+    # test_ownership_and_insider(indian_symbol)
 
+    symbols = ["USHAMART.NS", "RELIANCE.NS"]
+    results = {}
+    for symbol in symbols:
+        try:
+            income_data = get_income_statement(symbol, freq="yearly")
+            if "income_statement" not in income_data or not income_data["income_statement"]:
+                print(f"Warning: No income statement data found for {symbol}. Skipping.")
+                continue
+            print(f"Income DataFrame for {symbol}:\n{income_data}")
+            income_df = pd.DataFrame(income_data["income_statement"]).T
+            
+            income_df.index = pd.to_datetime(income_df.index)
+            income_df = income_df.sort_index()
+            
+            if "NetIncome" not in income_df.columns:
+                print(f"Warning: NetIncome column missing for {symbol}. Skipping.")
+                continue
+            net_income_series = income_df["NetIncome"].astype(float)
+            results[symbol] = net_income_series
+        except Exception as e:
+            print(f"Warning: Failed to fetch or process NetIncome for {symbol}: {e}")
+    print(f"\nNet Income Results:\n{results}")
     print(f"\n\n{'*'*80}")
     print(f"* ALL TESTS COMPLETED")
     print(f"{'*'*80}\n")

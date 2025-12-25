@@ -137,10 +137,24 @@ Symbols Context:
 {risk_functions_with_doc_string}
 
 # AVAILABLE YFINANCE DATA FUNCTIONS:
+Set pretty=False in all function calls to avoid extra formatting.
 The following functions are already implemented and imported in the runtime environment:
 
 ## Financial Statements:
 {yf_financial_statement_function_with_doc_string}
+Example usage for getting net income from income statement:
+    result = get_income_statement("AAPL", freq="yearly", pretty=True)
+    income_data = result["income_statement"]
+    df = pd.DataFrame(income_data).T   # transpose so dates become index
+
+    # Convert index to datetime
+    df.index = pd.to_datetime(df.index)
+
+    # Sort by date (optional but recommended)
+    df = df.sort_index()
+
+    # Extract Net Income series
+    net_income_series = df["NetIncome"]
 
 ## Price & Returns:
 {yf_price_and_returns_function_with_doc_string}

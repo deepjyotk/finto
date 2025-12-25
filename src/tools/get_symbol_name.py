@@ -3,7 +3,7 @@ from typing import List
 from dotenv import load_dotenv
 
 from src.services.vector_embeddings import init_pinecone, query_symbols
-
+from src.tools.common_utils import normalize_symbol
 load_dotenv()
 
 # Initialize Pinecone once at module level
@@ -17,18 +17,20 @@ def _get_symbol_for_query(query: str) -> str:
     return matches[0]["metadata"].get("symbol", "")
 
 
-def get_symbol_names(user_query: str) -> List[str]:
-    """Extracts the stock symbols from a user's query using vector similarity search.
+def get_symbol_names(symbol_list: List[str]) -> List[str]:
+    """Extracts the stock symbols from the list of stocks using vector similarity search.
 
-    Input: user's query string like "I want to calculate the total value of my holdings in adani green and tata motors"
+    Input: A list of stock names like ["Adani Green", "Tata Motors"]
     Returns: A list with symbol name strings like "ADANIGREEN", "TATAMOTORS"
     """
-    normalized_query = (user_query or "").strip()
-    if not normalized_query:
-        return []
+    # normalized_query = (user_query or "").strip()
+    # if not normalized_query:
+    #     return []
+    final_list = []
+    for symbol in symbol_list:
+        return_symbol = _get_symbol_for_query(symbol)
+        normalized_symbol = normalize_symbol(return_symbol)
+        # if .NS is present, can you remove it and return the symbol without .NS
+        final_list.append(normalized_symbol)
+    return final_list
 
-    return_symbol = _get_symbol_for_query(normalized_query)
-    # if .NS is present, can you remove it and return the symbol without .NS
-    if return_symbol.endswith(".NS"):
-        return [return_symbol[:-3]]
-    return [return_symbol]

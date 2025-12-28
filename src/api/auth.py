@@ -3,11 +3,11 @@
 from datetime import timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from src.api.schemas.auth import UserCreate, UserLogin, UserResponse
 from src.core.json_logging import logger_for
-from src.core.middleware import get_current_user_optional, require_auth
+from src.core.middleware import require_auth
 from src.core.settings import settings
 from src.dependencies import get_auth_service
 from src.services.auth import AuthService
@@ -200,36 +200,3 @@ async def get_current_user(user: dict = Depends(require_auth)):
         email=user["email"],
         full_name=user["full_name"],
     )
-
-
-@router.get(
-    "/verify",
-    summary="Verify authentication status",
-    description="Check if the current JWT token is valid and return authentication status.",
-    responses={
-        200: {"description": "Authentication status returned"},
-    },
-)
-async def verify_token(request: Request):
-    """
-    Verify JWT token validity.
-
-    Checks if there's a valid JWT token in the cookie and returns authentication status.
-
-    Returns:
-    - **authenticated**: Boolean indicating if user is authenticated
-    - **user_id**: User ID (only if authenticated)
-    - **username**: Username (only if authenticated)
-
-    **Authentication required**: No (returns status regardless)
-    """
-    user = await get_current_user_optional(request)
-
-    if user:
-        return {
-            "authenticated": True,
-            "user_id": user["user_id"],
-            "username": user["username"],
-        }
-    else:
-        return {"authenticated": False}

@@ -9,8 +9,7 @@
 - `POST /register` — create a user (`UserCreate`) and immediately sets the auth cookie; returns `UserResponse`.  
 - `POST /login` — authenticate with `UserLogin`, issues JWT via cookie, returns `UserResponse`.  
 - `POST /logout` — clears auth cookie; no body, returns `{message}`.  
-- `GET /me` — requires auth; echoes the decoded user profile (`UserResponse`).  
-- `GET /verify` — **Public**; inspects cookie if present and responds with `{authenticated, user_id?, username?}`.
+- `GET /me` — requires auth; echoes the decoded user profile (`UserResponse`).
 
 ## Home Feed (`/api/home`)
 - `GET /home` — requires auth; combines WhatsApp integration state and broker catalog. Response is `HomeFeedSchema` with `chat_integrations` (optional WhatsApp payload) and `available_brokers`.

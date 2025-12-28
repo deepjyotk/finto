@@ -1,10 +1,13 @@
 """Chat service - handles chat/agent query operations"""
 
+from typing import List, Optional
 from uuid import UUID
 
 import psycopg
+from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.schemas.chat import ChatRequest
 from src.core.enums import LLMModel
@@ -22,13 +25,23 @@ class ChatService:
         """Initialize ChatService with an injected Graph builder."""
         self.graph = graph
 
-    async def query(self, request: ChatRequest, thread_id: UUID, user_id: UUID) -> AgentMessage:
+    async def query(
+        self, 
+        request: ChatRequest, 
+        thread_id: UUID, 
+        user_id: UUID, 
+        db: AsyncSession,
+        callbacks: Optional[List[BaseCallbackHandler]] = None
+    ) -> AgentMessage:
         """
         Run the agent on the provided question and return the AIMessage as AgentMessage.
 
         Args:
             request: Chat request containing message and model
             thread_id: Thread ID for conversation persistence
+            user_id: User ID for credit tracking
+            db: Database session for credit operations
+            callbacks: Optional list of LangChain callbacks for tracking (e.g., credit tracking)
 
         Returns:
             AgentMessage response from the agent
@@ -44,10 +57,13 @@ class ChatService:
 
             graph_runner = await self.graph.get_graph()
             try:
-                logger.info(f"Starting chat session with thread_id: {thread_id}")
+                logger.info(f"🚀 Starting agent graph execution - thread_id: {thread_id}, user_id: {user_id}")
 
-                # Create config with thread_id for persistence
-                config: RunnableConfig = {"configurable": {"thread_id": str(thread_id)}}
+                # Create config with thread_id for persistence and callbacks for tracking
+                config: RunnableConfig = {
+                    "configurable": {"thread_id": str(thread_id)},
+                    "callbacks": callbacks or []
+                }
 
                 # StateGraph expects an AgentState with a messages key
                 initial_state = {

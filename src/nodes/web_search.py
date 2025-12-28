@@ -7,9 +7,12 @@ from langchain_core.runnables import RunnableLambda, RunnableSequence
 from langgraph.runtime import get_runtime
 
 from src.core.enums import LLMModel
+from src.core.json_logging import logger_for
 from src.core.llm import LLMFactory
 from src.schemas.agent_state import AgentContext, AgentState
 from src.schemas.web_search import WebSearchResult
+
+logger = logger_for(__name__)
 
 
 class WebSearchNode:

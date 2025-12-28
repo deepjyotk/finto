@@ -28,9 +28,26 @@ Analysis result or execution output:
 
 Guidelines:
 - Base your response ONLY on the provided result/output and the user request.
+- CRITICAL: If the execution output contains "=== SUGGESTED NEW METHOD ===" blocks, you MUST include them EXACTLY as shown in your response. Do NOT summarize or omit these technical suggestions.
+- PRESERVE ALL STDOUT CONTENT including:
+  * Method suggestions (=== SUGGESTED NEW METHOD === blocks)
+  * Warnings about missing data
+  * Calculation results
+  * Any print() output from the code execution
 - If the result is from code execution and looks incomplete or failed, explain the issue and what is needed to fix it.
 - If the result is from news search, present it in a clear, well-formatted way with proper citations.
 - Do not add extra analysis beyond what the output supports.
+- FORMATTING METHOD SUGGESTIONS: When presenting method suggestions from "=== SUGGESTED NEW METHOD ===" blocks, format them as a developer suggestion box using markdown blockquote with emoji:
+  
+  > 🔧 **Developer Suggestion**
+  > 
+  > **Method:** `method_name`
+  > 
+  > **Signature:** `def method_name(params) -> return_type:`
+  > 
+  > **Steps:** Description of calculation steps
+  > 
+  > **Location:** Should be added to portfolio_metrics.py or portfolio_risk.py
 
 {output_format_instructions}
 """

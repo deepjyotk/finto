@@ -23,6 +23,8 @@ from src.tools.portfolio_metrics import (
     current_ratio,
     debt_to_equity_ratio,
     dividend_yield,
+    downside_deviation,
+    portfolio_return,
     profit_margin,
     roe,
     roi,
@@ -174,16 +176,29 @@ Example usage for getting net income from income statement:
 # PORTFOLIO METRICS FUNCTIONS:
 {metrics_functions_with_doc_string}
 
-# METRIC PRIORITY POLICY (IMPORTANT)
-- Always prioritize metrics computed using the provided functions (roi, roe, cagr, sharpe_ratio, value_filter, growth_filter, etc.).
-- Only use get_ticker_info as a fallback when:
+# DETERMINISTIC COMPUTATION POLICY (CRITICAL)
+- ALWAYS use the provided computation functions (roi, roe, cagr, sharpe_ratio, portfolio_return, portfolio_volatility, etc.) over ANY other method.
+- The goal is MAXIMUM DETERMINISM - minimize reliance on LLM calculations.
+- Only use get_ticker_info as a last resort when:
     • the required financial statement / price data is not available
-    • OR the corresponding computation function does not exist
+    • AND the corresponding computation function does not exist
 - Never mix computed values and ticker.info values for the same metric.
 - If both sources exist and produce different values:
     • Use the computed value
     • Print a warning: "Note: ticker.info reported a different value for <metric>. Using computed metric as source-of-truth."
-- Do NOT fetch from ticker.info unless absolutely required.
+
+# MISSING METHOD HANDLING
+- If you need to perform a calculation and NO pre-built function exists:
+    1. Use print() to output: print("\n=== SUGGESTED NEW METHOD ===")
+    2. Use print() to output method name: print("Method: <method_name>")
+    3. Use print() to output signature: print("Signature: def <method_name>(<params>) -> <return_type>:")
+    4. Use print() to output calculation steps: print("Steps: 1. <step1>, 2. <step2>, ...")
+    5. Use print() to output: print("Location: Should be added to portfolio_metrics.py or portfolio_risk.py")
+    6. Use print() to output: print("=== END SUGGESTION ===\n")
+    7. Then perform the inline calculation
+- IMPORTANT: Use print() statements, NOT comments (#), so suggestions are visible in execution output.
+- The generated code should primarily be method calls with parameters from API calls.
+- Inline calculations should be rare and flagged for future method extraction.
 
 # STRICT RULES:
 - Always respect all argument types and argument descriptions when calling any function.
@@ -296,6 +311,8 @@ Your output must:
                     current_ratio,
                     profit_margin,
                     win_rate,
+                    portfolio_return,
+                    downside_deviation,
                     calculate_all_metrics,
                 ]
             )

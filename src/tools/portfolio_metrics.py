@@ -220,6 +220,58 @@ def win_rate(winning_trades: int, total_trades: int) -> float:
     return (winning_trades / total_trades) * 100
 
 
+def portfolio_return(beginning_value: float, ending_value: float) -> float:
+    """
+    Calculate portfolio return as a decimal.
+
+    Simple return calculation showing percentage gain/loss on investment.
+    Used as input for risk-adjusted metrics like Sharpe and Sortino ratios.
+
+    Args:
+        beginning_value: Initial portfolio value
+        ending_value: Final portfolio value
+
+    Returns:
+        Return as decimal (e.g., 0.15 for 15% return, -0.05 for -5% loss)
+    """
+    if beginning_value <= 0:
+        return 0.0
+    return (ending_value - beginning_value) / beginning_value
+
+
+def downside_deviation(returns_series: list, risk_free_rate: float = 0.0) -> float:
+    """
+    Calculate downside deviation (semi-standard deviation).
+
+    Measures volatility of negative returns below a threshold (typically risk-free rate).
+    Used in Sortino Ratio to focus only on downside risk.
+    Only considers returns below the threshold, ignoring upside volatility.
+
+    Args:
+        returns_series: List or array of periodic returns (as decimals, e.g., [0.02, -0.01, 0.03])
+        risk_free_rate: Minimum acceptable return threshold (as decimal, default 0.0)
+
+    Returns:
+        Downside deviation as decimal (e.g., 0.08 for 8%)
+    """
+    if not returns_series or len(returns_series) == 0:
+        return 0.0
+    
+    # Calculate downside returns (only negative deviations from risk_free_rate)
+    downside_returns = [min(0, r - risk_free_rate) for r in returns_series]
+    
+    # Calculate sum of squared downside returns
+    sum_squared = sum(r ** 2 for r in downside_returns)
+    
+    # Calculate downside deviation (using n-1 for sample)
+    n = len(returns_series)
+    if n <= 1:
+        return 0.0
+    
+    downside_var = sum_squared / (n - 1)
+    return downside_var ** 0.5
+
+
 # Additional helper functions for batch calculations
 
 
@@ -234,8 +286,8 @@ def calculate_all_metrics(
     revenue: Optional[float] = None,
     dividend: Optional[float] = None,
     stock_price: Optional[float] = None,
-    volatility: Optional[float] = 0.15,
-    risk_free_rate: Optional[float] = 0.05,
+    volatility: float = 0.15,
+    risk_free_rate: float = 0.05,
 ) -> dict:
     """
     Calculate all available metrics for a stock in one call.

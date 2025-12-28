@@ -20,6 +20,8 @@ from src.tools.portfolio_metrics import (
     current_ratio,
     debt_to_equity_ratio,
     dividend_yield,
+    downside_deviation,
+    portfolio_return,
     profit_margin,
     roe,
     roi,
@@ -96,6 +98,8 @@ class ExecuteCodeNode:
             "current_ratio": current_ratio,
             "profit_margin": profit_margin,
             "win_rate": win_rate,
+            "portfolio_return": portfolio_return,
+            "downside_deviation": downside_deviation,
             "calculate_all_metrics": calculate_all_metrics,
         }
         for func_name in self._YF_FUNCTIONS:
@@ -163,6 +167,10 @@ class ExecuteCodeNode:
                 sections.append(
                     "\n Examine the above error message. Modify the code to fix the error."
                 )
+            
+            # Add note if method suggestions are present in stdout
+            if "=== SUGGESTED NEW METHOD ===" in stdout_text:
+                sections.append("\n⚠️ IMPORTANT: The output above contains method suggestions that should be preserved in the final response.")
 
             observation = "\n\n".join(sections)
 

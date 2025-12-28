@@ -1,16 +1,13 @@
 """Portfolio symbol extraction node."""
 
-import re
 from typing import List, Literal
 
-from click import prompt
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableLambda
 from langgraph.runtime import get_runtime
 from pydantic import BaseModel
 
-from src.core import llm
 from src.core.enums import LLMModel
 from src.core.json_logging import logger_for
 from src.core.llm import LLMFactory
@@ -104,15 +101,19 @@ class PortfolioNode:
                 query_type = None
 
             if query_type and query_type.query_type == "specific_stocks_scope":
-                symbol_extraction_chain = (llm.with_structured_output(SymbolExtractionResult))
-                symbol_prompt = ChatPromptTemplate.from_messages([
-                  ("system", "Extract stock symbols from the user query. Return only the symbols as a list."),
-                  ("user", "{user_query}")
-                ])
+                symbol_extraction_chain = llm.with_structured_output(SymbolExtractionResult)
+                symbol_prompt = ChatPromptTemplate.from_messages(
+                    [
+                        (
+                            "system",
+                            "Extract stock symbols from the user query. Return only the symbols as a list.",
+                        ),
+                        ("user", "{user_query}"),
+                    ]
+                )
 
                 chain = symbol_prompt | symbol_extraction_chain
                 result = chain.invoke({"user_query": user_query})
-
 
                 extracted_symbols = get_symbol_names(result.symbol_names)
 

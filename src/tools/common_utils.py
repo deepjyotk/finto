@@ -1,5 +1,3 @@
-import re
-
 INDIAN_EXCHANGE_SUFFIXES = {"NS", "BO"}
 
 
@@ -23,9 +21,5 @@ def normalize_symbol(symbol: str, default_exchange: str = "NS") -> str:
     if "." in s and s.split(".")[1] in INDIAN_EXCHANGE_SUFFIXES:
         return s
 
-    # Heuristic: assume Indian equity and default to NSE
-    if re.fullmatch(r"[A-Z][A-Z0-9&\-]{1,20}", s):
-        normalized = f"{s}.{default_exchange}"
-        return normalized
-
-    return s
+    # Default to adding the exchange suffix
+    return f"{s}.{default_exchange}"

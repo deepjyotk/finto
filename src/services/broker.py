@@ -18,6 +18,7 @@ logger = logger_for(__name__)
 
 class BrokerService:
     """Service layer for broker operations"""
+
     ANGELONE_HEADER_ROW = 14
 
     ANGELONE_MAPPING = {
@@ -75,21 +76,21 @@ class BrokerService:
                 return "xlsx"
             except (zipfile.BadZipFile, Exception):
                 pass
-        
+
         # Check for .xls format (OLE2 signature: D0 CF 11 E0 A1 B1 1A E1)
         if file_content[:8] == b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1":
             return "xls"
-        
+
         return "unknown"
 
-    def _decrypt_excel_file(
-        self, file_content: bytes, password: str, filename: str
-    ) -> bytes:
+    def _decrypt_excel_file(self, file_content: bytes, password: str, filename: str) -> bytes:
         try:
             file_obj = io.BytesIO(file_content)
             decrypted_file = io.BytesIO()
             office_file = msoffcrypto.OfficeFile(file_obj)
-            logger.info(f"File encrypted: {office_file.is_encrypted()}, password provided: {bool(password)}")
+            logger.info(
+                f"File encrypted: {office_file.is_encrypted()}, password provided: {bool(password)}"
+            )
             office_file.load_key(password=password)
             office_file.decrypt(decrypted_file)
             decrypted_file.seek(0)
@@ -111,9 +112,7 @@ class BrokerService:
         ]
         return any(err in error_msg for err in password_protected_errors)
 
-    def _try_remove_password_protection(
-        self, file_content: bytes, filename: str
-    ) -> bytes:
+    def _try_remove_password_protection(self, file_content: bytes, filename: str) -> bytes:
         """
         Attempt to automatically remove/bypass password protection from Excel file.
         Tries common passwords and empty password.
@@ -121,26 +120,28 @@ class BrokerService:
         """
         # Common passwords to try (including empty string)
         passwords_to_try = ["", "password", "Password", "123456", "1234", "admin", "Admin"]
-        
+
         file_obj = io.BytesIO(file_content)
-        
+
         for pwd in passwords_to_try:
             try:
                 file_obj.seek(0)  # Reset to beginning
                 decrypted_file = io.BytesIO()
-                
+
                 office_file = msoffcrypto.OfficeFile(file_obj)
                 office_file.load_key(password=pwd)
                 office_file.decrypt(decrypted_file)
-                
+
                 # Successfully decrypted
                 decrypted_file.seek(0)
-                logger.info(f"Successfully removed password protection from Excel file (used password: '{pwd if pwd else 'empty'}')")
+                logger.info(
+                    f"Successfully removed password protection from Excel file (used password: '{pwd if pwd else 'empty'}')"
+                )
                 return decrypted_file.read()
             except Exception:
                 # Try next password
                 continue
-        
+
         # If all passwords failed, try to check if file is actually encrypted
         try:
             file_obj.seek(0)
@@ -153,7 +154,7 @@ class BrokerService:
                 )
         except Exception:
             pass
-        
+
         # If we get here, we couldn't decrypt it
         raise ValueError(
             "Unable to automatically remove password protection. "
@@ -182,72 +183,127 @@ class BrokerService:
                 ) from decrypt_error
 
     def _read_xlsx_file(
-        self, content: bytes, filename: str, password: Optional[str], 
-        sheet_name: Optional[str] = None, header_row: int = 0
+        self,
+        content: bytes,
+        filename: str,
+        password: Optional[str],
+        sheet_name: Optional[str] = None,
+        header_row: int = 0,
     ) -> pd.DataFrame:
         try:
-            return pd.read_excel(io.BytesIO(content), engine="openpyxl", sheet_name=sheet_name or 0, header=header_row)
+            return pd.read_excel(
+                io.BytesIO(content),
+                engine="openpyxl",
+                sheet_name=sheet_name or 0,
+                header=header_row,
+            )
         except Exception as e:
             error_msg = str(e)
             if self._is_password_protected_error(error_msg):
-                decrypted = self._handle_password_protected_file(content, filename, password, "openpyxl")
-                return pd.read_excel(io.BytesIO(decrypted), engine="openpyxl", sheet_name=sheet_name or 0, header=header_row)
+                decrypted = self._handle_password_protected_file(
+                    content, filename, password, "openpyxl"
+                )
+                return pd.read_excel(
+                    io.BytesIO(decrypted),
+                    engine="openpyxl",
+                    sheet_name=sheet_name or 0,
+                    header=header_row,
+                )
             logger.warning(f"Failed to read as .xlsx with openpyxl, trying xlrd: {error_msg}")
             try:
-                return pd.read_excel(io.BytesIO(content), engine="xlrd", sheet_name=sheet_name or 0, header=header_row)
+                return pd.read_excel(
+                    io.BytesIO(content),
+                    engine="xlrd",
+                    sheet_name=sheet_name or 0,
+                    header=header_row,
+                )
             except Exception:
                 raise ValueError(f"Failed to read Excel file: {error_msg}") from e
 
     def _read_xls_file(
-        self, content: bytes, filename: str, password: Optional[str], 
-        sheet_name: Optional[str] = None, header_row: int = 0
+        self,
+        content: bytes,
+        filename: str,
+        password: Optional[str],
+        sheet_name: Optional[str] = None,
+        header_row: int = 0,
     ) -> pd.DataFrame:
         logger.info(f"_read_xls_file: sheet={sheet_name}, header={header_row}")
         try:
-            return pd.read_excel(io.BytesIO(content), engine="xlrd", sheet_name=sheet_name or 0, header=header_row)
+            return pd.read_excel(
+                io.BytesIO(content), engine="xlrd", sheet_name=sheet_name or 0, header=header_row
+            )
         except Exception as e:
             error_msg = str(e)
             logger.info(f"xlrd failed: {error_msg}")
-            
-            if "xlsx file; not supported" in error_msg.lower() or self._is_password_protected_error(error_msg):
+
+            if "xlsx file; not supported" in error_msg.lower() or self._is_password_protected_error(
+                error_msg
+            ):
                 logger.info("Detected encrypted xlsx, decrypting...")
-                decrypted = self._handle_password_protected_file(content, filename, password, "openpyxl")
+                decrypted = self._handle_password_protected_file(
+                    content, filename, password, "openpyxl"
+                )
                 engine = "openpyxl" if decrypted[:4] == b"PK\x03\x04" else "xlrd"
                 logger.info(f"Reading with {engine}, sheet={sheet_name}, header={header_row}")
                 try:
-                    df = pd.read_excel(io.BytesIO(decrypted), engine=engine, sheet_name=sheet_name or 0, header=header_row)
+                    df = pd.read_excel(
+                        io.BytesIO(decrypted),
+                        engine=engine,
+                        sheet_name=sheet_name or 0,
+                        header=header_row,
+                    )
                     logger.info(f"Read success, shape: {df.shape}")
                     return df
                 except Exception as read_err:
                     logger.error(f"Read failed: {read_err}")
-                    raise ValueError(f"Failed to read decrypted Excel file: {read_err}") from read_err
-            
+                    raise ValueError(
+                        f"Failed to read decrypted Excel file: {read_err}"
+                    ) from read_err
+
             logger.warning(f"Failed to read as .xls with xlrd, trying openpyxl: {error_msg}")
             try:
-                return pd.read_excel(io.BytesIO(content), engine="openpyxl", sheet_name=sheet_name or 0, header=header_row)
+                return pd.read_excel(
+                    io.BytesIO(content),
+                    engine="openpyxl",
+                    sheet_name=sheet_name or 0,
+                    header=header_row,
+                )
             except Exception:
                 raise ValueError(f"Failed to read Excel file: {error_msg}") from e
 
     def _read_excel_file(
-        self, file_content: bytes, filename: str, password: Optional[str], 
-        sheet_name: Optional[str] = None, header_row: int = 0
+        self,
+        file_content: bytes,
+        filename: str,
+        password: Optional[str],
+        sheet_name: Optional[str] = None,
+        header_row: int = 0,
     ) -> pd.DataFrame:
         detected_format = self._detect_excel_format(file_content)
-        logger.info(f"_read_excel_file: format={detected_format}, sheet={sheet_name}, header={header_row}")
-        
+        logger.info(
+            f"_read_excel_file: format={detected_format}, sheet={sheet_name}, header={header_row}"
+        )
+
         if detected_format == "xlsx":
             return self._read_xlsx_file(file_content, filename, password, sheet_name, header_row)
         elif detected_format == "xls":
             return self._read_xls_file(file_content, filename, password, sheet_name, header_row)
         else:
             if filename.lower().endswith(".xlsx"):
-                return self._read_xlsx_file(file_content, filename, password, sheet_name, header_row)
+                return self._read_xlsx_file(
+                    file_content, filename, password, sheet_name, header_row
+                )
             else:
                 return self._read_xls_file(file_content, filename, password, sheet_name, header_row)
 
     def _read_file(
-        self, file_content: bytes, filename: str, password: Optional[str], 
-        sheet_name: Optional[str] = None, header_row: int = 0
+        self,
+        file_content: bytes,
+        filename: str,
+        password: Optional[str],
+        sheet_name: Optional[str] = None,
+        header_row: int = 0,
     ) -> pd.DataFrame:
         file_lower = filename.lower()
         if file_lower.endswith((".xlsx", ".xls")):
@@ -260,7 +316,7 @@ class BrokerService:
     def _normalize_error_message(self, error: Exception) -> ValueError:
         """Convert generic exceptions to user-friendly ValueError messages."""
         error_msg = str(error)
-        
+
         if "not a zip file" in error_msg.lower():
             return ValueError(
                 "The file extension doesn't match the file format. "
@@ -280,10 +336,10 @@ class BrokerService:
         for col in ["sector", "qty_available", "qty_long_term", "qty_pledged_margin"]:
             if col not in df.columns:
                 df[col] = None if col == "sector" else 0
-        
+
         for col in ["qty_available", "qty_long_term", "qty_pledged_margin"]:
             df[col] = df[col].fillna(0)
-        
+
         return df
 
     async def _process_zerodha_holdings(
@@ -294,38 +350,38 @@ class BrokerService:
         missing = required_fields - set(df.columns)
         if missing:
             raise ValueError(f"Missing required columns for Zerodha: {', '.join(missing)}")
-        
+
         discrepancies = {}
         original_symbols = df["symbol"].str.strip().tolist()
-        
+
         # Track remapped symbols
         for s in original_symbols:
             if s in self.EXISTING_ZEODHA_SYMBOL_MAPPINGS_DISCREPANCY:
                 discrepancies[s] = (
                     f"remapped to {self.EXISTING_ZEODHA_SYMBOL_MAPPINGS_DISCREPANCY[s]}"
                 )
-        
+
         symbols = [
             self.EXISTING_ZEODHA_SYMBOL_MAPPINGS_DISCREPANCY.get(s, s) for s in original_symbols
         ]
         symbols = [s[:-3] if s.endswith(".NS") or s.endswith(".BO") else s for s in symbols]
         symbol_to_company = await self.repo.get_company_names_by_symbols(symbols)
-        
+
         # Track missing symbols
         for s in symbols:
             if s not in symbol_to_company:
                 discrepancies[s] = "not found in in_equities, using symbol as company_name"
-        
+
         if discrepancies:
             logger.warning(f"Symbol discrepancies: {discrepancies}")
-        
+
         # Clean symbols and update DataFrame
         df["symbol"] = (
             df["symbol"].str.strip().replace(self.EXISTING_ZEODHA_SYMBOL_MAPPINGS_DISCREPANCY)
         )
         df["symbol"] = df["symbol"].str.replace(r"\.(NS|BO)$", "", regex=True)
         df["company_name"] = df["symbol"].map(lambda s: symbol_to_company.get(s, s))
-        
+
         return df, discrepancies
 
     async def _process_angelone_holdings(
@@ -336,22 +392,26 @@ class BrokerService:
         missing = required_fields - set(df.columns)
         if missing:
             raise ValueError(f"Missing required columns: {', '.join(missing)}")
-        
+
         isins = df["isin"].dropna().str.strip().tolist()
         isin_to_symbol = await self.repo.get_symbols_by_isins(isins) if isins else {}
-        
+
         for isin in isins:
             if isin and isin not in isin_to_symbol:
                 discrepancies[isin] = "not found in in_equities"
-        
-        df["symbol"] = df["isin"].apply(lambda i: isin_to_symbol.get(str(i).strip(), i) if pd.notna(i) else i)
+
+        df["symbol"] = df["isin"].apply(
+            lambda i: isin_to_symbol.get(str(i).strip(), i) if pd.notna(i) else i
+        )
         df = df.drop(columns=["isin"])
-        
+
         nan_rows = df[df[["avg_price", "prev_close_price", "qty_available"]].isna().any(axis=1)]
         if not nan_rows.empty:
             for _, row in nan_rows.iterrows():
-                logger.warning(f"Dropping row with NaN: company={row.get('company_name')}, avg_price={row.get('avg_price')}, prev_close={row.get('prev_close_price')}, qty={row.get('qty_available')}")
-        
+                logger.warning(
+                    f"Dropping row with NaN: company={row.get('company_name')}, avg_price={row.get('avg_price')}, prev_close={row.get('prev_close_price')}, qty={row.get('qty_available')}"
+                )
+
         df = df.dropna(subset=["avg_price", "prev_close_price", "qty_available"])
         return df, discrepancies
 
@@ -362,7 +422,7 @@ class BrokerService:
         holdings_list = []
         for idx, row in df.iterrows():
             try:
-                if  row["qty_available"] is None or row["qty_available"] <= 0:
+                if row["qty_available"] is None or row["qty_available"] <= 0:
                     continue
                 holding = HoldingsRequestSchema(
                     broker_id=broker_id,
@@ -378,10 +438,10 @@ class BrokerService:
                 holdings_list.append(holding)
             except Exception as e:
                 raise ValueError(f"Error parsing row {idx + 2}: {str(e)}") from e
-        
+
         if not holdings_list:
             raise ValueError("No valid holdings found in file")
-        
+
         return holdings_list
 
     async def parse_holdings_file(
@@ -389,18 +449,17 @@ class BrokerService:
     ) -> tuple[list[HoldingsRequestSchema], dict[str, str]]:
         broker_name = await self.repo.get_broker_name_by_id(broker_id)
         broker_lower = (broker_name or "").lower()
-        
+
         sheet_name = "Equity" if broker_lower == "angelone" else None
         header_row = self.ANGELONE_HEADER_ROW if broker_lower == "angelone" else 0
-        
+
         try:
             df = self._read_file(file_content, filename, password, sheet_name, header_row)
         except ValueError:
             raise
         except Exception as e:
             raise self._normalize_error_message(e) from e
-        
-        
+
         if broker_lower == "zerodha":
             df = df.rename(columns=self.ZERODHA_COLUMN_MAPPING)
             df, discrepancies = await self._process_zerodha_holdings(df)
@@ -409,8 +468,8 @@ class BrokerService:
             df, discrepancies = await self._process_angelone_holdings(df)
         else:
             raise ValueError(f"Unsupported broker: {broker_lower}. Please use Zerodha or AngelOne.")
-        
+
         df = self._normalize_dataframe(df)
         holdings_list = self._dataframe_to_holdings(df, broker_id)
-        
+
         return holdings_list, discrepancies

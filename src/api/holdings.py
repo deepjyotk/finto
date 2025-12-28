@@ -103,7 +103,9 @@ async def upload_holdings_file(
     svc: Annotated[HoldingsService, Depends(get_holdings_service)],
     broker_svc: Annotated[BrokerService, Depends(get_broker_service)],
     user: dict = Depends(require_auth),
-    password: Annotated[str | None, Form(description="Optional password for password-protected Excel files")] = None,
+    password: Annotated[
+        str | None, Form(description="Optional password for password-protected Excel files")
+    ] = None,
 ) -> BulkHoldingsUploadResponse:
     """
     Upload and process equity holdings from Excel or CSV file.
@@ -160,7 +162,10 @@ async def upload_holdings_file(
 
         # Parse file to holdings list using broker service
         holdings_list, discrepancies = await broker_svc.parse_holdings_file(
-            file_content=file_content, filename=file.filename, broker_id=broker_id, password=password
+            file_content=file_content,
+            filename=file.filename,
+            broker_id=broker_id,
+            password=password,
         )
 
         logger.info(
@@ -241,7 +246,9 @@ async def update_holdings_file(
     svc: Annotated[HoldingsService, Depends(get_holdings_service)],
     broker_svc: Annotated[BrokerService, Depends(get_broker_service)],
     user: dict = Depends(require_auth),
-    password: Annotated[str | None, Form(description="Optional password for password-protected Excel files")] = None,
+    password: Annotated[
+        str | None, Form(description="Optional password for password-protected Excel files")
+    ] = None,
 ) -> BulkHoldingsUploadResponse:
     logger.info(
         "bulk_holdings_update_attempt",
@@ -281,7 +288,10 @@ async def update_holdings_file(
 
         # Parse file to holdings list using broker service
         holdings_list, discrepancies = await broker_svc.parse_holdings_file(
-            file_content=file_content, filename=file.filename, broker_id=metadata.broker_id, password=password
+            file_content=file_content,
+            filename=file.filename,
+            broker_id=metadata.broker_id,
+            password=password,
         )
 
         logger.info(

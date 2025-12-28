@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 
 from src.services.vector_embeddings import init_pinecone, query_symbols
 from src.tools.common_utils import normalize_symbol
+
 load_dotenv()
 
 # Initialize Pinecone once at module level
@@ -30,7 +31,9 @@ def get_symbol_names(symbol_list: List[str]) -> List[str]:
     for symbol in symbol_list:
         return_symbol = _get_symbol_for_query(symbol)
         normalized_symbol = normalize_symbol(return_symbol)
-        # if .NS is present, can you remove it and return the symbol without .NS
-        final_list.append(normalized_symbol)
-    return final_list
+        if normalized_symbol.endswith(".NS") or normalized_symbol.endswith(".BO"):
+            unnormalized_symbol = normalized_symbol[:-3]
 
+        final_list.append(unnormalized_symbol)
+
+    return final_list

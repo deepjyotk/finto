@@ -616,7 +616,6 @@ def get_last_close_price(symbol_name: str) -> dict:
         raise ValueError("Symbol name is required.")
 
     normalized_symbol = normalize_symbol(symbol_name.strip().upper())
-    print(f"Normalized symbol: {normalized_symbol}")
     try:
         ticker = yf.Ticker(normalized_symbol)
         # Get last 5 days to ensure we have data

@@ -29,6 +29,13 @@ class BrokerRepository:
         )
         return {row[0]: row[1] for row in result}
 
+    async def get_symbols_by_isins(self, isins: list[str]) -> dict[str, str]:
+        result = await self.session.execute(
+            text("SELECT isin_number, symbol FROM in_equities WHERE isin_number = ANY(:isins)"),
+            {"isins": isins},
+        )
+        return {row[0]: row[1] for row in result}
+
     async def get_all_brokers(self) -> list[dict[str, Any]]:
         """
         Get all available brokers.

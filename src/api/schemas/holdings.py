@@ -67,6 +67,14 @@ class HoldingsResponseSchema(BaseModel):
     }
 
 
+class FileMetadata(BaseModel):
+    """Schema for file metadata"""
+
+    is_password_protected: bool = Field(
+        default=False, description="Whether the file is password-protected"
+    )
+
+
 class BulkHoldingsUploadResponse(BaseModel):
     """Schema for bulk holdings upload response"""
 

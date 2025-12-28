@@ -103,12 +103,13 @@ async def upload_holdings_file(
     svc: Annotated[HoldingsService, Depends(get_holdings_service)],
     broker_svc: Annotated[BrokerService, Depends(get_broker_service)],
     user: dict = Depends(require_auth),
+    password: Annotated[str | None, Form(description="Optional password for password-protected Excel files")] = None,
 ) -> BulkHoldingsUploadResponse:
     """
     Upload and process equity holdings from Excel or CSV file.
 
     Accepts files in the following formats:
-    - Excel (.xlsx, .xls)
+    - Excel (.xlsx, .xls) - supports password-protected files if password is provided
     - CSV (.csv)
 
     Expected columns in the file:
@@ -123,6 +124,9 @@ async def upload_holdings_file(
 
     The broker_id is provided as form data, and user_id is extracted from
     the authenticated user's JWT token.
+
+    **Password protection**: If your Excel file is password-protected, provide
+    the password in the 'password' form field.
 
     **Authentication required**: Yes (JWT token in cookie)
 
@@ -156,7 +160,7 @@ async def upload_holdings_file(
 
         # Parse file to holdings list using broker service
         holdings_list, discrepancies = await broker_svc.parse_holdings_file(
-            file_content=file_content, filename=file.filename, broker_id=broker_id
+            file_content=file_content, filename=file.filename, broker_id=broker_id, password=password
         )
 
         logger.info(
@@ -237,6 +241,7 @@ async def update_holdings_file(
     svc: Annotated[HoldingsService, Depends(get_holdings_service)],
     broker_svc: Annotated[BrokerService, Depends(get_broker_service)],
     user: dict = Depends(require_auth),
+    password: Annotated[str | None, Form(description="Optional password for password-protected Excel files")] = None,
 ) -> BulkHoldingsUploadResponse:
     logger.info(
         "bulk_holdings_update_attempt",
@@ -276,7 +281,7 @@ async def update_holdings_file(
 
         # Parse file to holdings list using broker service
         holdings_list, discrepancies = await broker_svc.parse_holdings_file(
-            file_content=file_content, filename=file.filename, broker_id=metadata.broker_id
+            file_content=file_content, filename=file.filename, broker_id=metadata.broker_id, password=password
         )
 
         logger.info(

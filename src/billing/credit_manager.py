@@ -30,6 +30,7 @@ MODEL_PRICING = {
     "gpt-4o": ModelPricing(input_cost_per_1m=2.50, output_cost_per_1m=10.00),
     "gpt-4o-mini": ModelPricing(input_cost_per_1m=0.150, output_cost_per_1m=0.600),
     "gpt-4-turbo": ModelPricing(input_cost_per_1m=10.00, output_cost_per_1m=30.00),
+    "gpt-4.1": ModelPricing(input_cost_per_1m=10.00, output_cost_per_1m=30.00),  # GPT-4.1 (similar to turbo)
     "gpt-3.5-turbo": ModelPricing(input_cost_per_1m=0.50, output_cost_per_1m=1.50),
     # Anthropic Models
     "claude-3-5-sonnet-20241022": ModelPricing(input_cost_per_1m=3.00, output_cost_per_1m=15.00),
@@ -38,6 +39,8 @@ MODEL_PRICING = {
     # Google Models
     "gemini-1.5-pro": ModelPricing(input_cost_per_1m=1.25, output_cost_per_1m=5.00),
     "gemini-1.5-flash": ModelPricing(input_cost_per_1m=0.075, output_cost_per_1m=0.30),
+    # Thesys/C1 wrapped models (use base model pricing)
+    "c1-exp/openai/gpt-4.1": ModelPricing(input_cost_per_1m=10.00, output_cost_per_1m=30.00),
 }
 
 # Conversion rate: 1 USD = 1000 credits

@@ -1,8 +1,10 @@
 """Thesys chat service wired to the LangGraph flow (mirrors ChatService)."""
 
+from typing import List, Optional
 from uuid import UUID
 
 import psycopg
+from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 
@@ -137,9 +139,19 @@ class ThesysChatService:
         # Commit the transaction
         await self.chat_repo.session.commit()
 
-    async def query(self, request: C1ChatRequest, user_id: UUID) -> AgentMessage:
+    async def query(
+        self, 
+        request: C1ChatRequest, 
+        user_id: UUID,
+        callbacks: Optional[List[BaseCallbackHandler]] = None
+    ) -> AgentMessage:
         """
         Run the LangGraph agent for a Thesys C1 chat request.
+
+        Args:
+            request: Thesys chat request
+            user_id: User UUID
+            callbacks: Optional list of LangChain callbacks for tracking (e.g., credit tracking)
 
         Returns:
             AgentMessage: Final assistant message produced by the graph.
@@ -168,7 +180,10 @@ class ThesysChatService:
             try:
                 logger.info(f"Starting Thesys chat session with session_id: {thread_id}")
 
-                config: RunnableConfig = {"configurable": {"thread_id": str(thread_id)}}
+                config: RunnableConfig = {
+                    "configurable": {"thread_id": str(thread_id)},
+                    "callbacks": callbacks or []
+                }
 
                 initial_state = {
                     "messages": [HumanMessage(content=question)],

@@ -32,8 +32,8 @@ class CreditTrackingCallback(BaseCallbackHandler):
         self.model_usage: Dict[str, Dict[str, int]] = {}
         self.llm_call_count = 0
 
-    async def on_llm_end(self, response: LLMResult, **kwargs: Any) -> None:
-        """Called when LLM finishes running."""
+    def on_llm_end(self, response: LLMResult, **kwargs: Any) -> None:
+        """Called when LLM finishes running. Collects data without async DB operations."""
         
         self.llm_call_count += 1
         
@@ -79,41 +79,55 @@ class CreditTrackingCallback(BaseCallbackHandler):
         self.total_input_tokens += input_tokens
         self.total_output_tokens += output_tokens
         
-        # Track per-model
+        # Track per-model (just accumulate data, don't write to DB yet)
         if model_name not in self.model_usage:
             self.model_usage[model_name] = {
                 'input_tokens': 0,
                 'output_tokens': 0,
                 'credits': 0,
-                'calls': 0
+                'calls': 0,
+                'request_ids': []
             }
         
         self.model_usage[model_name]['input_tokens'] += input_tokens
         self.model_usage[model_name]['output_tokens'] += output_tokens
         self.model_usage[model_name]['calls'] += 1
+        self.model_usage[model_name]['request_ids'].append(str(kwargs.get('run_id', '')))
         
-        # Deduct credits
+        # Calculate credits (but don't deduct yet)
+        credit_manager = CreditManager(self.user_id, self.db_session)
+        _, credits = credit_manager.calculate_cost(model_name, input_tokens, output_tokens)
+        self.total_credits_deducted += credits
+        self.model_usage[model_name]['credits'] += credits
+        
+        logger.info(
+            f"💳 LLM call #{self.llm_call_count} - "
+            f"Model: {model_name}, Tokens: {input_tokens} in/{output_tokens} out, "
+            f"Credits: {credits}"
+        )
+    
+    async def finalize_and_save(self) -> None:
+        """Write all accumulated usage to database after graph completes."""
+        if self.total_credits_deducted == 0:
+            return
+        
         try:
             credit_manager = CreditManager(self.user_id, self.db_session)
-            success, credits, msg = await credit_manager.deduct_for_usage(
-                model_name=model_name,
-                input_tokens=input_tokens,
-                output_tokens=output_tokens,
-                request_id=str(kwargs.get('run_id', ''))
-            )
             
-            if success:
-                self.total_credits_deducted += credits
-                self.model_usage[model_name]['credits'] += credits
-                logger.info(
-                    f"💳 LLM call #{self.llm_call_count} - Deducted {credits} credits - "
-                    f"Model: {model_name}, Tokens: {input_tokens} in/{output_tokens} out"
+            # Deduct total credits for all LLM calls
+            for model_name, stats in self.model_usage.items():
+                success, credits, msg = await credit_manager.deduct_for_usage(
+                    model_name=model_name,
+                    input_tokens=stats['input_tokens'],
+                    output_tokens=stats['output_tokens'],
+                    request_id=stats['request_ids'][0] if stats['request_ids'] else None
                 )
-            else:
-                logger.error(f"❌ LLM call #{self.llm_call_count} - Failed to deduct credits: {msg}")
                 
+                if not success:
+                    logger.error(f"❌ Failed to deduct {credits} credits for {model_name}: {msg}")
+                    
         except Exception as e:
-            logger.error(f"❌ LLM call #{self.llm_call_count} - Error deducting credits: {e}", exc_info=True)
+            logger.error(f"❌ Error finalizing credit deductions: {e}", exc_info=True)
 
     def get_summary(self) -> Dict[str, Any]:
         """Get summary of token usage and credits deducted."""

@@ -5,7 +5,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
-from src.api.schemas.auth import UserCreate, UserLogin, UserResponse
+from src.api.schemas.auth import OTPResponse, OTPVerifyRequest, UserCreate, UserLogin, UserResponse
 from src.core.json_logging import logger_for
 from src.core.middleware import require_auth
 from src.core.settings import settings
@@ -19,42 +19,87 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 
 @router.post(
     "/register",
-    response_model=UserResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Register a new user",
-    description="Create a new user account and return the created user information.",
+    response_model=OTPResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Register a new user (initiates OTP verification)",
+    description="Initiate registration by sending an OTP to the user's email. Use /verify-otp to complete registration.",
     responses={
-        201: {"description": "User successfully created"},
-        400: {"description": "Username or email already exists"},
+        200: {"description": "OTP sent successfully"},
+        400: {"description": "Username or email already exists, or rate limited"},
     },
 )
 async def register(
     user: UserCreate,
-    response: Response,
     svc: Annotated[AuthService, Depends(get_auth_service)],
 ):
     """
-    Register a new user account.
+    Initiate user registration with OTP verification.
 
-    Creates a new user in the f_users table with hashed password.
+    Creates a pending registration and sends an OTP to the user's email.
+    The user must verify the OTP using /verify-otp to complete registration.
+    This endpoint can also be used to resend OTP (with 1-minute cooldown).
 
     - **username**: Unique username (required)
     - **email**: Valid email address (required)
     - **full_name**: User's full name (required)
     - **password**: Password with minimum 8 characters (required)
 
-    Returns the created user information.
+    Returns success message when OTP is sent.
     """
     logger.info("register_attempt", extra={"username": user.username, "email": user.email})
 
-    # Create user
-    created_user = await svc.register(user)
+    success, message, _ = await svc.initiate_registration(user)
 
-    if not created_user:
-        logger.error("register_failed", extra={"username": user.username})
+    if not success:
+        logger.error("register_failed", extra={"username": user.username, "reason": message})
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username or email already exists",
+            detail=message,
+        )
+
+    logger.info("register_otp_sent", extra={"username": user.username, "email": user.email})
+
+    return OTPResponse(message=message)
+
+
+@router.post(
+    "/verify-otp",
+    response_model=UserResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Verify OTP and complete registration",
+    description="Verify the OTP sent to the user's email and create the user account.",
+    responses={
+        201: {"description": "User successfully created"},
+        400: {"description": "Invalid or expired OTP"},
+    },
+)
+async def verify_otp(
+    otp_data: OTPVerifyRequest,
+    response: Response,
+    svc: Annotated[AuthService, Depends(get_auth_service)],
+):
+    """
+    Verify OTP and complete user registration.
+
+    Validates the OTP and creates the user account if valid.
+    Sets authentication cookie on success.
+
+    - **email**: Email used during registration (required)
+    - **otp**: 6-digit OTP received via email (required)
+
+    Returns the created user information.
+    """
+    logger.info("verify_otp_attempt", extra={"email": otp_data.email})
+
+    success, message, created_user = await svc.verify_otp_and_create_user(
+        email=otp_data.email, otp=otp_data.otp
+    )
+
+    if not success or not created_user:
+        logger.error("verify_otp_failed", extra={"email": otp_data.email, "reason": message})
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=message,
         )
 
     # Create access token for the newly registered user
@@ -75,8 +120,8 @@ async def register(
     )
 
     logger.info(
-        "register_success",
-        extra={"username": user.username, "user_id": str(created_user.user_id)},
+        "verify_otp_success",
+        extra={"email": otp_data.email, "user_id": str(created_user.user_id)},
     )
 
     return created_user

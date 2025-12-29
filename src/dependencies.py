@@ -19,6 +19,7 @@ from src.nodes.web_search import WebSearchNode
 from src.repositories.broker_repo import BrokerRepository
 from src.repositories.chat_repo import ChatRepository
 from src.repositories.holdings_repo import HoldingsRepository
+from src.repositories.pending_registration_repo import PendingRegistrationRepository
 from src.repositories.user_repo import UserRepository
 from src.repositories.whatsapp_repo import WhatsAppRepository
 from src.services.auth import AuthService
@@ -162,8 +163,23 @@ def _get_auth_repository(session: Annotated[AsyncSession, Depends(get_session)])
     return UserRepository(session)
 
 
+def _get_pending_registration_repository(
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> PendingRegistrationRepository:
+    """
+    Provide PendingRegistrationRepository instance.
+
+    Returns:
+        Configured PendingRegistrationRepository instance
+    """
+    return PendingRegistrationRepository(session)
+
+
 def get_auth_service(
     repo: Annotated[UserRepository, Depends(_get_auth_repository)],
+    pending_repo: Annotated[
+        PendingRegistrationRepository, Depends(_get_pending_registration_repository)
+    ],
 ) -> AuthService:
     """
     Provide AuthService with its dependencies.
@@ -172,12 +188,18 @@ def get_auth_service(
     Session → Repository → Service
 
     Args:
-        session: Database session from get_session dependency
+        repo: UserRepository from _get_auth_repository dependency
+        pending_repo: PendingRegistrationRepository from _get_pending_registration_repository
 
     Returns:
         Configured AuthService instance
     """
-    return AuthService(repo=repo, secret_key=settings.secret_key, algorithm=settings.algorithm)
+    return AuthService(
+        repo=repo,
+        pending_repo=pending_repo,
+        secret_key=settings.secret_key,
+        algorithm=settings.algorithm,
+    )
 
 
 def _get_holdings_repository(

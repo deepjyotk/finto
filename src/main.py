@@ -14,7 +14,7 @@ setup_json_logging()
 logger = logger_for(__name__)
 
 app = FastAPI(
-    title="Finto API",
+    title="Arthik API",
     description="JWT-based authentication API with chat functionality",
     version="0.1.0",
     openapi_tags=[

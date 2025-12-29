@@ -1,4 +1,4 @@
-# Finto Chat
+# Arthik Chat
 
 AI-powered chat application with FastAPI backend and Gradio UI.
 

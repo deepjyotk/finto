@@ -301,7 +301,7 @@ async def thesys_chat(
             logger.info(
                 f"  └─ {model}: {stats['calls']} calls, "
                 f"{stats['input_tokens']} in / {stats['output_tokens']} out = "
-                f"{stats['credits']} credits (${stats['credits']/1000:.4f})"
+                f"{stats['credits']} credits (${stats['credits'] / 1000:.4f})"
             )
 
         # Log final balance
@@ -310,7 +310,7 @@ async def thesys_chat(
 
             manager = CreditManager(user_id, db)
             balance = await manager.get_balance()
-            logger.info(f"💰 Final balance: {balance} credits (${balance/1000:.2f})")
+            logger.info(f"💰 Final balance: {balance} credits (${balance / 1000:.2f})")
         except Exception as e:
             logger.warning(f"Failed to log credit balance: {e}")
 

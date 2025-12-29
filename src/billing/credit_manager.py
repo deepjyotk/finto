@@ -30,7 +30,9 @@ MODEL_PRICING = {
     "gpt-4o": ModelPricing(input_cost_per_1m=2.50, output_cost_per_1m=10.00),
     "gpt-4o-mini": ModelPricing(input_cost_per_1m=0.150, output_cost_per_1m=0.600),
     "gpt-4-turbo": ModelPricing(input_cost_per_1m=10.00, output_cost_per_1m=30.00),
-    "gpt-4.1": ModelPricing(input_cost_per_1m=10.00, output_cost_per_1m=30.00),  # GPT-4.1 (similar to turbo)
+    "gpt-4.1": ModelPricing(
+        input_cost_per_1m=10.00, output_cost_per_1m=30.00
+    ),  # GPT-4.1 (similar to turbo)
     "gpt-3.5-turbo": ModelPricing(input_cost_per_1m=0.50, output_cost_per_1m=1.50),
     # Anthropic Models
     "claude-3-5-sonnet-20241022": ModelPricing(input_cost_per_1m=3.00, output_cost_per_1m=15.00),
@@ -52,7 +54,7 @@ class CreditManager:
 
     def __init__(self, user_id: UUID | str, db_session: AsyncSession):
         """Initialize credit manager with database session.
-        
+
         Args:
             user_id: User UUID
             db_session: SQLAlchemy async session
@@ -66,27 +68,24 @@ class CreditManager:
         """Load user credits from database if not already loaded. Returns UserCredits (never None)."""
         if self._loaded and self._user_credits is not None:
             return self._user_credits
-        
+
         stmt = select(UserCredits).where(UserCredits.user_id == self.user_id)
         result = await self._db.execute(stmt)
         self._user_credits = result.scalar_one_or_none()
-        
+
         if not self._user_credits:
             # Verify user exists
             user_stmt = select(User).where(User.user_id == self.user_id)
             user_result = await self._db.execute(user_stmt)
             user = user_result.scalar_one_or_none()
-            
+
             if not user:
                 raise ValueError(f"User {self.user_id} not found in database")
-            
+
             # Create credits record with initial 5000 credits
-            self._user_credits = UserCredits(
-                user_id=self.user_id,
-                credits_left=5000
-            )
+            self._user_credits = UserCredits(user_id=self.user_id, credits_left=5000)
             self._db.add(self._user_credits)
-            
+
             # Log initial credit allocation
             initial_transaction = CreditTransaction(
                 user_id=self.user_id,
@@ -97,25 +96,25 @@ class CreditManager:
                 description="Initial credit allocation",
             )
             self._db.add(initial_transaction)
-            
+
             await self._db.commit()
             await self._db.refresh(self._user_credits)
             logger.info(f"Created credits record for user {self.user_id} with 5000 initial credits")
-        
+
         self._loaded = True
         return self._user_credits
 
     async def add_credits(self, amount: int, description: str | None = None) -> int:
         """Add credits to user account and log transaction."""
         user_credits = await self._ensure_loaded()
-        
+
         if amount <= 0:
             raise ValueError("Amount must be positive")
-        
+
         balance_before = user_credits.credits_left
         user_credits.credits_left += amount
         user_credits.updated_at = datetime.utcnow()
-        
+
         # Log transaction
         transaction = CreditTransaction(
             user_id=self.user_id,
@@ -126,10 +125,10 @@ class CreditManager:
             description=description,
         )
         self._db.add(transaction)
-        
+
         await self._db.commit()
         await self._db.refresh(user_credits)
-        
+
         logger.info(
             f"Added {amount} credits to user {self.user_id}. "
             f"New balance: {user_credits.credits_left}"
@@ -162,9 +161,7 @@ class CreditManager:
                     break
 
         if not pricing:
-            logger.warning(
-                f"Unknown model pricing for {model_name}, using gpt-4o-mini as fallback"
-            )
+            logger.warning(f"Unknown model pricing for {model_name}, using gpt-4o-mini as fallback")
             pricing = MODEL_PRICING["gpt-4o-mini"]
 
         # Calculate cost in USD
@@ -196,7 +193,7 @@ class CreditManager:
         usd_cost, credit_cost = self.calculate_cost(model_name, input_tokens, output_tokens)
 
         current_balance = await self.get_balance()
-        
+
         if current_balance < credit_cost:
             msg = f"Insufficient credits. Required: {credit_cost}, Available: {current_balance}"
             logger.warning(f"User {self.user_id}: {msg}")
@@ -206,7 +203,7 @@ class CreditManager:
         balance_before = user_credits.credits_left
         user_credits.credits_left -= credit_cost
         user_credits.updated_at = datetime.utcnow()
-        
+
         # Log transaction
         transaction = CreditTransaction(
             user_id=self.user_id,
@@ -222,31 +219,31 @@ class CreditManager:
             description=f"LLM API usage: {model_name}",
         )
         self._db.add(transaction)
-        
+
         await self._db.commit()
         await self._db.refresh(user_credits)
 
         msg = f"Deducted {credit_cost} credits (${usd_cost:.4f}). Remaining: {user_credits.credits_left}"
         logger.info(f"User {self.user_id}: {msg}")
-        
+
         return True, credit_cost, msg
 
     async def get_usage_summary(self) -> dict:
         """Get summary of credit usage from transaction history."""
         balance = await self.get_balance()
-        
+
         # Query all deduction transactions
         stmt = select(CreditTransaction).where(
             CreditTransaction.user_id == self.user_id,
-            CreditTransaction.transaction_type == "deduction"
+            CreditTransaction.transaction_type == "deduction",
         )
         result = await self._db.execute(stmt)
         deductions = result.scalars().all()
-        
+
         total_credits_spent = sum(abs(t.amount) for t in deductions)
         total_usd_spent = sum(float(t.usd_cost or 0) for t in deductions)
         request_count = len(deductions)
-        
+
         return {
             "current_balance": balance,
             "user_id": str(self.user_id),
@@ -256,35 +253,30 @@ class CreditManager:
         }
 
     async def get_transaction_history(
-        self, 
-        limit: int = 50, 
-        offset: int = 0,
-        transaction_type: str | None = None
+        self, limit: int = 50, offset: int = 0, transaction_type: str | None = None
     ) -> list[dict]:
         """Get transaction history for the user with pagination.
-        
+
         Args:
             limit: Maximum number of transactions to return (default 50)
             offset: Number of transactions to skip (for pagination)
             transaction_type: Filter by type ('addition', 'deduction', 'initial', 'refund')
-        
+
         Returns:
             List of transaction dictionaries
         """
         from sqlalchemy import desc
-        
-        stmt = select(CreditTransaction).where(
-            CreditTransaction.user_id == self.user_id
-        )
-        
+
+        stmt = select(CreditTransaction).where(CreditTransaction.user_id == self.user_id)
+
         if transaction_type:
             stmt = stmt.where(CreditTransaction.transaction_type == transaction_type)
-        
+
         stmt = stmt.order_by(desc(CreditTransaction.created_at)).limit(limit).offset(offset)
-        
+
         result = await self._db.execute(stmt)
         transactions = result.scalars().all()
-        
+
         return [
             {
                 "id": str(t.id),

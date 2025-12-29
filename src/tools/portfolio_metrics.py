@@ -256,20 +256,20 @@ def downside_deviation(returns_series: list, risk_free_rate: float = 0.0) -> flo
     """
     if not returns_series or len(returns_series) == 0:
         return 0.0
-    
+
     # Calculate downside returns (only negative deviations from risk_free_rate)
     downside_returns = [min(0, r - risk_free_rate) for r in returns_series]
-    
+
     # Calculate sum of squared downside returns
-    sum_squared = sum(r ** 2 for r in downside_returns)
-    
+    sum_squared = sum(r**2 for r in downside_returns)
+
     # Calculate downside deviation (using n-1 for sample)
     n = len(returns_series)
     if n <= 1:
         return 0.0
-    
+
     downside_var = sum_squared / (n - 1)
-    return downside_var ** 0.5
+    return downside_var**0.5
 
 
 # Additional helper functions for batch calculations

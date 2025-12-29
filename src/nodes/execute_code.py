@@ -167,10 +167,12 @@ class ExecuteCodeNode:
                 sections.append(
                     "\n Examine the above error message. Modify the code to fix the error."
                 )
-            
+
             # Add note if method suggestions are present in stdout
             if "=== SUGGESTED NEW METHOD ===" in stdout_text:
-                sections.append("\n⚠️ IMPORTANT: The output above contains method suggestions that should be preserved in the final response.")
+                sections.append(
+                    "\n⚠️ IMPORTANT: The output above contains method suggestions that should be preserved in the final response."
+                )
 
             observation = "\n\n".join(sections)
 

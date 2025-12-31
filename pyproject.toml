@@ -42,6 +42,7 @@ dependencies = [
     "psycopg>=3.2.0",  # Explicit: used directly in chat services
     "psycopg-pool>=3.2.0",  # Explicit: used in graph.py
     "thesys-genui-sdk>=0.1.0",
+    "sendgrid>=6.11.0",  # SendGrid Python SDK for email sending
 ]
 
 [dependency-groups]

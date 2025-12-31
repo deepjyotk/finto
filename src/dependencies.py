@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.db import get_session
 from src.core.llm import LLMFactory
-from src.core.settings import settings
+from src.core.settings import sendgrid_settings, settings
 from src.graph import Graph
 from src.nodes.code_generation import CodeGenerationNode
 from src.nodes.execute_code import ExecuteCodeNode
@@ -26,6 +26,7 @@ from src.services.auth import AuthService
 from src.services.broker import BrokerService
 from src.services.chat import ChatService
 from src.services.chat_thesys_service import ThesysChatService
+from src.services.email import EmailService
 from src.services.holdings import HoldingsService
 from src.services.whatsapp import WhatsAppService
 
@@ -175,11 +176,26 @@ def _get_pending_registration_repository(
     return PendingRegistrationRepository(session)
 
 
+def get_email_service() -> EmailService:
+    """
+    Provide EmailService instance.
+
+    Returns:
+        Configured EmailService instance (may be disabled if SendGrid not configured)
+    """
+    return EmailService(
+        api_key=sendgrid_settings.api_key,
+        from_email=sendgrid_settings.from_email,
+        from_name=sendgrid_settings.from_name,
+    )
+
+
 def get_auth_service(
     repo: Annotated[UserRepository, Depends(_get_auth_repository)],
     pending_repo: Annotated[
         PendingRegistrationRepository, Depends(_get_pending_registration_repository)
     ],
+    email_service: Annotated[EmailService, Depends(get_email_service)],
 ) -> AuthService:
     """
     Provide AuthService with its dependencies.
@@ -190,6 +206,7 @@ def get_auth_service(
     Args:
         repo: UserRepository from _get_auth_repository dependency
         pending_repo: PendingRegistrationRepository from _get_pending_registration_repository
+        email_service: EmailService for sending OTP emails
 
     Returns:
         Configured AuthService instance
@@ -199,6 +216,7 @@ def get_auth_service(
         pending_repo=pending_repo,
         secret_key=settings.secret_key,
         algorithm=settings.algorithm,
+        email_service=email_service,
     )
 
 

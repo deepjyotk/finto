@@ -10,9 +10,13 @@ import jwt
 from passlib.context import CryptContext
 
 from src.api.schemas.auth import TokenData, UserCreate, UserResponse
+from src.core.json_logging import logger_for
 from src.models.user import User
 from src.repositories.pending_registration_repo import PendingRegistrationRepository
 from src.repositories.user_repo import UserRepository
+from src.services.email import EmailService
+
+logger = logger_for(__name__)
 
 # Password hashing context
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
@@ -34,6 +38,7 @@ class AuthService:
         pending_repo: PendingRegistrationRepository,
         secret_key: str,
         algorithm: str = "HS256",
+        email_service: Optional[EmailService] = None,
     ):
         """
         Initialize AuthService.
@@ -43,11 +48,13 @@ class AuthService:
             pending_repo: PendingRegistrationRepository for OTP-based registration
             secret_key: Secret key for JWT encoding
             algorithm: Algorithm for JWT encoding (default: HS256)
+            email_service: EmailService for sending OTP emails (optional for testing)
         """
         self.repo = repo
         self.pending_repo = pending_repo
         self.secret_key = secret_key
         self.algorithm = algorithm
+        self.email_service = email_service
 
     @staticmethod
     def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -173,11 +180,36 @@ class AuthService:
         # Commit at the use-case boundary
         await self.pending_repo.session.commit()
 
-        # Mock email sending (sleep 5 seconds)
-        await asyncio.sleep(5)
+        # Send OTP email
+        if self.email_service:
+            success, error_msg = await self.email_service.send_otp_email(
+                to_email=user_data.email,
+                otp=otp,
+                username=user_data.username,
+            )
+            if not success:
+                # Log error but don't fail registration - OTP is already stored
+                # User can request a new OTP if email fails
+                logger.error(
+                    "otp_email_send_failed",
+                    extra={"email": user_data.email, "error": error_msg},
+                )
+                return (
+                    False,
+                    f"Failed to send OTP email. Please try again. Error: {error_msg}",
+                    None,
+                )
+            logger.info(
+                "otp_email_sent_successfully",
+                extra={"email": user_data.email, "username": user_data.username},
+            )
+        else:
+            # Fallback for testing without email service
+            logger.warning("email_service_not_configured", extra={"email": user_data.email})
+            await asyncio.sleep(1)  # Minimal delay for testing
 
-        # Return OTP for testing purposes (in production, this would not be returned)
-        return True, "OTP sent successfully", otp
+        # Return success (OTP not returned in production)
+        return True, "OTP sent successfully", None
 
     async def verify_otp_and_create_user(
         self, email: str, otp: str

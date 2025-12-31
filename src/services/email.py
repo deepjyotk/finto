@@ -6,7 +6,6 @@ from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 
 from src.core.json_logging import logger_for
-from src.core.settings import sendgrid_settings
 
 logger = logger_for(__name__)
 
@@ -36,7 +35,9 @@ class EmailService:
             self.from_email = from_email
             self.from_name = from_name
 
-    async def send_otp_email(self, to_email: str, otp: str, username: str) -> tuple[bool, Optional[str]]:
+    async def send_otp_email(
+        self, to_email: str, otp: str, username: str
+    ) -> tuple[bool, Optional[str]]:
         """
         Send OTP email to user.
 
@@ -111,7 +112,10 @@ class EmailService:
             Tuple of (success, error_message)
         """
         if self.client is None or self.from_email is None:
-            return False, "Email service is not configured. Please set SENDGRID_API_KEY and SENDGRID_FROM_EMAIL environment variables."
+            return (
+                False,
+                "Email service is not configured. Please set SENDGRID_API_KEY and SENDGRID_FROM_EMAIL environment variables.",
+            )
 
         try:
             message = Mail(
@@ -128,9 +132,7 @@ class EmailService:
             from functools import partial
 
             loop = asyncio.get_running_loop()
-            response = await loop.run_in_executor(
-                None, partial(self.client.send, message)
-            )
+            response = await loop.run_in_executor(None, partial(self.client.send, message))
 
             if response.status_code in [200, 201, 202]:
                 logger.info(
@@ -158,7 +160,9 @@ class EmailService:
                     "Please verify your sender email in SendGrid Dashboard → Settings → Sender Authentication"
                 )
             elif "401" in error_msg or "Unauthorized" in error_msg:
-                detailed_error = "SendGrid API key is invalid or expired. Please check your SENDGRID_API_KEY."
+                detailed_error = (
+                    "SendGrid API key is invalid or expired. Please check your SENDGRID_API_KEY."
+                )
             else:
                 detailed_error = error_msg
 
@@ -168,4 +172,3 @@ class EmailService:
                 exc_info=True,
             )
             return False, detailed_error
-

@@ -1,4 +1,4 @@
-# Finto Chat
+# Arthik Chat
 
 AI-powered chat application with FastAPI backend and Gradio UI.
 
@@ -171,7 +171,6 @@ The application uses JWT-based authentication with HTTP-only cookies:
 - **Login**: `POST /auth/login` - Authenticate and receive JWT token
 - **Logout**: `POST /auth/logout` - Clear authentication cookie
 - **Current User**: `GET /auth/me` - Get authenticated user info
-- **Verify**: `GET /auth/verify` - Check authentication status
 
 ## 🧪 API Documentation
 

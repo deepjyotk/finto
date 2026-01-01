@@ -261,7 +261,7 @@ async def thesys_chat(
     Dedicated Thesys endpoint for <C1Chat> with automatic credit tracking.
     """
     user_id = uuid.UUID(user["user_id"])
-    
+
     logger.info(
         "thesys_chat_request",
         extra={
@@ -273,20 +273,18 @@ async def thesys_chat(
     # Manually create db session to keep it open during graph execution
     from src.billing.langsmith_tracker import CreditTrackingCallback
     from src.core.db import SessionLocal
-    
+
     db = SessionLocal()
     try:
         credit_callback = CreditTrackingCallback(user_id, db)
 
         agent_message = await thesys_chat_service.query(
-            request, 
-            user_id=user_id,
-            callbacks=[credit_callback]
+            request, user_id=user_id, callbacks=[credit_callback]
         )
-        
+
         # Now finalize and save credit deductions to database
         await credit_callback.finalize_and_save()
-        
+
         # Log usage summary
         usage_summary = credit_callback.get_summary()
         logger.info(
@@ -297,26 +295,25 @@ async def thesys_chat(
             f"Credits: {usage_summary['total_credits_deducted']}, "
             f"Cost: ${usage_summary['total_usd_spent']:.4f}"
         )
-        
+
         # Log per-model breakdown
-        for model, stats in usage_summary['model_breakdown'].items():
+        for model, stats in usage_summary["model_breakdown"].items():
             logger.info(
                 f"  └─ {model}: {stats['calls']} calls, "
                 f"{stats['input_tokens']} in / {stats['output_tokens']} out = "
-                f"{stats['credits']} credits (${stats['credits']/1000:.4f})"
+                f"{stats['credits']} credits (${stats['credits'] / 1000:.4f})"
             )
-        
+
         # Log final balance
         try:
             from src.billing.credit_manager import CreditManager
+
             manager = CreditManager(user_id, db)
             balance = await manager.get_balance()
-            logger.info(
-                f"💰 Final balance: {balance} credits (${balance/1000:.2f})"
-            )
+            logger.info(f"💰 Final balance: {balance} credits (${balance / 1000:.2f})")
         except Exception as e:
             logger.warning(f"Failed to log credit balance: {e}")
-        
+
         if agent_message and agent_message.content:
             await write_content(agent_message.content)
     finally:

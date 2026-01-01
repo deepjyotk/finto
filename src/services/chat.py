@@ -26,12 +26,12 @@ class ChatService:
         self.graph = graph
 
     async def query(
-        self, 
-        request: ChatRequest, 
-        thread_id: UUID, 
-        user_id: UUID, 
+        self,
+        request: ChatRequest,
+        thread_id: UUID,
+        user_id: UUID,
         db: AsyncSession,
-        callbacks: Optional[List[BaseCallbackHandler]] = None
+        callbacks: Optional[List[BaseCallbackHandler]] = None,
     ) -> AgentMessage:
         """
         Run the agent on the provided question and return the AIMessage as AgentMessage.
@@ -57,12 +57,14 @@ class ChatService:
 
             graph_runner = await self.graph.get_graph()
             try:
-                logger.info(f"🚀 Starting agent graph execution - thread_id: {thread_id}, user_id: {user_id}")
+                logger.info(
+                    f"🚀 Starting agent graph execution - thread_id: {thread_id}, user_id: {user_id}"
+                )
 
                 # Create config with thread_id for persistence and callbacks for tracking
                 config: RunnableConfig = {
                     "configurable": {"thread_id": str(thread_id)},
-                    "callbacks": callbacks or []
+                    "callbacks": callbacks or [],
                 }
 
                 # StateGraph expects an AgentState with a messages key

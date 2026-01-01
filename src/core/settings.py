@@ -160,9 +160,39 @@ class ThesysSettings(BaseSettings):
     )
 
 
+class SendGridSettings(BaseSettings):
+    """SendGrid email service settings loaded from environment variables"""
+
+    api_key: Optional[str] = Field(
+        default=None,
+        description="SendGrid API key (optional - email service disabled if not set)",
+        validation_alias="SENDGRID_API_KEY",
+    )
+    from_email: Optional[str] = Field(
+        default=None,
+        description="Default sender email address (must be verified in SendGrid)",
+        validation_alias="SENDGRID_FROM_EMAIL",
+    )
+    from_name: str = Field(
+        default="Finto",
+        description="Default sender name displayed in email clients",
+        validation_alias="SENDGRID_FROM_NAME",
+    )
+
+    @property
+    def is_configured(self) -> bool:
+        """Check if SendGrid is properly configured."""
+        return self.api_key is not None and self.from_email is not None
+
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
+    )
+
+
 settings = Settings()
 llm_settings = LLMSettings()
 tavily_settings = TavilySettings()
 whatsapp_settings = WhatsAppSettings()
 pinecone_settings = PineconeSettings()
 thesys_settings = ThesysSettings()
+sendgrid_settings = SendGridSettings()

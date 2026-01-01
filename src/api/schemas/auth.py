@@ -58,3 +58,24 @@ class UserResponse(UserBase):
 class TokenData(BaseModel):
     username: Optional[str] = None
     user_id: Optional[str] = None
+
+
+class OTPVerifyRequest(BaseModel):
+    email: EmailStr = Field(..., description="Email used during registration")
+    otp: str = Field(
+        ...,
+        min_length=6,
+        max_length=6,
+        description="6-digit OTP received via email",
+        example="123456",
+    )
+
+    model_config = {
+        "json_schema_extra": {"example": {"email": "john@example.com", "otp": "123456"}}
+    }
+
+
+class OTPResponse(BaseModel):
+    message: str = Field(..., description="Response message")
+
+    model_config = {"json_schema_extra": {"example": {"message": "OTP sent successfully"}}}

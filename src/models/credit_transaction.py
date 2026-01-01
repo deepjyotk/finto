@@ -21,9 +21,7 @@ class CreditTransaction(Base):
     __tablename__ = "credit_transactions"
 
     # Primary key
-    id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), primary_key=True, default=uuid4
-    )
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
 
     # Foreign key to user
     user_id: Mapped[UUID] = mapped_column(
@@ -38,7 +36,7 @@ class CreditTransaction(Base):
     transaction_type: Mapped[str] = mapped_column(
         String(50), nullable=False
     )  # 'addition', 'deduction', 'initial', 'refund'
-    
+
     balance_before: Mapped[int] = mapped_column(nullable=False)
     balance_after: Mapped[int] = mapped_column(nullable=False)
 

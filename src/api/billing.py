@@ -3,7 +3,7 @@
 from typing import List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -105,7 +105,7 @@ async def get_transaction_history(
     db: AsyncSession = Depends(get_session),
 ):
     """Get user's credit transaction history with pagination.
-    
+
     Query Parameters:
     - limit: Maximum number of transactions to return (default 50, max 200)
     - offset: Number of transactions to skip (for pagination)
@@ -114,7 +114,7 @@ async def get_transaction_history(
     # Enforce max limit
     if limit > 200:
         limit = 200
-    
+
     manager = CreditManager(current_user.user_id, db)
     transactions = await manager.get_transaction_history(limit, offset, transaction_type)
     total_count = await manager.get_transaction_count(transaction_type)

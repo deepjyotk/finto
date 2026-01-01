@@ -140,10 +140,10 @@ class ThesysChatService:
         await self.chat_repo.session.commit()
 
     async def query(
-        self, 
-        request: C1ChatRequest, 
+        self,
+        request: C1ChatRequest,
         user_id: UUID,
-        callbacks: Optional[List[BaseCallbackHandler]] = None
+        callbacks: Optional[List[BaseCallbackHandler]] = None,
     ) -> AgentMessage:
         """
         Run the LangGraph agent for a Thesys C1 chat request.
@@ -182,7 +182,7 @@ class ThesysChatService:
 
                 config: RunnableConfig = {
                     "configurable": {"thread_id": str(thread_id)},
-                    "callbacks": callbacks or []
+                    "callbacks": callbacks or [],
                 }
 
                 initial_state = {

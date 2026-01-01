@@ -39,7 +39,7 @@ class User(Base):
     credits: Mapped["UserCredits"] = relationship(
         "UserCredits", back_populates="user", uselist=False, lazy="selectin"
     )
-    
+
     # Relationship to credit transactions
     credit_transactions: Mapped[list["CreditTransaction"]] = relationship(
         "CreditTransaction", back_populates="user", lazy="dynamic"

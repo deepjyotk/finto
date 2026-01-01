@@ -49,8 +49,7 @@ Guidelines:
   > 
   > **Location:** Should be added to portfolio_metrics.py or portfolio_risk.py
 
-{output_format_instructions}
-"""
+{output_format_instructions}"""
     )
 
     def __init__(self, llm_factory: LLMFactory):

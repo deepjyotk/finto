@@ -233,6 +233,8 @@ class CreditManager:
 
     async def get_usage_summary(self) -> dict:
         """Get summary of credit usage from transaction history."""
+        from sqlalchemy import desc
+        
         balance = await self.get_balance()
         
         # Query all deduction transactions
@@ -247,13 +249,65 @@ class CreditManager:
         total_usd_spent = sum(float(t.usd_cost or 0) for t in deductions)
         request_count = len(deductions)
         
+        # Query recent deduction transactions (last 10)
+        recent_stmt = (
+            select(CreditTransaction)
+            .where(
+                CreditTransaction.user_id == self.user_id,
+                CreditTransaction.transaction_type == "deduction"
+            )
+            .order_by(desc(CreditTransaction.created_at))
+            .limit(10)
+        )
+        recent_result = await self._db.execute(recent_stmt)
+        recent_deductions = recent_result.scalars().all()
+        
+        # Format recent requests
+        recent_requests = [
+            {
+                "timestamp": t.created_at.isoformat(),
+                "model": t.model_name or "unknown",
+                "input_tokens": t.input_tokens or 0,
+                "output_tokens": t.output_tokens or 0,
+                "usd_cost": float(t.usd_cost or 0),
+                "credits_deducted": abs(t.amount),
+                "balance_after": t.balance_after,
+            }
+            for t in recent_deductions
+        ]
+        
         return {
             "current_balance": balance,
             "user_id": str(self.user_id),
             "total_credits_spent": total_credits_spent,
             "total_usd_spent": total_usd_spent,
             "request_count": request_count,
+            "recent_requests": recent_requests,
         }
+
+    async def get_transaction_count(
+        self,
+        transaction_type: str | None = None
+    ) -> int:
+        """Get total count of transactions for the user.
+        
+        Args:
+            transaction_type: Filter by type ('addition', 'deduction', 'initial', 'refund')
+        
+        Returns:
+            Total number of transactions
+        """
+        from sqlalchemy import func
+        
+        stmt = select(func.count(CreditTransaction.id)).where(
+            CreditTransaction.user_id == self.user_id
+        )
+        
+        if transaction_type:
+            stmt = stmt.where(CreditTransaction.transaction_type == transaction_type)
+        
+        result = await self._db.execute(stmt)
+        return result.scalar() or 0
 
     async def get_transaction_history(
         self, 
@@ -292,10 +346,10 @@ class CreditManager:
                 "transaction_type": t.transaction_type,
                 "balance_before": t.balance_before,
                 "balance_after": t.balance_after,
-                "model_name": t.model_name,
-                "input_tokens": t.input_tokens,
-                "output_tokens": t.output_tokens,
-                "usd_cost": float(t.usd_cost) if t.usd_cost else None,
+                "model_used": t.model_name,
+                "tokens_input": t.input_tokens,
+                "tokens_output": t.output_tokens,
+                "cost_usd": float(t.usd_cost) if t.usd_cost else None,
                 "request_id": t.request_id,
                 "description": t.description,
                 "created_at": t.created_at.isoformat(),

@@ -117,12 +117,14 @@ async def get_transaction_history(
     
     manager = CreditManager(current_user.user_id, db)
     transactions = await manager.get_transaction_history(limit, offset, transaction_type)
+    total_count = await manager.get_transaction_count(transaction_type)
     
     return {
         "transactions": transactions,
         "limit": limit,
         "offset": offset,
         "count": len(transactions),
+        "total_count": total_count,
     }
 
 

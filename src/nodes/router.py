@@ -78,6 +78,18 @@ Examples
         )
         return chat_template
 
+    def __respect_history_and_initialize_context(self,agent_state: AgentState, context: AgentContext) -> AgentContext:
+        """
+        Respect the history of messages and initialize the context.
+        """
+
+        history_message_length = len(agent_state.get("messages", []))-1 # -1 to exclude the human message
+        agent_state["history_message_length"] = history_message_length
+        user_id = context.get("user_id", "unknown")
+        logger.info("Router node invoked for user_id=%s with history_message_length=%s", user_id, history_message_length)
+        context["history_message_length"] = history_message_length
+        return context
+
     def get_runnable_sequence(self):
         prompt = self._router_prompt_template()
 
@@ -85,12 +97,11 @@ Examples
             # 🔹 Access AgentContext via runtime
             runtime = get_runtime(AgentContext)
             context = runtime.context
-            user_id = context.get("user_id")
-            router_model = context.get("router_model", LLMModel.GPT4oMini)
-            logger.info(
-                "Router node invoked for user_id=%s with model=%s", user_id, router_model.model_name
-            )
 
+            # state.messages hold the history of messages, so update the history_message_length
+            context = self.__respect_history_and_initialize_context(state, context)
+
+            router_model = context.get("router_model", LLMModel.GPT4oMini)
             llm = self._llm_factory(router_model)
             chain = prompt | llm.with_structured_output(RouteResponse)
 

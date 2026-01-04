@@ -1,6 +1,15 @@
 """Final response generation node that turns execution output into a user-facing answer."""
 
-from langchain_core.messages import AIMessage
+from typing import List
+
+from langchain_core.messages import (
+    AIMessage,
+    BaseMessage,
+    HumanMessage,
+    RemoveMessage,
+    SystemMessage,
+    ToolMessage,
+)
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableLambda
 from langgraph.runtime import get_runtime
@@ -16,6 +25,88 @@ logger = logger_for(__name__)
 
 class FinalResponseGenerationNode:
     """Crafts the final response using the user request and execution output."""
+
+    def _prune_iteration_messages(
+        self,
+        history_message_length: int,
+        messages: List[BaseMessage],
+        final_ai_msg: AIMessage,
+    ) -> List[BaseMessage]:
+        """
+        Prune the message history to keep only essential messages for the next iteration.
+
+        Strategy:
+        - Keep the FIRST HumanMessage (original user request for context)
+        - Keep the FINAL AIMessage (the response we just generated)
+        - Remove all intermediate messages (ToolMessages, AIMessages with tool_calls, etc.)
+
+        This prevents token bloat and irrelevant tool context from polluting future iterations.
+
+        Args:
+            messages: Current message history
+            final_ai_msg: The final AI response message to add
+
+        Returns:
+            List containing: final_ai_msg + RemoveMessage for all prunable messages
+        """
+
+        past_messages = messages[:history_message_length]
+
+        if len(messages) > history_message_length:
+            current_iteration_messages = messages[history_message_length:]
+        else:
+            current_iteration_messages = messages 
+
+        first_human_msg_id = None
+        for msg in current_iteration_messages:
+            if isinstance(msg, HumanMessage) and hasattr(msg, "id") and msg.id:
+                first_human_msg_id = msg.id
+                break
+
+        messages_to_remove: List[RemoveMessage] = []
+        for msg in current_iteration_messages:
+            if isinstance(msg,HumanMessage) and msg.id != first_human_msg_id:
+                if hasattr(msg, "id"):
+                    messages_to_remove.append(RemoveMessage(id=msg.id))
+                    continue
+            # Remove ToolMessages (tool execution outputs)
+            if isinstance(msg, ToolMessage):
+                if hasattr(msg, "id") and msg.id:
+                    messages_to_remove.append(RemoveMessage(id=msg.id))
+                    continue
+
+            # Remove AIMessages with tool_calls (intermediate agent reasoning)
+            if isinstance(msg, AIMessage):
+                if hasattr(msg, "tool_calls") and msg.tool_calls:
+                    if hasattr(msg, "id") and msg.id:
+                        messages_to_remove.append(RemoveMessage(id=msg.id))
+                        continue
+                # Also remove AIMessages without tool_calls (intermediate responses)
+                # to keep history clean - only the final response matters
+                if hasattr(msg, "id") and msg.id:
+                    messages_to_remove.append(RemoveMessage(id=msg.id))
+                    continue
+            # Remove SystemMessages (e.g., rejection messages from human approval)
+            # These are iteration-specific and not needed for future context
+            if isinstance(msg, SystemMessage):
+                if hasattr(msg, "id") and msg.id:
+                    messages_to_remove.append(RemoveMessage(id=msg.id))
+
+
+        current_iteration_messages = current_iteration_messages +[final_ai_msg]
+        final_list_of_messages = past_messages + current_iteration_messages + messages_to_remove # add the messages to remove to the current iteration messages
+
+
+        logger.info(
+            "Pruning iteration messages",
+            extra={
+                "history_message_length == len(past_messages) should be True": history_message_length == len(past_messages),
+                "past_messages": len(past_messages),
+                "current_iteration_messages": len(current_iteration_messages),
+                "final_history_to_be_generated": len(final_list_of_messages) - 2*len(messages_to_remove),
+            },
+        )
+        return final_list_of_messages
 
     _PROMPT_TEMPLATE = ChatPromptTemplate.from_template(
         """You are a financial assistant delivering the final answer.
@@ -102,9 +193,10 @@ Guidelines:
             if not execution_result:
                 fallback = "No code execution output was available to generate a final response."
                 ai_msg = AIMessage(content=fallback, name="final_response_generation")
+                pruned_messages = self._prune_iteration_messages(messages, ai_msg)
                 return {
                     **state,
-                    "messages": messages + [ai_msg],
+                    "messages": pruned_messages,
                     "final_answer": fallback,
                     "done": True,
                 }
@@ -122,9 +214,10 @@ Guidelines:
             )
             ai_msg = AIMessage(content=final_answer, name="final_response_generation")
 
+            pruned_messages = self._prune_iteration_messages(context.get("history_message_length"), messages, ai_msg)
             return {
                 **state,
-                "messages": messages + [ai_msg],
+                "messages": pruned_messages,
                 "final_answer": final_answer,
                 "done": True,
             }

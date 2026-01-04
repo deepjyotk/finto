@@ -211,6 +211,7 @@ class ThesysChatService:
                     "portfolio_model": LLMModel.from_model_name(portfolio_model),
                     "news_model": LLMModel.from_model_name(news_model),
                     "broker_id": broker_id,
+                    "history_message_length": 0,
                 }
 
                 try:

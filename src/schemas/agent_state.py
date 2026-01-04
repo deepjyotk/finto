@@ -3,6 +3,7 @@ from uuid import UUID
 
 from langchain_core.messages import BaseMessage
 from langgraph.graph import add_messages
+from pydantic import Field
 
 from src.core.enums import LLMModel
 
@@ -29,3 +30,4 @@ class AgentContext(TypedDict, total=False):
     router_model: LLMModel
     portfolio_model: LLMModel
     news_model: LLMModel
+    history_message_length: int

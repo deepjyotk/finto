@@ -69,6 +69,9 @@ steps:
       - --set-secrets=ROUTER_MODEL=ROUTER_MODEL:latest
       - --set-secrets=PORTFOLIO_MODEL=PORTFOLIO_MODEL:latest
       - --set-secrets=NEWS_MODEL=NEWS_MODEL:latest
+      - --set-secrets=SENDGRID_API_KEY=SENDGRID_API_KEY:latest
+      - --set-secrets=SENDGRID_FROM_EMAIL=SENDGRID_FROM_EMAIL:latest
+      - --set-secrets=SENDGRID_FROM_NAME=SENDGRID_FROM_NAME:latest
       # Cookie settings for cross-origin requests (allows localhost:3000)
       # NOTE: For cross-origin (localhost:3000 → Cloud Run), browsers REQUIRE:
       # - SameSite=None + Secure=True (minimum required, can't be less secure)

@@ -1,5 +1,6 @@
 """Holdings service - pure class for business logic, no FastAPI imports"""
 
+from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
@@ -194,3 +195,114 @@ class HoldingsService:
             }
             for m in metadata_list
         ]
+
+    async def sync_holdings(
+        self,
+        holdings_list: list[dict],
+        user_id: UUID,
+        broker_id: UUID,
+    ) -> tuple[int, int]:
+        """
+        Sync holdings from Kite API to the database.
+
+        For each holding, check if it exists for the user by symbol.
+        If exists and has changed, update it. If not, create new.
+
+        Args:
+            holdings_list: List of holding dicts from Kite API
+            user_id: UUID of the user
+            broker_id: UUID of the broker
+
+        Returns:
+            Tuple of (synced_count, updated_count)
+        """
+        if not holdings_list:
+            return 0, 0
+
+        # Get or create metadata for this user-broker pair
+        # Metadata is required because holdings table has FK to it
+        metadata = await self.repo.get_or_create_metadata(
+            user_id, broker_id, UploadedVia.USER_FILE_UPLOAD
+        )
+
+        synced_count = 0
+        updated_count = 0
+
+        for holding_data in holdings_list:
+            # Extract fields from Kite holding data
+            symbol = holding_data.get("tradingsymbol", "")
+            if not symbol:
+                continue  # Skip if no symbol
+                
+            quantity = holding_data.get("quantity", 0)
+            average_price = Decimal(str(holding_data.get("average_price", 0)))
+            last_price = Decimal(str(holding_data.get("last_price", 0)))
+            company_name = holding_data.get("tradingsymbol", "")  # Use symbol as fallback
+
+            # Check if holding exists
+            existing_holding = await self.repo.get_holding_by_symbol(
+                metadata.user_broker_id, symbol
+            )
+
+            if existing_holding:
+                # Check if any field has changed
+                has_changed = (
+                    existing_holding.qty_available != quantity
+                    or existing_holding.avg_price != average_price
+                    or existing_holding.prev_close_price != last_price
+                )
+
+                if has_changed:
+                    # Update existing holding
+                    existing_holding.qty_available = quantity
+                    existing_holding.avg_price = average_price
+                    existing_holding.prev_close_price = last_price
+                    updated_count += 1
+            else:
+                # Create new holding
+                new_holding = EquityHolding(
+                    user_broker_id=metadata.user_broker_id,
+                    symbol=symbol,
+                    company_name=company_name,
+                    sector=None,
+                    qty_available=quantity,
+                    qty_long_term=0,
+                    qty_pledged_margin=0,
+                    avg_price=average_price,
+                    prev_close_price=last_price,
+                )
+                self.repo.session.add(new_holding)
+
+            synced_count += 1
+
+        # Update metadata timestamp
+        await self.repo.update_metadata_timestamp(metadata.user_broker_id)
+
+        # Create sync record
+        await self.repo.create_sync_record(user_id, synced_count, updated_count)
+
+        # Commit at the use-case boundary
+        await self.repo.session.commit()
+
+        return synced_count, updated_count
+
+    async def get_sync_status(self, user_id: UUID) -> Optional[dict]:
+        """
+        Get the most recent sync status for a user.
+
+        Args:
+            user_id: UUID of the user
+
+        Returns:
+            Dict with last_sync, synced_count, updated_count, or None if no syncs found
+        """
+        sync_record = await self.repo.get_most_recent_sync(user_id)
+
+        if sync_record is None:
+            return None
+
+        return {
+            "last_sync": sync_record.synced_at.isoformat(),
+            "synced_count": sync_record.synced_count,
+            "updated_count": sync_record.updated_count,
+        }

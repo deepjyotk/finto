@@ -5,7 +5,12 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 
-from src.api.schemas.holdings import BulkHoldingsUploadResponse
+from src.api.schemas.holdings import (
+    BulkHoldingsUploadResponse,
+    SyncHoldingsRequest,
+    SyncHoldingsResponse,
+    SyncStatusResponse,
+)
 from src.api.schemas.home import (
     BrokerPayload,
     ChatIntegration,
@@ -358,4 +363,166 @@ async def update_holdings_file(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to process file: {str(e)}",
+        )
+
+
+@router.post(
+    "/sync",
+    response_model=SyncHoldingsResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Sync holdings from Kite to database",
+    description="Sync holdings from Kite Connect API. For each holding, checks if it exists by symbol and updates if changed, or creates new.",
+    responses={
+        200: {"description": "Holdings successfully synced"},
+        400: {"description": "Invalid request data"},
+        401: {"description": "Not authenticated or invalid token"},
+    },
+)
+async def sync_holdings(
+    request: SyncHoldingsRequest,
+    svc: Annotated[HoldingsService, Depends(get_holdings_service)],
+    broker_svc: Annotated[BrokerService, Depends(get_broker_service)],
+    user: dict = Depends(require_auth),
+) -> SyncHoldingsResponse:
+    """
+    Sync holdings from Kite Connect to database.
+
+    For each holding in the request:
+    - Check if it exists for the user by symbol
+    - If exists and changed, update it
+    - If not exists, create new
+    - Track sync in holding_syncs table
+    """
+    user_id = UUID(user["user_id"])
+
+    logger.info(
+        "holdings_sync_attempt",
+        extra={
+            "user_id": str(user_id),
+            "broker_name": request.broker_name,
+            "holdings_count": len(request.holdings),
+        },
+    )
+
+    try:
+        # Get broker_id by name from database
+        brokers = await broker_svc.get_all_brokers()
+        matched_broker = next(
+            (b for b in brokers if b.get("broker_name", "").lower() == request.broker_name.lower()),
+            None,
+        )
+        if matched_broker is None:
+            available_brokers = [b["broker_name"] for b in brokers]
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Broker '{request.broker_name}' not found in database. Available brokers: {available_brokers}",
+            )
+        broker_id = UUID(matched_broker["broker_id"])
+        
+        # Convert Pydantic models to dicts
+        holdings_list = [holding.model_dump() for holding in request.holdings]
+
+        # Sync holdings
+        synced_count, updated_count = await svc.sync_holdings(
+            holdings_list=holdings_list,
+            user_id=user_id,
+            broker_id=broker_id,
+        )
+
+        logger.info(
+            "holdings_sync_success",
+            extra={
+                "user_id": str(user_id),
+                "synced_count": synced_count,
+                "updated_count": updated_count,
+            },
+        )
+
+        message = f"Successfully synced {synced_count} holdings, updated {updated_count}"
+        return SyncHoldingsResponse(
+            synced_count=synced_count,
+            updated_count=updated_count,
+            message=message,
+        )
+
+    except Exception as e:
+        logger.error(
+            "holdings_sync_error",
+            extra={
+                "user_id": str(user_id),
+                "error": str(e),
+                "error_type": type(e).__name__,
+            },
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to sync holdings: {str(e)}",
+        )
+
+
+@router.get(
+    "/sync-status",
+    response_model=SyncStatusResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get most recent sync status",
+    description="Get the most recent holdings sync record for the authenticated user",
+    responses={
+        200: {"description": "Sync status retrieved successfully"},
+        401: {"description": "Not authenticated or invalid token"},
+    },
+)
+async def get_sync_status(
+    svc: Annotated[HoldingsService, Depends(get_holdings_service)],
+    user: dict = Depends(require_auth),
+) -> SyncStatusResponse:
+    """
+    Get the most recent sync status for the authenticated user.
+
+    Returns the timestamp, synced count, and updated count from the last sync operation.
+    """
+    user_id = UUID(user["user_id"])
+
+    logger.info(
+        "sync_status_request",
+        extra={
+            "user_id": str(user_id),
+        },
+    )
+
+    try:
+        sync_status = await svc.get_sync_status(user_id)
+
+        if sync_status is None:
+            return SyncStatusResponse(
+                last_sync=None,
+                synced_count=None,
+                updated_count=None,
+            )
+
+        logger.info(
+            "sync_status_retrieved",
+            extra={
+                "user_id": str(user_id),
+                "last_sync": sync_status["last_sync"],
+            },
+        )
+
+        return SyncStatusResponse(
+            last_sync=sync_status["last_sync"],
+            synced_count=sync_status["synced_count"],
+            updated_count=sync_status["updated_count"],
+        )
+
+    except Exception as e:
+        logger.error(
+            "sync_status_error",
+            extra={
+                "user_id": str(user_id),
+                "error": str(e),
+                "error_type": type(e).__name__,
+            },
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get sync status: {str(e)}",
         )

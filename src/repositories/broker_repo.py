@@ -22,6 +22,13 @@ class BrokerRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_by_name(self, broker_name: str) -> Broker | None:
+        """Get broker by name."""
+        result = await self.session.execute(
+            select(Broker).where(cast(Broker.broker_name, String) == broker_name)
+        )
+        return result.scalar_one_or_none()
+
     async def get_company_names_by_symbols(self, symbols: list[str]) -> dict[str, str]:
         result = await self.session.execute(
             text("SELECT symbol, company_name FROM in_equities WHERE symbol = ANY(:symbols)"),

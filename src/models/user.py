@@ -12,6 +12,7 @@ from src.models.base import Base
 
 if TYPE_CHECKING:
     from src.models.credit_transaction import CreditTransaction
+    from src.models.holding_sync import HoldingSync
     from src.models.user_credits import UserCredits
 
 
@@ -43,6 +44,11 @@ class User(Base):
     # Relationship to credit transactions
     credit_transactions: Mapped[list["CreditTransaction"]] = relationship(
         "CreditTransaction", back_populates="user", lazy="dynamic"
+    )
+
+    # Relationship to holding syncs
+    holding_syncs: Mapped[list["HoldingSync"]] = relationship(
+        "HoldingSync", back_populates="user", lazy="dynamic"
     )
 
     def __repr__(self) -> str:

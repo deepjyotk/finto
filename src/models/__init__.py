@@ -7,6 +7,7 @@ from src.models.chat_session import ChatSession, WhatsappChatSession
 from src.models.credit_transaction import CreditTransaction
 from src.models.equity_holding import EquityHolding
 from src.models.equity_holding_metadata import EquityHoldingMetadata, UploadedVia
+from src.models.holding_sync import HoldingSync
 from src.models.pending_registration import PendingRegistration
 from src.models.user import User
 from src.models.user_credits import UserCredits
@@ -22,6 +23,7 @@ __all__ = [
     "CreditTransaction",
     "EquityHolding",
     "EquityHoldingMetadata",
+    "HoldingSync",
     "PendingRegistration",
     "UploadedVia",
     "User",

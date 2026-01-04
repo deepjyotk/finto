@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.models.broker import Broker
 from src.models.equity_holding import EquityHolding
 from src.models.equity_holding_metadata import EquityHoldingMetadata, UploadedVia
+from src.models.holding_sync import HoldingSync
 
 
 class HoldingsRepository:
@@ -506,3 +507,65 @@ class HoldingsRepository:
             .values(updated_at=func.now())
         )
         await self.session.execute(stmt)
+
+    async def get_holding_by_symbol(
+        self, user_broker_id: UUID, symbol: str
+    ) -> Optional[EquityHolding]:
+        """
+        Get a specific holding by symbol for a user-broker pair.
+
+        Args:
+            user_broker_id: The user_broker_id (metadata PK)
+            symbol: The trading symbol to search for
+
+        Returns:
+            EquityHolding object if found, None otherwise
+        """
+        result = await self.session.execute(
+            select(EquityHolding).where(
+                and_(
+                    EquityHolding.user_broker_id == user_broker_id,
+                    EquityHolding.symbol == symbol,
+                )
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def create_sync_record(
+        self, user_id: UUID, synced_count: int, updated_count: int
+    ) -> HoldingSync:
+        """
+        Create a holding sync record.
+
+        Args:
+            user_id: The user ID
+            synced_count: Number of holdings synced
+            updated_count: Number of holdings updated
+
+        Returns:
+            The created HoldingSync object
+        """
+        sync = HoldingSync(
+            user_id=user_id, synced_count=synced_count, updated_count=updated_count
+        )
+        self.session.add(sync)
+        await self.session.flush()
+        return sync
+
+    async def get_most_recent_sync(self, user_id: UUID) -> Optional[HoldingSync]:
+        """
+        Get the most recent sync record for a user.
+
+        Args:
+            user_id: The user ID
+
+        Returns:
+            The most recent HoldingSync object if found, None otherwise
+        """
+        result = await self.session.execute(
+            select(HoldingSync)
+            .where(HoldingSync.user_id == user_id)
+            .order_by(HoldingSync.synced_at.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()

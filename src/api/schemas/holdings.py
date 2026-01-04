@@ -81,3 +81,90 @@ class BulkHoldingsUploadResponse(BaseModel):
     success: bool = Field(..., description="Whether the upload was successful")
     records_processed: int = Field(..., description="Number of records processed")
     message: str = Field(..., description="Response message")
+
+
+class HoldingData(BaseModel):
+    """Schema for a single holding from Kite API"""
+
+    tradingsymbol: str = Field(..., description="Trading symbol")
+    quantity: int = Field(..., description="Quantity of shares")
+    average_price: float = Field(..., description="Average purchase price")
+    last_price: float = Field(..., description="Last traded price")
+    exchange: str = Field(..., description="Exchange (e.g., NSE, BSE)")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "tradingsymbol": "RELIANCE",
+                "quantity": 100,
+                "average_price": 2450.75,
+                "last_price": 2500.00,
+                "exchange": "NSE",
+            }
+        }
+    }
+
+
+class SyncHoldingsRequest(BaseModel):
+    """Schema for syncing holdings from Kite"""
+
+    broker_name: str = Field(
+        ..., 
+        description="Name of the broker. One of: 'Zerodha', 'AngelOne', 'Groww'"
+    )
+    holdings: list[HoldingData] = Field(..., description="List of holdings to sync")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "broker_name": "Zerodha",
+                "holdings": [
+                    {
+                        "tradingsymbol": "RELIANCE",
+                        "quantity": 100,
+                        "average_price": 2450.75,
+                        "last_price": 2500.00,
+                        "exchange": "NSE",
+                    }
+                ],
+            }
+        }
+    }
+
+
+class SyncHoldingsResponse(BaseModel):
+    """Schema for sync holdings response"""
+
+    synced_count: int = Field(..., description="Number of holdings synced")
+    updated_count: int = Field(..., description="Number of holdings updated")
+    message: str = Field(..., description="Response message")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "synced_count": 10,
+                "updated_count": 3,
+                "message": "Successfully synced 10 holdings, updated 3",
+            }
+        }
+    }
+
+
+class SyncStatusResponse(BaseModel):
+    """Schema for sync status response"""
+
+    last_sync: str | None = Field(None, description="ISO timestamp of last sync")
+    synced_count: int | None = Field(None, description="Number of holdings synced in last sync")
+    updated_count: int | None = Field(
+        None, description="Number of holdings updated in last sync"
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "last_sync": "2026-01-02T10:30:00+00:00",
+                "synced_count": 10,
+                "updated_count": 3,
+            }
+        }
+    }

@@ -55,7 +55,7 @@ class FinalResponseGenerationNode:
         if len(messages) > history_message_length:
             current_iteration_messages = messages[history_message_length:]
         else:
-            current_iteration_messages = messages 
+            current_iteration_messages = messages
 
         first_human_msg_id = None
         for msg in current_iteration_messages:
@@ -65,7 +65,7 @@ class FinalResponseGenerationNode:
 
         messages_to_remove: List[RemoveMessage] = []
         for msg in current_iteration_messages:
-            if isinstance(msg,HumanMessage) and msg.id != first_human_msg_id:
+            if isinstance(msg, HumanMessage) and msg.id != first_human_msg_id:
                 if hasattr(msg, "id"):
                     messages_to_remove.append(RemoveMessage(id=msg.id))
                     continue
@@ -92,18 +92,20 @@ class FinalResponseGenerationNode:
                 if hasattr(msg, "id") and msg.id:
                     messages_to_remove.append(RemoveMessage(id=msg.id))
 
-
-        current_iteration_messages = current_iteration_messages +[final_ai_msg]
-        final_list_of_messages = past_messages + current_iteration_messages + messages_to_remove # add the messages to remove to the current iteration messages
-
+        current_iteration_messages = current_iteration_messages + [final_ai_msg]
+        final_list_of_messages = (
+            past_messages + current_iteration_messages + messages_to_remove
+        )  # add the messages to remove to the current iteration messages
 
         logger.info(
             "Pruning iteration messages",
             extra={
-                "history_message_length == len(past_messages) should be True": history_message_length == len(past_messages),
+                "history_message_length == len(past_messages) should be True": history_message_length
+                == len(past_messages),
                 "past_messages": len(past_messages),
                 "current_iteration_messages": len(current_iteration_messages),
-                "final_history_to_be_generated": len(final_list_of_messages) - 2*len(messages_to_remove),
+                "final_history_to_be_generated": len(final_list_of_messages)
+                - 2 * len(messages_to_remove),
             },
         )
         return final_list_of_messages
@@ -214,7 +216,9 @@ Guidelines:
             )
             ai_msg = AIMessage(content=final_answer, name="final_response_generation")
 
-            pruned_messages = self._prune_iteration_messages(context.get("history_message_length"), messages, ai_msg)
+            pruned_messages = self._prune_iteration_messages(
+                context.get("history_message_length"), messages, ai_msg
+            )
             return {
                 **state,
                 "messages": pruned_messages,

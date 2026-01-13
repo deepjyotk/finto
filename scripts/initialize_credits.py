@@ -21,14 +21,16 @@ async def initialize_user_credits(user_id: str, amount_usd: float = 5.0):
         amount_usd: Amount in USD to initialize (default $5)
     """
     credits = int(amount_usd * CREDITS_PER_DOLLAR)
-    
+
     async for db in get_session():
         try:
             manager = CreditManager(user_id, db)
 
             current_balance = await manager.get_balance()
             if current_balance > 0:
-                print(f"User {user_id} already has {current_balance} credits (${current_balance/CREDITS_PER_DOLLAR:.2f})")
+                print(
+                    f"User {user_id} already has {current_balance} credits (${current_balance/CREDITS_PER_DOLLAR:.2f})"
+                )
                 response = input("Add more credits? (y/n): ")
                 if response.lower() != "y":
                     return

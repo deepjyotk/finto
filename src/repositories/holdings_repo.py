@@ -545,9 +545,7 @@ class HoldingsRepository:
         Returns:
             The created HoldingSync object
         """
-        sync = HoldingSync(
-            user_id=user_id, synced_count=synced_count, updated_count=updated_count
-        )
+        sync = HoldingSync(user_id=user_id, synced_count=synced_count, updated_count=updated_count)
         self.session.add(sync)
         await self.session.flush()
         return sync

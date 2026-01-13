@@ -233,7 +233,7 @@ class HoldingsService:
             symbol = holding_data.get("tradingsymbol", "")
             if not symbol:
                 continue  # Skip if no symbol
-                
+
             quantity = holding_data.get("quantity", 0)
             average_price = Decimal(str(holding_data.get("average_price", 0)))
             last_price = Decimal(str(holding_data.get("last_price", 0)))

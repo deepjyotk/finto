@@ -78,15 +78,23 @@ Examples
         )
         return chat_template
 
-    def __respect_history_and_initialize_context(self,agent_state: AgentState, context: AgentContext) -> AgentContext:
+    def __respect_history_and_initialize_context(
+        self, agent_state: AgentState, context: AgentContext
+    ) -> AgentContext:
         """
         Respect the history of messages and initialize the context.
         """
 
-        history_message_length = len(agent_state.get("messages", []))-1 # -1 to exclude the human message
+        history_message_length = (
+            len(agent_state.get("messages", [])) - 1
+        )  # -1 to exclude the human message
         agent_state["history_message_length"] = history_message_length
         user_id = context.get("user_id", "unknown")
-        logger.info("Router node invoked for user_id=%s with history_message_length=%s", user_id, history_message_length)
+        logger.info(
+            "Router node invoked for user_id=%s with history_message_length=%s",
+            user_id,
+            history_message_length,
+        )
         context["history_message_length"] = history_message_length
         return context
 

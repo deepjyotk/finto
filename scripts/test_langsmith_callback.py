@@ -17,17 +17,17 @@ from src.core.settings import settings
 
 async def test_callback():
     """Test the credit tracking callback."""
-    
+
     # Create async engine
     engine = create_async_engine(settings.postgres_dsn, echo=False)
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-    
+
     async with async_session() as db:
         # Replace with a real user ID from your database
         user_id = UUID("00000000-0000-0000-0000-000000000001")  # Change this!
-        
+
         callback = CreditTrackingCallback(user_id, db)
-        
+
         print(f"Created callback for user: {user_id}")
         print(f"Callback methods: {dir(callback)}")
         print(f"\nCallback will be passed to graph.ainvoke() with:")
@@ -44,10 +44,10 @@ async def test_callback():
         print(f"  - total_usd_spent")
         print(f"  - llm_calls count")
         print(f"  - model_breakdown (per-model stats)")
-        
+
         summary = callback.get_summary()
         print(f"\nInitial summary: {summary}")
-        
+
     await engine.dispose()
     print("\n✅ Callback implementation verified!")
 

@@ -240,10 +240,10 @@ if __name__ == "__main__":
                 continue
             print(f"Income DataFrame for {symbol}:\n{income_data}")
             income_df = pd.DataFrame(income_data["income_statement"]).T
-            
+
             income_df.index = pd.to_datetime(income_df.index)
             income_df = income_df.sort_index()
-            
+
             if "NetIncome" not in income_df.columns:
                 print(f"Warning: NetIncome column missing for {symbol}. Skipping.")
                 continue

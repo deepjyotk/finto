@@ -231,7 +231,7 @@ class CreditManager:
     async def get_usage_summary(self) -> dict:
         """Get summary of credit usage from transaction history."""
         from sqlalchemy import desc
-        
+
         balance = await self.get_balance()
 
         # Query all deduction transactions
@@ -245,20 +245,20 @@ class CreditManager:
         total_credits_spent = sum(abs(t.amount) for t in deductions)
         total_usd_spent = sum(float(t.usd_cost or 0) for t in deductions)
         request_count = len(deductions)
-        
+
         # Query recent deduction transactions (last 10)
         recent_stmt = (
             select(CreditTransaction)
             .where(
                 CreditTransaction.user_id == self.user_id,
-                CreditTransaction.transaction_type == "deduction"
+                CreditTransaction.transaction_type == "deduction",
             )
             .order_by(desc(CreditTransaction.created_at))
             .limit(10)
         )
         recent_result = await self._db.execute(recent_stmt)
         recent_deductions = recent_result.scalars().all()
-        
+
         # Format recent requests
         recent_requests = [
             {
@@ -272,7 +272,7 @@ class CreditManager:
             }
             for t in recent_deductions
         ]
-        
+
         return {
             "current_balance": balance,
             "user_id": str(self.user_id),
@@ -282,27 +282,24 @@ class CreditManager:
             "recent_requests": recent_requests,
         }
 
-    async def get_transaction_count(
-        self,
-        transaction_type: str | None = None
-    ) -> int:
+    async def get_transaction_count(self, transaction_type: str | None = None) -> int:
         """Get total count of transactions for the user.
-        
+
         Args:
             transaction_type: Filter by type ('addition', 'deduction', 'initial', 'refund')
-        
+
         Returns:
             Total number of transactions
         """
         from sqlalchemy import func
-        
+
         stmt = select(func.count(CreditTransaction.id)).where(
             CreditTransaction.user_id == self.user_id
         )
-        
+
         if transaction_type:
             stmt = stmt.where(CreditTransaction.transaction_type == transaction_type)
-        
+
         result = await self._db.execute(stmt)
         return result.scalar() or 0
 

@@ -109,8 +109,7 @@ class SyncHoldingsRequest(BaseModel):
     """Schema for syncing holdings from Kite"""
 
     broker_name: str = Field(
-        ..., 
-        description="Name of the broker. One of: 'Zerodha', 'AngelOne', 'Groww'"
+        ..., description="Name of the broker. One of: 'Zerodha', 'AngelOne', 'Groww'"
     )
     holdings: list[HoldingData] = Field(..., description="List of holdings to sync")
 
@@ -155,9 +154,7 @@ class SyncStatusResponse(BaseModel):
 
     last_sync: str | None = Field(None, description="ISO timestamp of last sync")
     synced_count: int | None = Field(None, description="Number of holdings synced in last sync")
-    updated_count: int | None = Field(
-        None, description="Number of holdings updated in last sync"
-    )
+    updated_count: int | None = Field(None, description="Number of holdings updated in last sync")
 
     model_config = {
         "json_schema_extra": {

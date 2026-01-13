@@ -418,7 +418,7 @@ async def sync_holdings(
                 detail=f"Broker '{request.broker_name}' not found in database. Available brokers: {available_brokers}",
             )
         broker_id = UUID(matched_broker["broker_id"])
-        
+
         # Convert Pydantic models to dicts
         holdings_list = [holding.model_dump() for holding in request.holdings]
 

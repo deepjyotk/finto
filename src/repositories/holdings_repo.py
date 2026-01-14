@@ -342,9 +342,7 @@ class HoldingsRepository:
         )
         return result.rowcount
 
-    async def delete_metadata_by_user_and_broker(
-        self, user_id: UUID, broker_id: UUID
-    ) -> bool:
+    async def delete_metadata_by_user_and_broker(self, user_id: UUID, broker_id: UUID) -> bool:
         """
         Delete metadata record for a user-broker pair.
 
@@ -355,7 +353,7 @@ class HoldingsRepository:
         Returns:
             True if metadata was found and deleted, False otherwise
         """
-        from sqlalchemy import delete, text
+        from sqlalchemy import delete
 
         # Use direct SQL delete to ensure it works
         # This will cascade delete holdings due to foreign key constraint

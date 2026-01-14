@@ -332,8 +332,9 @@ class HoldingsService:
         if metadata is None:
             # Metadata not found - let's check what metadata exists for this user
             from src.core.json_logging import logger_for
+
             logger = logger_for(__name__)
-            
+
             # Debug: Get all metadata for this user to see what exists
             all_metadata = await self.repo.get_metadata_by_user_id(user_id)
             logger.warning(
@@ -353,11 +354,11 @@ class HoldingsService:
 
         # Delete metadata record using repository method (this will cascade delete all holdings)
         metadata_deleted = await self.repo.delete_metadata_by_user_and_broker(user_id, broker_id)
-        
+
         if not metadata_deleted:
             # This shouldn't happen since we found metadata above, but handle it
             return 0, False
-        
+
         # Commit at the use-case boundary
         await self.repo.session.commit()
 

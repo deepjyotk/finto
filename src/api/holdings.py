@@ -536,7 +536,9 @@ async def get_sync_status(
     summary="Delete broker holdings for user",
     description="Delete all holdings and metadata for a specific broker using user_broker_id (metadata primary key)",
     responses={
-        200: {"description": "Holdings and metadata successfully deleted (or already deleted - idempotent)"},
+        200: {
+            "description": "Holdings and metadata successfully deleted (or already deleted - idempotent)"
+        },
         401: {"description": "Not authenticated or invalid token"},
         404: {"description": "Holdings metadata not found or access denied"},
     },
@@ -598,18 +600,19 @@ async def delete_broker_holdings(
         deleted_holdings_count = len(holdings)
 
         # Explicitly delete holdings first (from equity_holdings_in table)
-        deleted_holdings = await svc.repo.delete_by_user_broker_id(user_broker_id)
-        
+        await svc.repo.delete_by_user_broker_id(user_broker_id)
+
         # Then delete metadata record (from equity_holdings_in_metadata table)
         from sqlalchemy import delete
+
         from src.models.equity_holding_metadata import EquityHoldingMetadata
-        
+
         await svc.repo.session.execute(
             delete(EquityHoldingMetadata).where(
                 EquityHoldingMetadata.user_broker_id == user_broker_id
             )
         )
-        
+
         # Commit at the use-case boundary
         await svc.repo.session.commit()
 

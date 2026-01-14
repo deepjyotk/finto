@@ -165,3 +165,23 @@ class SyncStatusResponse(BaseModel):
             }
         }
     }
+
+
+class DeleteBrokerHoldingsResponse(BaseModel):
+    """Schema for delete broker holdings response"""
+
+    success: bool = Field(..., description="Whether the deletion was successful")
+    deleted_holdings_count: int = Field(..., description="Number of holdings deleted")
+    metadata_deleted: bool = Field(..., description="Whether metadata was deleted")
+    message: str = Field(..., description="Response message")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "success": True,
+                "deleted_holdings_count": 15,
+                "metadata_deleted": True,
+                "message": "Successfully deleted 15 holdings and metadata for broker",
+            }
+        }
+    }

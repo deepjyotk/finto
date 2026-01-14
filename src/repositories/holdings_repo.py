@@ -342,6 +342,34 @@ class HoldingsRepository:
         )
         return result.rowcount
 
+    async def delete_metadata_by_user_and_broker(
+        self, user_id: UUID, broker_id: UUID
+    ) -> bool:
+        """
+        Delete metadata record for a user-broker pair.
+
+        Args:
+            user_id: The user ID
+            broker_id: The broker ID
+
+        Returns:
+            True if metadata was found and deleted, False otherwise
+        """
+        from sqlalchemy import delete, text
+
+        # Use direct SQL delete to ensure it works
+        # This will cascade delete holdings due to foreign key constraint
+        result = await self.session.execute(
+            delete(EquityHoldingMetadata).where(
+                and_(
+                    EquityHoldingMetadata.user_id == user_id,
+                    EquityHoldingMetadata.broker_id == broker_id,
+                )
+            )
+        )
+        await self.session.flush()
+        return result.rowcount > 0
+
     async def upsert_holdings(
         self,
         user_id: UUID,

@@ -6,7 +6,7 @@ from fastapi import Depends
 from langchain_openai import ChatOpenAI
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.db import get_session
+from src.core.db import SessionLocal, get_session
 from src.core.llm import LLMFactory
 from src.core.settings import sendgrid_settings, settings
 from src.graph import Graph
@@ -109,30 +109,28 @@ def build_agent_graph(session: AsyncSession | None = None) -> Graph:
     Returns:
         Configured Graph ready for execution.
     """
-    # ! This is not used from the frontend, and no need to parse this method.
-    return Graph()
-    # llm_factory = get_llm_factory()
+    llm_factory = get_llm_factory()
 
-    # news_node = WebSearchNode(llm_factory=llm_factory)
-    # portfolio_node = PortfolioNode(llm_factory=llm_factory)
-    # code_generation_node = CodeGenerationNode(llm_factory=llm_factory)
-    # final_response_node = FinalResponseGenerationNode(llm_factory=llm_factory)
+    news_node = WebSearchNode(llm_factory=llm_factory)
+    portfolio_node = PortfolioNode(llm_factory=llm_factory)
+    code_generation_node = CodeGenerationNode(llm_factory=llm_factory)
+    final_response_node = FinalResponseGenerationNode(llm_factory=llm_factory)
 
-    # session_to_use = session or SessionLocal()
-    # holdings_repo = HoldingsRepository(session_to_use)
-    # holdings_service = HoldingsService(repo=holdings_repo)
-    # execute_code_node = ExecuteCodeNode(holding_service=holdings_service)
+    session_to_use = session or SessionLocal()
+    holdings_repo = HoldingsRepository(session_to_use)
+    holdings_service = HoldingsService(repo=holdings_repo)
+    execute_code_node = ExecuteCodeNode(holding_service=holdings_service)
 
-    # router_node = RouterNode(llm_factory=llm_factory)
+    router_node = RouterNode(llm_factory=llm_factory)
 
-    # return Graph(
-    #     news_node_instance=news_node,
-    #     portfolio_node=portfolio_node,
-    #     code_generation_node=code_generation_node,
-    #     final_response_node=final_response_node,
-    #     execute_code_node=execute_code_node,
-    #     router_node=router_node,
-    # )
+    return Graph(
+        news_node_instance=news_node,
+        portfolio_node=portfolio_node,
+        code_generation_node=code_generation_node,
+        final_response_node=final_response_node,
+        execute_code_node=execute_code_node,
+        router_node=router_node,
+    )
 
 
 def get_graph(

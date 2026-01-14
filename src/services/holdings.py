@@ -306,3 +306,59 @@ class HoldingsService:
             "synced_count": sync_record.synced_count,
             "updated_count": sync_record.updated_count,
         }
+
+    async def delete_broker_holdings(self, user_id: UUID, broker_id: UUID) -> tuple[int, bool]:
+        """
+        Delete all holdings and metadata for a user-broker pair.
+
+        This removes:
+        - All equity holdings for the user-broker pair (via cascade)
+        - The metadata record for the user-broker pair
+
+        Args:
+            user_id: UUID of the user
+            broker_id: UUID of the broker
+
+        Returns:
+            Tuple of (deleted_holdings_count, metadata_deleted)
+            - deleted_holdings_count: Number of holdings deleted (via cascade)
+            - metadata_deleted: True if metadata was deleted, False if not found
+
+        Raises:
+            ValueError: If broker_id is invalid or user doesn't have holdings for this broker
+        """
+        # Get metadata first to count holdings before deletion
+        metadata = await self.repo.get_metadata_by_user_and_broker(user_id, broker_id)
+        if metadata is None:
+            # Metadata not found - let's check what metadata exists for this user
+            from src.core.json_logging import logger_for
+            logger = logger_for(__name__)
+            
+            # Debug: Get all metadata for this user to see what exists
+            all_metadata = await self.repo.get_metadata_by_user_id(user_id)
+            logger.warning(
+                "delete_broker_holdings_metadata_not_found_debug",
+                extra={
+                    "user_id": str(user_id),
+                    "broker_id": str(broker_id),
+                    "existing_metadata_count": len(all_metadata),
+                    "existing_broker_ids": [str(m.broker_id) for m in all_metadata],
+                },
+            )
+            return 0, False
+
+        # Count holdings before deletion
+        holdings = await self.repo.by_user_broker_id(metadata.user_broker_id)
+        deleted_holdings_count = len(holdings)
+
+        # Delete metadata record using repository method (this will cascade delete all holdings)
+        metadata_deleted = await self.repo.delete_metadata_by_user_and_broker(user_id, broker_id)
+        
+        if not metadata_deleted:
+            # This shouldn't happen since we found metadata above, but handle it
+            return 0, False
+        
+        # Commit at the use-case boundary
+        await self.repo.session.commit()
+
+        return deleted_holdings_count, True

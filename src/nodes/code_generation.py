@@ -96,6 +96,7 @@ class CodeGenerationNode:
 You are a Python and Pandas expert helping analyze a user's stock portfolio.
 Your goal is to generate Python code that can be executed to answer the user's request.
 
+
 # RUNTIME ENVIRONMENT
 You are running inside a controlled Python execution environment where:
 - df is a pandas DataFrame that already contains the user's portfolio data.
@@ -234,6 +235,10 @@ Your output must:
 - Have no explanations.
 - Begin with the mandatory import + df-check block.
 - Print the final result using print(...).
+
+
+## IMPORTANT:
+- If a user request asks to draw a graph, table, or chart, ignore that part and focus only on generating the code to answer the underlying finance question.
                 """,
             ),
             MessagesPlaceholder(variable_name="messages"),

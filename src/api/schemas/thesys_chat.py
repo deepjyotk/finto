@@ -60,5 +60,18 @@ class UserBrokerItem(BaseModel):
     broker_name: str
 
 
+class ChatModeItem(BaseModel):
+    id: str
+    label: str
+    description: str
+
+
+class LLMModelItem(BaseModel):
+    id: str
+    label: str
+
+
 class ChatMetadataResponse(BaseModel):
     brokers: list[UserBrokerItem]
+    chat_modes: list[ChatModeItem]
+    llm_models: list[LLMModelItem]

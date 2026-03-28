@@ -7,12 +7,15 @@ from thesys_genui_sdk.fast_api import with_c1_response
 from src.api.schemas.thesys_chat import (
     C1ChatRequest,
     ChatMetadataResponse,
+    ChatModeItem,
+    LLMModelItem,
     SessionItem,
     SessionMessageConfig,
     SessionResponse,
     SessionsListResponse,
     UserBrokerItem,
 )
+from src.core.enums import CHAT_MODE_DESCRIPTIONS, ChatMode, LLMModel
 from src.core.json_logging import logger_for
 from src.core.middleware import require_auth
 from src.dependencies import get_holdings_service, get_thesys_chat_service
@@ -212,7 +215,7 @@ async def delete_session(
 @router.get(
     "/chat_metadata",
     summary="Get chat metadata for the authenticated user",
-    description="Returns all available brokers that the user has holdings with.",
+    description="Returns brokers, available chat modes, and available LLM models.",
     response_model=ChatMetadataResponse,
 )
 async def get_chat_metadata(
@@ -222,7 +225,7 @@ async def get_chat_metadata(
     """
     Get chat metadata for the authenticated user.
 
-    Returns all brokers that the user has uploaded holdings for.
+    Returns brokers, all available chat modes, and all available LLM models.
     """
     user_id = uuid.UUID(user["user_id"])
 
@@ -235,10 +238,29 @@ async def get_chat_metadata(
 
     brokers = await holdings_service.repo.get_user_brokers(user_id)
 
+    chat_modes = [
+        ChatModeItem(
+            id=mode.value,
+            label=mode.name.capitalize(),
+            description=CHAT_MODE_DESCRIPTIONS[mode],
+        )
+        for mode in ChatMode
+    ]
+
+    llm_models = [
+        LLMModelItem(
+            id=model.model_name,
+            label=model.model_name.upper(),
+        )
+        for model in LLMModel
+    ]
+
     return ChatMetadataResponse(
         brokers=[
             UserBrokerItem(broker_id=b["broker_id"], broker_name=b["broker_name"]) for b in brokers
-        ]
+        ],
+        chat_modes=chat_modes,
+        llm_models=llm_models,
     )
 
 

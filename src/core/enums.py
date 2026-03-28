@@ -4,6 +4,19 @@ from enum import Enum
 from typing import Any, Dict
 
 
+class ChatMode(str, Enum):
+    """Supported chat interaction modes."""
+
+    AGENT = "agent"
+    ASK = "ask"
+
+
+CHAT_MODE_DESCRIPTIONS: dict["ChatMode", str] = {
+    ChatMode.AGENT: "Full AI agent with tools",
+    ChatMode.ASK: "Read-only Q&A",
+}
+
+
 class ThesysModel(Enum):
     """Supported Thesys models."""
 

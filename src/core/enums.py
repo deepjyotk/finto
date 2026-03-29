@@ -30,7 +30,22 @@ class LLMModel(Enum):
     Each enum member stores both the model name and its configuration kwargs.
     Access the model name with `.value['model']` or `.model_name`
     Access the kwargs with `.value['kwargs']` or `.llm_kwargs`
+    Access the provider with `.value['provider']` or `.provider` (defaults to ``"openai"``)
+
+    Auto — API / UI id ``"auto"``; use :meth:`resolve_to_openai_member` before
+    calling OpenAI (maps to GPT-4o-mini). Graph context uses server defaults when Auto.
+
+    **Switching models:** Pick a member and pass its ``model_name`` from the UI/API.
+    GPT-5 / GPT-5.1 often restrict ``temperature`` (many only allow ``1``). For a fast
+    conversational GPT-5.1, use :attr:`GPT5p1ChatLatest` (``gpt-5.1-chat-latest``); for a
+    pinned snapshot, use :attr:`GPT5p1Snapshot`.
+
+    **Claude models** require ``ANTHROPIC_API_KEY`` in the environment.
+    **Gemini models** require ``GOOGLE_API_KEY`` in the environment.
     """
+
+    # Sentinel: user lets the app pick (see resolve_to_openai_member)
+    Auto = {"model": "auto", "kwargs": {}}
 
     # GPT-3.5 Series
     GPT35Turbo = {"model": "gpt-3.5-turbo", "kwargs": {"temperature": 0}}
@@ -52,15 +67,16 @@ class LLMModel(Enum):
     GPT4p1Mini = {"model": "gpt-4.1-mini", "kwargs": {"temperature": 0}}
     GPT4p1Nano = {"model": "gpt-4.1-nano", "kwargs": {"temperature": 0}}
 
-    # GPT-5 Series
-    GPT5 = {"model": "gpt-5", "kwargs": {}}  # gpt-5 only supports temperature=1
-    GPT5Chat = {"model": "gpt-5-chat", "kwargs": {"temperature": 0}}
-    GPT5p1 = {
-        "model": "gpt-5.1",
-        "kwargs": {"temperature": 1},
-    }  # gpt-5.1 only supports temperature=1
-    GPT5p1Instant = {"model": "gpt-5.1-instant", "kwargs": {"temperature": 0}}  # !Not available yet
-    # GPT5p1Thinking = {"model": "gpt-5.1-thinking", "kwargs": {"temperature": 0}} # !Not available yet
+    # GPT-5 Series (temperature: many GPT-5 models only accept 1 — see OpenAI model docs)
+    GPT5 = {"model": "gpt-5", "kwargs": {}}
+    GPT5Mini = {"model": "gpt-5-mini", "kwargs": {}}
+    GPT5Nano = {"model": "gpt-5-nano", "kwargs": {}}
+    GPT5Chat = {"model": "gpt-5-chat", "kwargs": {}}
+    GPT5p1 = {"model": "gpt-5.1", "kwargs": {"temperature": 1}}
+    GPT5p1Snapshot = {"model": "gpt-5.1-2025-11-13", "kwargs": {"temperature": 1}}
+    # Conversational / "instant" style (documented alias for ChatGPT-style GPT-5.1)
+    GPT5p1ChatLatest = {"model": "gpt-5.1-chat-latest", "kwargs": {"temperature": 1}}
+    GPT5p1Instant = GPT5p1ChatLatest
 
     # O-Series (Reasoning Models - don't support temperature parameter)
     O1 = {"model": "o1", "kwargs": {}}
@@ -71,15 +87,99 @@ class LLMModel(Enum):
     O4Mini = {"model": "o4-mini", "kwargs": {}}
     O4MiniHigh = {"model": "o4-mini-high", "kwargs": {}}
 
+    # ── Claude (Anthropic) ─────────────────────────────────────────────────────
+    # Latest generation (recommended for new projects)
+    # Requires ANTHROPIC_API_KEY. Docs: https://platform.claude.com/docs/en/about-claude/models
+    ClaudeOpus46 = {
+        "model": "claude-opus-4-6",
+        "kwargs": {"temperature": 0.5},
+        "provider": "anthropic",
+    }
+    ClaudeSonnet46 = {
+        "model": "claude-sonnet-4-6",
+        "kwargs": {"temperature": 0.5},
+        "provider": "anthropic",
+    }
+    ClaudeHaiku45 = {
+        "model": "claude-haiku-4-5-20251001",
+        "kwargs": {"temperature": 0},
+        "provider": "anthropic",
+    }
+
+    # Previous Claude 4 generation (still available, not deprecated)
+    ClaudeSonnet45 = {
+        "model": "claude-sonnet-4-5-20250929",
+        "kwargs": {"temperature": 0.5},
+        "provider": "anthropic",
+    }
+    ClaudeOpus45 = {
+        "model": "claude-opus-4-5-20251101",
+        "kwargs": {"temperature": 0.5},
+        "provider": "anthropic",
+    }
+    ClaudeOpus41 = {
+        "model": "claude-opus-4-1-20250805",
+        "kwargs": {"temperature": 0.5},
+        "provider": "anthropic",
+    }
+    ClaudeSonnet4 = {
+        "model": "claude-sonnet-4-20250514",
+        "kwargs": {"temperature": 0.5},
+        "provider": "anthropic",
+    }
+    ClaudeOpus4 = {
+        "model": "claude-opus-4-20250514",
+        "kwargs": {"temperature": 0.5},
+        "provider": "anthropic",
+    }
+
+    # ── Gemini (Google) ────────────────────────────────────────────────────────
+    # Stable models (recommended for production)
+    # Requires GOOGLE_API_KEY. Docs: https://ai.google.dev/gemini-api/docs/models
+    Gemini25Pro = {"model": "gemini-2.5-pro", "kwargs": {"temperature": 0.5}, "provider": "google"}
+    Gemini25Flash = {
+        "model": "gemini-2.5-flash",
+        "kwargs": {"temperature": 0.5},
+        "provider": "google",
+    }
+    Gemini25FlashLite = {
+        "model": "gemini-2.5-flash-lite",
+        "kwargs": {"temperature": 0},
+        "provider": "google",
+    }
+
+    # Preview models (Gemini 3 series — may have stricter rate limits)
+    Gemini31ProPreview = {
+        "model": "gemini-3.1-pro-preview",
+        "kwargs": {"temperature": 0.5},
+        "provider": "google",
+    }
+    Gemini3FlashPreview = {
+        "model": "gemini-3-flash-preview",
+        "kwargs": {"temperature": 0.5},
+        "provider": "google",
+    }
+
     @property
     def model_name(self) -> str:
-        """Get the model name string."""
+        """Get the model name string (``"auto"`` for :attr:`Auto`)."""
         return self.value["model"]
 
     @property
     def llm_kwargs(self) -> Dict[str, Any]:
         """Get the LLM kwargs dict."""
         return self.value["kwargs"]
+
+    @property
+    def provider(self) -> str:
+        """Get the model provider (``"openai"``, ``"anthropic"``, or ``"google"``)."""
+        return self.value.get("provider", "openai")  # type: ignore[return-value]
+
+    def resolve_to_openai_member(self) -> "LLMModel":
+        """Map :attr:`Auto` to a concrete OpenAI-backed model; identity otherwise."""
+        if self is LLMModel.Auto:
+            return LLMModel.GPT4oMini
+        return self
 
     def __str__(self) -> str:
         """Return the model name when converted to string."""
@@ -92,8 +192,13 @@ class LLMModel(Enum):
     @classmethod
     def from_model_name(cls, model_name: str) -> "LLMModel":
         """Get enum member by model name string."""
+        # Old ids / typos → current model names (stored sessions, cached UI)
+        legacy = {
+            "gpt-5.1-instant": "gpt-5.1-chat-latest",
+        }
+        resolved = legacy.get(model_name, model_name)
         for member in cls:
-            if member.model_name == model_name:
+            if member.model_name == resolved:
                 return member
         raise ValueError(f"No LLMModel found with model name: {model_name}")
 

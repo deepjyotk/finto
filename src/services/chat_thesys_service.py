@@ -138,6 +138,24 @@ class ThesysChatService:
         # Commit the transaction
         await self.chat_repo.session.commit()
 
+    def _resolve_context_llm_models(
+        self, chat_model: LLMModel
+    ) -> tuple[LLMModel, LLMModel, LLMModel]:
+        """Orchestrator / portfolio / web-search models for :class:`AgentContext`.
+
+        :attr:`LLMModel.Auto` uses per-role defaults from settings; any other
+        choice applies the resolved OpenAI member to all three roles.
+        """
+        settings = LLMSettings()
+        if chat_model is LLMModel.Auto:
+            return (
+                LLMModel.from_model_name(settings.orchestrator_model),
+                LLMModel.from_model_name(settings.portfolio_model),
+                LLMModel.from_model_name(settings.web_search_model),
+            )
+        resolved = chat_model.resolve_to_openai_member()
+        return (resolved, resolved, resolved)
+
     async def _build_graph_invocation(
         self,
         *,
@@ -147,6 +165,7 @@ class ThesysChatService:
         user_id: UUID,
         broker_id: UUID,
         callbacks: Optional[List[BaseCallbackHandler]],
+        chat_model: LLMModel,
     ) -> tuple[RunnableConfig, dict[str, Any], dict[str, Any]]:
         """Build the config, initial state, and agent context for a graph invocation.
 
@@ -176,20 +195,17 @@ class ThesysChatService:
             "final_rendered_ui_answer": None,
         }
 
-        llm_settings = LLMSettings()
-        orchestrator_model = llm_settings.orchestrator_model
-        portfolio_model = llm_settings.portfolio_model
-        web_search_model = llm_settings.web_search_model
+        orch, port, web = self._resolve_context_llm_models(chat_model)
 
-        logger.info(f"Orchestrator model: {orchestrator_model}")
-        logger.info(f"Portfolio model: {portfolio_model}")
-        logger.info(f"News model: {web_search_model}")
+        logger.info(f"Orchestrator model: {orch.model_name}")
+        logger.info(f"Portfolio model: {port.model_name}")
+        logger.info(f"Web search model: {web.model_name}")
 
         context: dict[str, Any] = {
             "user_id": user_id,
-            "orchestrator_model": LLMModel.from_model_name(orchestrator_model),
-            "portfolio_model": LLMModel.from_model_name(portfolio_model),
-            "web_search_model": LLMModel.from_model_name(web_search_model),
+            "orchestrator_model": orch,
+            "portfolio_model": port,
+            "web_search_model": web,
             "broker_id": broker_id,
             "history_message_length": history_message_length,
         }
@@ -243,6 +259,7 @@ class ThesysChatService:
                 user_id=user_id,
                 broker_id=broker_id,
                 callbacks=callbacks,
+                chat_model=request.model_payload,
             )
 
             out = await graph_runner.ainvoke(initial_state, config=config, context=context)

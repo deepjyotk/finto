@@ -33,6 +33,11 @@ MODEL_PRICING = {
     "gpt-4.1": ModelPricing(
         input_cost_per_1m=10.00, output_cost_per_1m=30.00
     ),  # GPT-4.1 (similar to turbo)
+    # GPT-5 family — list more specific ids before ``gpt-5`` so prefix matching is correct
+    "gpt-5.1": ModelPricing(input_cost_per_1m=1.25, output_cost_per_1m=10.00),
+    "gpt-5-mini": ModelPricing(input_cost_per_1m=0.25, output_cost_per_1m=2.00),
+    "gpt-5-nano": ModelPricing(input_cost_per_1m=0.05, output_cost_per_1m=0.40),
+    "gpt-5": ModelPricing(input_cost_per_1m=1.25, output_cost_per_1m=10.00),
     "gpt-3.5-turbo": ModelPricing(input_cost_per_1m=0.50, output_cost_per_1m=1.50),
     # Anthropic Models
     "claude-3-5-sonnet-20241022": ModelPricing(input_cost_per_1m=3.00, output_cost_per_1m=15.00),

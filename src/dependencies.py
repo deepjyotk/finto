@@ -3,10 +3,14 @@
 from typing import Annotated
 
 from fastapi import Depends
+from langchain_anthropic import ChatAnthropic
+from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.db import SessionLocal, get_session
+from src.core.enums import LLMModel, ThesysModel
 from src.core.llm import LLMFactory
 from src.core.settings import sendgrid_settings, settings
 from src.graph import Graph
@@ -30,8 +34,19 @@ from src.services.whatsapp import WhatsAppService
 
 
 def get_llm_factory() -> LLMFactory:
-    """Provide a factory that builds ChatOpenAI clients from an LLMModel enum."""
-    return lambda model: ChatOpenAI(model=model.model_name, **model.llm_kwargs)
+    """Provide a factory that builds chat model clients from an LLMModel enum."""
+
+    def factory(model: LLMModel | ThesysModel) -> BaseChatModel:
+        if isinstance(model, LLMModel):
+            resolved = model.resolve_to_openai_member()
+            if resolved.provider == "anthropic":
+                return ChatAnthropic(model=resolved.model_name, **resolved.llm_kwargs)
+            if resolved.provider == "google":
+                return ChatGoogleGenerativeAI(model=resolved.model_name, **resolved.llm_kwargs)
+            return ChatOpenAI(model=resolved.model_name, **resolved.llm_kwargs)
+        return ChatOpenAI(model=model.value)
+
+    return factory
 
 
 def _get_holdings_repository(

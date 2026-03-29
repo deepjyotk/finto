@@ -1,8 +1,12 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from thesys_genui_sdk.context import write_content
+from thesys_genui_sdk.context import write_content, write_custom_markdown
 from thesys_genui_sdk.fast_api import with_c1_response
+
+# with_c1_response() returns HTTP 200 + SSE immediately and runs the handler in a
+# background task. Raising HTTPException does not change the status code on the wire
+# (the client already got 200). Surface failures by streaming an error via C1.
 
 from src.api.schemas.thesys_chat import (
     C1ChatRequest,
@@ -15,6 +19,7 @@ from src.api.schemas.thesys_chat import (
     SessionsListResponse,
     UserBrokerItem,
 )
+from src.core.chat_errors import format_user_visible_chat_error
 from src.core.enums import CHAT_MODE_DESCRIPTIONS, ChatMode, LLMModel
 from src.core.json_logging import logger_for
 from src.core.middleware import require_auth
@@ -250,7 +255,7 @@ async def get_chat_metadata(
     llm_models = [
         LLMModelItem(
             id=model.model_name,
-            label=model.model_name.upper(),
+            label="Auto" if model is LLMModel.Auto else model.model_name.upper(),
         )
         for model in LLMModel
     ]
@@ -338,5 +343,8 @@ async def thesys_chat(
 
         if agent_message and agent_message.content:
             await write_content(agent_message.content)
+    except Exception as e:
+        logger.error(f"Error in thesys_chat: {e}", exc_info=True)
+        await write_custom_markdown(format_user_visible_chat_error(e))
     finally:
         await db.close()

@@ -1,10 +1,11 @@
 """Schemas for the Thesys C1 streaming chat endpoint."""
 
+from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
-from src.core.enums import ChatMessageType
+from src.core.enums import ChatMessageType, LLMModel
 
 
 class C1Message(BaseModel):
@@ -15,6 +16,22 @@ class C1ChatRequest(BaseModel):
     message_payload: C1Message
     session_id: str
     broker_id: str
+    model_payload: LLMModel
+
+    @field_validator("model_payload", mode="before")
+    @classmethod
+    def coerce_model_payload(cls, v: Any) -> LLMModel:
+        """Accept enum, OpenAI model id string, or "auto" (server default)."""
+        if isinstance(v, LLMModel):
+            return v
+        if isinstance(v, str):
+            s = v.strip()
+            if not s or s.lower() == "auto":
+                return LLMModel.Auto
+            return LLMModel.from_model_name(s)
+        if isinstance(v, dict) and "model" in v:
+            return LLMModel.from_model_name(str(v["model"]))
+        raise ValueError(f"Invalid model_payload: {v!r}")
 
 
 class ChatSessionSchema(BaseModel):

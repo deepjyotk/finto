@@ -21,57 +21,6 @@ if TYPE_CHECKING:
 logger = logger_for(__name__)
 
 
-def _ensure_tool_call_responses(messages: List[BaseMessage]) -> List[BaseMessage]:
-    """OpenAI rejects chat completions when an assistant message lists ``tool_calls``
-    but a ``tool_call_id`` has no matching ``ToolMessage`` (e.g. failed graph step,
-    checkpoint resume, or UI history merged without tool outputs).
-
-    Walk the history and, for each ``AIMessage`` with ``tool_calls``, consume any
-    immediately-following ``ToolMessage`` entries; for any ID still missing, append a
-    placeholder ``ToolMessage`` so the next LLM call is valid.
-    """
-    out: List[BaseMessage] = []
-    i = 0
-    n = len(messages)
-    while i < n:
-        msg = messages[i]
-        if isinstance(msg, AIMessage) and getattr(msg, "tool_calls", None):
-            tool_calls = msg.tool_calls or []
-            needed_ids = [tc.get("id") for tc in tool_calls if tc.get("id")]
-            out.append(msg)
-            i += 1
-            if not needed_ids:
-                continue
-            responses: dict[str, ToolMessage] = {}
-            while i < n and isinstance(messages[i], ToolMessage):
-                tm = messages[i]
-                tcid = getattr(tm, "tool_call_id", None)
-                if tcid:
-                    responses[tcid] = tm
-                i += 1
-            for tid in needed_ids:
-                if tid in responses:
-                    out.append(responses[tid])
-                else:
-                    logger.warning(
-                        "Injecting placeholder ToolMessage for missing tool_call_id=%s",
-                        tid,
-                    )
-                    out.append(
-                        ToolMessage(
-                            content=(
-                                "No tool output was recorded for this call "
-                                "(session interrupted or history was trimmed)."
-                            ),
-                            tool_call_id=tid,
-                        )
-                    )
-        else:
-            out.append(msg)
-            i += 1
-    return out
-
-
 class OrchestratorNode:
     """Supervisor-style orchestrator that dispatches sub-tasks to worker tools.
 

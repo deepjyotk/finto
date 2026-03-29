@@ -33,6 +33,7 @@ DEFAULT_ALLOWLIST: tuple[str, ...] = (
     "business-standard.com",
 )
 
+
 # Finance-focused defaults — topic and include_domains are always hardcoded.
 # We create a new TavilySearch instance per call so that max_results,
 # search_depth, and time_range can be varied per-request. Construction is

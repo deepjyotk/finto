@@ -1,12 +1,13 @@
 from html import unescape
 from typing import Callable
 
+from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_openai import ChatOpenAI
 
 from src.core.enums import LLMModel, ThesysModel
 from src.core.settings import thesys_settings
 
-LLMFactory = Callable[[LLMModel | ThesysModel], ChatOpenAI]
+LLMFactory = Callable[[LLMModel | ThesysModel], BaseChatModel]
 
 
 class ThesysChatOpenAI(ChatOpenAI):

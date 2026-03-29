@@ -29,7 +29,7 @@ DATASET_NAME = "finto-yf-tools-getBalanceSheet"
 EVALUATION_MODEL = LLMModel.GPT4oMini
 
 # Model configuration for evaluation
-ROUTER_MODEL = LLMModel.GPT4oMini
+ORCHESTRATOR_MODEL = LLMModel.GPT4oMini
 PORTFOLIO_MODEL = LLMModel.GPT4p1
 NEWS_MODEL = LLMModel.GPT4oMini
 
@@ -69,15 +69,15 @@ def _extract_answer(graph_result: Any) -> str:
 
 def _generate_experiment_prefix(
     dataset_name: str,
-    router_model: LLMModel,
+    orchestrator_model: LLMModel,
     portfolio_model: LLMModel,
-    news_model: LLMModel,
+    web_search_model: LLMModel,
 ) -> str:
     """Generate experiment prefix with dataset name and model names."""
-    router_name = router_model.model_name.replace(".", "-")
+    orchestrator_name = orchestrator_model.model_name.replace(".", "-")
     portfolio_name = portfolio_model.model_name.replace(".", "-")
-    news_name = news_model.model_name.replace(".", "-")
-    return f"{dataset_name}_router-{router_name}_portfolio-{portfolio_name}_news-{news_name}"
+    news_name = web_search_model.model_name.replace(".", "-")
+    return f"{dataset_name}_orchestrator-{orchestrator_name}_portfolio-{portfolio_name}_news-{news_name}"
 
 
 def predict_agent_answer(
@@ -100,9 +100,9 @@ def predict_agent_answer(
     graph_state = {"messages": [HumanMessage(content=question.strip())]}
     context = {
         "user_id": uuid4(),
-        "router_model": ROUTER_MODEL,
+        "orchestrator_model": ORCHESTRATOR_MODEL,
         "portfolio_model": PORTFOLIO_MODEL,
-        "news_model": NEWS_MODEL,
+        "web_search_model": NEWS_MODEL,
     }
     result = graph.invoke(graph_state, config=run_config, context=context)
 
@@ -175,7 +175,7 @@ def run_evaluation(dataset_name: str = DATASET_NAME) -> None:
     """Kick off the LangSmith evaluation on the specified dataset."""
     client = Client()
     experiment_prefix = _generate_experiment_prefix(
-        dataset_name, ROUTER_MODEL, PORTFOLIO_MODEL, NEWS_MODEL
+        dataset_name, ORCHESTRATOR_MODEL, PORTFOLIO_MODEL, NEWS_MODEL
     )
     results = evaluate(
         predict_agent_answer,
@@ -184,9 +184,9 @@ def run_evaluation(dataset_name: str = DATASET_NAME) -> None:
         client=client,
         experiment_prefix=experiment_prefix,
         metadata={
-            "router_model": ROUTER_MODEL.model_name,
+            "orchestrator_model": ORCHESTRATOR_MODEL.model_name,
             "portfolio_model": PORTFOLIO_MODEL.model_name,
-            "news_model": NEWS_MODEL.model_name,
+            "web_search_model": NEWS_MODEL.model_name,
             "evaluation_model": EVALUATION_MODEL.model_name,
         },
     )

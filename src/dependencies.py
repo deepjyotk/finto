@@ -10,11 +10,9 @@ from src.core.db import SessionLocal, get_session
 from src.core.llm import LLMFactory
 from src.core.settings import sendgrid_settings, settings
 from src.graph import Graph
-from src.nodes.code_generation import CodeGenerationNode
-from src.nodes.execute_code import ExecuteCodeNode
 from src.nodes.final_response_generation import FinalResponseGenerationNode
-from src.nodes.portfolio import PortfolioNode
-from src.nodes.router import RouterNode
+from src.nodes.orchestrator import OrchestratorNode
+from src.nodes.portfolio_worker_tool_node import PortfolioNode
 from src.nodes.web_search import WebSearchNode
 from src.repositories.broker_repo import BrokerRepository
 from src.repositories.chat_repo import ChatRepository
@@ -57,14 +55,7 @@ def get_holdings_service(
     return HoldingsService(repo=repo)
 
 
-def _get_router_node(
-    llm_factory: Annotated[LLMFactory, Depends(get_llm_factory)],
-) -> RouterNode:
-    """Provide RouterNode with injected LLM factory."""
-    return RouterNode(llm_factory=llm_factory)
-
-
-def _get_news_node(
+def _get_web_search_node(
     llm_factory: Annotated[LLMFactory, Depends(get_llm_factory)],
 ) -> WebSearchNode:
     """Provide WebSearchNode with injected LLM factory."""
@@ -73,16 +64,23 @@ def _get_news_node(
 
 def _get_portfolio_node(
     llm_factory: Annotated[LLMFactory, Depends(get_llm_factory)],
+    holdings_service: Annotated[HoldingsService, Depends(get_holdings_service)],
 ) -> PortfolioNode:
-    """Provide PortfolioNode with injected LLM factory."""
-    return PortfolioNode(llm_factory=llm_factory)
+    """Provide PortfolioNode with injected LLM factory and holdings service."""
+    return PortfolioNode(llm_factory=llm_factory, holding_service=holdings_service)
 
 
-def _get_code_generation_node(
+def _get_orchestrator_node(
     llm_factory: Annotated[LLMFactory, Depends(get_llm_factory)],
-) -> CodeGenerationNode:
-    """Provide CodeGenerationNode with injected LLM factory."""
-    return CodeGenerationNode(llm_factory=llm_factory)
+    portfolio_node: Annotated[PortfolioNode, Depends(_get_portfolio_node)],
+    web_search_node: Annotated[WebSearchNode, Depends(_get_web_search_node)],
+) -> OrchestratorNode:
+    """Provide OrchestratorNode with injected LLM factory and worker nodes."""
+    return OrchestratorNode(
+        llm_factory=llm_factory,
+        portfolio_node=portfolio_node,
+        web_search_node=web_search_node,
+    )
 
 
 def _get_final_response_node(
@@ -90,13 +88,6 @@ def _get_final_response_node(
 ) -> FinalResponseGenerationNode:
     """Provide FinalResponseGenerationNode with injected LLM factory."""
     return FinalResponseGenerationNode(llm_factory=llm_factory)
-
-
-def _get_execute_code_node(
-    holdings_service: Annotated[HoldingsService, Depends(get_holdings_service)],
-) -> ExecuteCodeNode:
-    """Provide ExecuteCodeNode with injected holdings service."""
-    return ExecuteCodeNode(holding_service=holdings_service)
 
 
 def build_agent_graph(session: AsyncSession | None = None) -> Graph:
@@ -111,44 +102,34 @@ def build_agent_graph(session: AsyncSession | None = None) -> Graph:
     """
     llm_factory = get_llm_factory()
 
-    news_node = WebSearchNode(llm_factory=llm_factory)
-    portfolio_node = PortfolioNode(llm_factory=llm_factory)
-    code_generation_node = CodeGenerationNode(llm_factory=llm_factory)
+    web_search_node = WebSearchNode(llm_factory=llm_factory)
     final_response_node = FinalResponseGenerationNode(llm_factory=llm_factory)
 
     session_to_use = session or SessionLocal()
     holdings_repo = HoldingsRepository(session_to_use)
     holdings_service = HoldingsService(repo=holdings_repo)
-    execute_code_node = ExecuteCodeNode(holding_service=holdings_service)
+    portfolio_node = PortfolioNode(llm_factory=llm_factory, holding_service=holdings_service)
 
-    router_node = RouterNode(llm_factory=llm_factory)
+    orchestrator_node = OrchestratorNode(
+        llm_factory=llm_factory,
+        portfolio_node=portfolio_node,
+        web_search_node=web_search_node,
+    )
 
     return Graph(
-        news_node_instance=news_node,
-        portfolio_node=portfolio_node,
-        code_generation_node=code_generation_node,
+        orchestrator_node=orchestrator_node,
         final_response_node=final_response_node,
-        execute_code_node=execute_code_node,
-        router_node=router_node,
     )
 
 
 def get_graph(
-    news_node: Annotated[WebSearchNode, Depends(_get_news_node)],
-    portfolio_node: Annotated[PortfolioNode, Depends(_get_portfolio_node)],
-    code_generation_node: Annotated[CodeGenerationNode, Depends(_get_code_generation_node)],
     final_response_node: Annotated[FinalResponseGenerationNode, Depends(_get_final_response_node)],
-    execute_code_node: Annotated[ExecuteCodeNode, Depends(_get_execute_code_node)],
-    router_node: Annotated[RouterNode, Depends(_get_router_node)],
+    orchestrator_node: Annotated[OrchestratorNode, Depends(_get_orchestrator_node)],
 ) -> Graph:
     """Provide Graph instance with all node dependencies injected."""
     return Graph(
-        news_node_instance=news_node,
-        portfolio_node=portfolio_node,
-        code_generation_node=code_generation_node,
+        orchestrator_node=orchestrator_node,
         final_response_node=final_response_node,
-        execute_code_node=execute_code_node,
-        router_node=router_node,
     )
 
 

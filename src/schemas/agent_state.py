@@ -18,7 +18,7 @@ class AgentState(TypedDict):
     last_code: Optional[str]
     last_output: Optional[str]
     done: bool
-    final_answer: Optional[str]
+    final_rendered_ui_answer: Optional[str]
 
 
 class AgentContext(TypedDict, total=False):
@@ -26,7 +26,7 @@ class AgentContext(TypedDict, total=False):
 
     user_id: UUID
     broker_id: UUID
-    router_model: LLMModel
+    orchestrator_model: LLMModel
     portfolio_model: LLMModel
-    news_model: LLMModel
+    web_search_model: LLMModel
     history_message_length: int

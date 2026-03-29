@@ -33,55 +33,63 @@ DEFAULT_ALLOWLIST: tuple[str, ...] = (
     "business-standard.com",
 )
 
-
-# ---------- Tool Function for LangChain Agent ----------
-# Initialize TavilySearch with proper parameters
-_tool_instance = TavilySearch(
-    max_results=2,
-    search_depth="basic",
-    include_answer=True,
-    include_raw_content=True,
-    include_domains=list(DEFAULT_ALLOWLIST),
-    topic="finance",
-)
+# Finance-focused defaults — topic and include_domains are always hardcoded.
+# We create a new TavilySearch instance per call so that max_results,
+# search_depth, and time_range can be varied per-request. Construction is
+# cheap (no network calls at init); the API call happens inside .invoke().
+def _make_tavily_instance(
+    max_results: int,
+    search_depth: str,
+    time_range: Optional[str],
+) -> TavilySearch:
+    return TavilySearch(
+        max_results=max_results,
+        search_depth=search_depth,
+        time_range=time_range,
+        include_answer=True,
+        include_raw_content=False,
+        include_domains=list(DEFAULT_ALLOWLIST),
+        topic="finance",
+    )
 
 
 @tool("tavily_web_search")
 def tavily_web_search(
     query: str,
     time_range: Optional[Literal["day", "week", "month", "year"]] = "day",
-    max_results: int = 2,
+    search_depth: Literal["basic", "advanced"] = "basic",
+    max_results: int = 3,
 ) -> Dict[str, Any]:
     """Search the web for finance news, filings, and current events using Tavily.
 
     Focuses on India-first finance sources (NSE, BSE, SEBI, Reuters, ET, Moneycontrol).
-    Returns recent, source-backed context with AI-generated summaries.
+    topic is always "finance" — do not attempt to override it.
 
     Args:
-        query: Search query string
-        time_range: Filter by time - "day", "week", "month", or "year" (default: "day")
-        max_results: Maximum results to return, 1-3 (default: 2)
+        query: Search query string.
+        time_range: Recency filter — "day" (today), "week" (7 days),
+                    "month" (30 days), "year" (12 months). Default: "day".
+        search_depth: "basic" for fast headline results (default);
+                      "advanced" for deep crawl with more content — use only when
+                      a broad/research query needs thorough coverage.
+        max_results: Number of source results to return, 1–5. Default: 3.
+                     Use 1–2 for targeted lookups; 4–5 for broad market sweeps.
 
     Returns:
-        Dict with keys: query, answer, results (list of {title, url, content, score}),
-        images, response_time. Content is truncated to prevent context overflow.
+        Dict with keys: query, answer (Tavily AI summary), results
+        (list of {title, url, content, score}), response_time.
     """
-    # TavilySearch.invoke() accepts query and can override instance parameters
-    # through its _run() method via invoke()
-    response = _tool_instance.invoke(
-        {
-            "query": query,
-            "time_range": time_range,
-            "max_results": max_results,
-        }
+    instance = _make_tavily_instance(
+        max_results=max_results,
+        search_depth=search_depth,
+        time_range=time_range,
     )
+    response = instance.invoke({"query": query})
 
     if isinstance(response, dict) and "results" in response:
         for result in response["results"]:
             if "content" in result and result["content"]:
                 result["content"] = result["content"][:600]
-            if "raw_content" in result:
-                del result["raw_content"]
 
     return response
 
@@ -104,7 +112,8 @@ if __name__ == "__main__":
         result = tavily_web_search(
             query=query,
             time_range="day",
-            max_results=6,
+            search_depth="basic",
+            max_results=3,
         )
 
         print(f"\n[{i}] Query: {query}")

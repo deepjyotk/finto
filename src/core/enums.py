@@ -108,14 +108,9 @@ class ChatMessageType(str, Enum):
 class Nodes:
     """Node name constants."""
 
-    router = {
-        "name": "router_node",
-        "description": "Router node for deciding between portfolio and news nodes.",
-        "max_ai_messages_allowed": 60,
-    }
-    news = {
-        "name": "news_node",
-        "description": "News node for fetching news from the web.",
+    orchestrator = {
+        "name": "orchestrator_node",
+        "description": "Orchestrator node for routing between worker nodes.",
         "max_ai_messages_allowed": 60,
     }
     portfolio = {
@@ -123,18 +118,18 @@ class Nodes:
         "description": "Portfolio node for fetching portfolio information.",
         "max_ai_messages_allowed": 60,
     }
-    code_generation = {
-        "name": "code_generation_node",
-        "description": "LLM node that generates Python code for portfolio analysis.",
+    code_execution = {
+        "name": "code_execution_node",
+        "description": "LLM node that generates and executes Python code for portfolio analysis.",
         "max_ai_messages_allowed": 60,
     }
-    execute_code = {
-        "name": "execute_code_node",
-        "description": "Node that executes generated Python code and captures output.",
+    portfolio_worker_tools = {
+        "name": "portfolio_worker_tool_node",
+        "description": "ToolNode that executes portfolio analysis tasks dispatched by the orchestrator.",
     }
-    news_tools = {
-        "name": "news_agent_tools",
-        "description": "Tools node for news agent - web search and symbol lookup.",
+    web_search_worker_tools = {
+        "name": "web_search_tool_node",
+        "description": "ToolNode that executes web-search tasks dispatched by the orchestrator.",
     }
     final_response = {
         "name": "final_response_generation_node",

@@ -7,24 +7,20 @@ import psycopg
 from langchain_core.messages import AIMessage
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.graph import END, StateGraph
+from langgraph.prebuilt import ToolNode
 from psycopg_pool import AsyncConnectionPool
 
 from src.core.enums import Nodes
 from src.core.json_logging import logger_for
 from src.core.settings import settings
-from src.nodes.code_generation import CodeGenerationNode
-from src.nodes.execute_code import ExecuteCodeNode
 from src.nodes.final_response_generation import FinalResponseGenerationNode
-from src.nodes.portfolio import PortfolioNode
-from src.nodes.router import RouterNode
-from src.nodes.web_search import WebSearchNode
+from src.nodes.orchestrator import OrchestratorNode
 from src.schemas.agent_state import AgentContext, AgentState
-from src.tools.tavily_web_search import news_agent_tools
 
 logger = logger_for(__name__)
 
 
-# Singleton async Postgres saver following LangGraph’s recommended pattern
+# Singleton async Postgres saver following LangGraph's recommended pattern
 _CHECKPOINTER: AsyncPostgresSaver | None = None
 _CHECKPOINTER_POOL: AsyncConnectionPool | None = None
 _CHECKPOINTER_LOCK = asyncio.Lock()
@@ -46,10 +42,8 @@ async def _get_checkpointer() -> AsyncPostgresSaver:
 
     The checkpointer is used by LangGraph to save state between graph node executions.
     Each graph execution (e.g., a chat request) uses the checkpointer multiple times:
-    - After router node
-    - After portfolio/news node
-    - After code generation node
-    - After execution node
+    - After orchestrator node
+    - After portfolio/web_search worker tool nodes
     - After final response node
 
     With concurrent graph executions (multiple users chatting), we need enough
@@ -65,49 +59,29 @@ async def _get_checkpointer() -> AsyncPostgresSaver:
 
         if _CHECKPOINTER is None:
             try:
-                # Checkpointer pool size: Each graph execution uses checkpointer multiple times
-                # (after each node: router, portfolio/news, code_gen, execute, final_response)
-                # With connection pooler (40 pool, 200 max clients), we can use more connections
-                # to handle concurrent graph executions without blocking
                 _CHECKPOINTER_POOL = AsyncConnectionPool(
                     conninfo=settings.database_url,
                     min_size=2,
-                    max_size=8,  # Increased to handle concurrent graph executions
-                    # Each graph execution may need 1-2 checkpoint connections
-                    # With 8 connections, can handle 4-8 concurrent graph executions
+                    max_size=8,
                 )
-                # Ensure pool is ready before passing to saver
                 await _CHECKPOINTER_POOL.open(wait=True)
                 _CHECKPOINTER = AsyncPostgresSaver(_CHECKPOINTER_POOL)
 
-                # Setup checkpoint tables with autocommit enabled
-                # CREATE INDEX CONCURRENTLY cannot run inside a transaction block
-                # We need to run setup with autocommit, so create a connection factory
-                # that always enables autocommit
-                async def autocommit_conn_factory():
-                    conn = await psycopg.AsyncConnection.connect(
-                        settings.database_url, autocommit=True
-                    )
-                    return conn
-
-                # Create a temporary pool that uses autocommit connections
+                # Setup checkpoint tables (requires autocommit for CREATE INDEX CONCURRENTLY)
                 setup_pool = AsyncConnectionPool(
                     conninfo=settings.database_url,
                     min_size=1,
                     max_size=1,
-                    kwargs={"autocommit": True},  # Enable autocommit for all connections
+                    kwargs={"autocommit": True},
                 )
                 try:
                     await setup_pool.open(wait=True)
-                    # Create temporary saver with autocommit pool for setup
                     setup_saver = AsyncPostgresSaver(setup_pool)
                     await setup_saver.setup()
                 finally:
                     await setup_pool.close()
 
-                # Main checkpointer is ready to use (tables/indexes now exist)
             except Exception:
-                # Tear down partial initialization so the next caller can retry cleanly
                 if _CHECKPOINTER_POOL and not _CHECKPOINTER_POOL.closed:
                     await _CHECKPOINTER_POOL.close()
                 _CHECKPOINTER = None
@@ -122,24 +96,31 @@ async def _create_checkpointer() -> AsyncPostgresSaver:
 
 
 class Graph:
-    """Main graph builder for the finance assistant."""
+    """Main graph builder for the finance assistant.
+
+    Architecture (hub-and-spoke with sequential tool collection):
+
+        orchestrator_node
+            ├─► portfolio_worker_tool_node ──┐
+            ├─► web_search_tool_node ────────┤
+            │   (both loop back to ──────────┘
+            │    orchestrator_node)
+            └─► final_response_generation_node ──► END
+
+    The orchestrator is a supervisor agent that can call the worker tools
+    multiple times in sequence (e.g. portfolio first to identify stocks, then
+    web_search with those stock names).  Once it has all needed context it routes to
+    final_response_generation_node which formats the user-facing answer.
+    """
 
     def __init__(
         self,
-        news_node_instance: WebSearchNode,
-        portfolio_node: PortfolioNode,
-        code_generation_node: CodeGenerationNode,
+        orchestrator_node: OrchestratorNode,
         final_response_node: FinalResponseGenerationNode,
-        execute_code_node: ExecuteCodeNode,
-        router_node: RouterNode,
         checkpointer_factory: Callable[[], Awaitable[AsyncPostgresSaver]] = _create_checkpointer,
     ):
-        self.news_node_instance = news_node_instance
-        self.portfolio_node = portfolio_node
-        self.code_generation_node = code_generation_node
+        self.orchestrator_node = orchestrator_node
         self.final_response_node = final_response_node
-        self.execute_code_node = execute_code_node
-        self.router_node = router_node
         self._checkpointer_factory = checkpointer_factory
 
     @staticmethod
@@ -164,58 +145,51 @@ class Graph:
 
         builder = StateGraph(state_schema=AgentState, context_schema=AgentContext)
 
-        news_node = self.news_node_instance.get_runnable_sequence()
-
-        portfolio_node = self.portfolio_node.get_runnable_sequence()
-
-        code_generation_node = self.code_generation_node.get_runnable_sequence()
-
-        final_response_node = self.final_response_node.get_runnable_sequence()
-
-        execute_code_node = self.execute_code_node.get_runnable_sequence()
-
-        router_node = self.router_node.get_runnable_sequence()
-
-        builder.add_node(Nodes.router.get("name"), router_node)
-        builder.add_node(Nodes.news.get("name"), news_node)
-        builder.add_node(Nodes.portfolio.get("name"), portfolio_node)
-        builder.add_node(Nodes.news_tools.get("name"), news_agent_tools)
-        builder.add_node(Nodes.code_generation.get("name"), code_generation_node)
-        builder.add_node(Nodes.final_response.get("name"), final_response_node)
-        builder.add_node(Nodes.execute_code.get("name"), execute_code_node)
-        builder.add_node(Nodes.unknown.get("name"), Graph._handle_unknown_node)
-
-        builder.add_edge(Nodes.news.get("name"), Nodes.news_tools.get("name"))
-        builder.add_edge(Nodes.portfolio.get("name"), Nodes.code_generation.get("name"))
-        builder.add_edge(Nodes.code_generation.get("name"), Nodes.execute_code.get("name"))
-
-        builder.add_conditional_edges(
-            Nodes.router.get("name"),
-            self.router_node.router_decision,
-            {
-                Nodes.portfolio.get("name"): Nodes.portfolio.get("name"),
-                Nodes.news.get("name"): Nodes.news.get("name"),
-                Nodes.unknown.get("name"): Nodes.unknown.get("name"),
-            },
+        # Worker ToolNodes — each wraps a self-contained tool created by the
+        # respective node class.  The orchestrator owns (and binds to) these tools;
+        # we reuse the same tool objects for the ToolNodes so names/schemas match.
+        portfolio_worker_tool_node = ToolNode(
+            [self.orchestrator_node._portfolio_worker_tool],
+            name=Nodes.portfolio_worker_tools.get("name"),
+        )
+        web_search_tool_node = ToolNode(
+            [self.orchestrator_node._web_search_tool],
+            name=Nodes.web_search_worker_tools.get("name"),
         )
 
+        final_response_node = self.final_response_node.get_runnable_sequence()
+        orchestrator_node = self.orchestrator_node.get_runnable_sequence()
+
+        builder.add_node(Nodes.orchestrator.get("name"), orchestrator_node)
+        builder.add_node(Nodes.portfolio_worker_tools.get("name"), portfolio_worker_tool_node)
+        builder.add_node(Nodes.web_search_worker_tools.get("name"), web_search_tool_node)
+        builder.add_node(Nodes.final_response.get("name"), final_response_node)
+        builder.add_node(Nodes.unknown.get("name"), Graph._handle_unknown_node)
+
+        # Worker tool nodes always return to the orchestrator for the next decision
+        builder.add_edge(Nodes.portfolio_worker_tools.get("name"), Nodes.orchestrator.get("name"))
+        builder.add_edge(Nodes.web_search_worker_tools.get("name"), Nodes.orchestrator.get("name"))
+
+        # Orchestrator routes to workers (if it still has tool calls to make) or
+        # to final_response when context collection is complete
         builder.add_conditional_edges(
-            Nodes.execute_code.get("name"),
-            self.code_generation_node.code_generation_agent_decision,
+            Nodes.orchestrator.get("name"),
+            self.orchestrator_node.orchestrator_decision,
             {
-                Nodes.code_generation.get("name"): Nodes.code_generation.get("name"),
+                Nodes.portfolio_worker_tools.get("name"): Nodes.portfolio_worker_tools.get("name"),
+                Nodes.web_search_worker_tools.get("name"): Nodes.web_search_worker_tools.get(
+                    "name"
+                ),
                 Nodes.final_response.get("name"): Nodes.final_response.get("name"),
-                END: END,
+                Nodes.unknown.get("name"): Nodes.unknown.get("name"),
             },
         )
 
         builder.add_edge(Nodes.unknown.get("name"), END)
         builder.add_edge(Nodes.final_response.get("name"), END)
-        builder.add_edge(Nodes.news_tools.get("name"), Nodes.final_response.get("name"))
 
-        builder.set_entry_point(Nodes.router.get("name"))
+        builder.set_entry_point(Nodes.orchestrator.get("name"))
 
-        # Create a fresh checkpointer for this graph build to avoid stale DB connections
         checkpointer = await self._checkpointer_factory()
         graph = builder.compile(checkpointer=checkpointer)
 

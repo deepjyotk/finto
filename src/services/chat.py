@@ -77,13 +77,13 @@ class ChatService:
                     "last_code": None,
                     "last_output": None,
                     "done": False,
-                    "final_answer": None,
+                    "final_rendered_ui_answer": None,
                 }
                 context = {
                     "user_id": user_id,
-                    "router_model": LLMModel.GPT4oMini,
+                    "orchestrator_model": LLMModel.GPT4oMini,
                     "portfolio_model": LLMModel.GPT4p1,
-                    "news_model": LLMModel.GPT4oMini,
+                    "web_search_model": LLMModel.GPT4oMini,
                 }
 
                 try:

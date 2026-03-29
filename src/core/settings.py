@@ -1,6 +1,6 @@
 from typing import Optional
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from src.core.enums import LLMModel, ThesysModel
@@ -67,13 +67,15 @@ class LLMSettings(BaseSettings):
 
     temperature: float = 0
     openai_api_key: str
-    router_model: str = Field(
-        default=LLMModel.GPT4oMini.value.get("model"), description="Router model to use"
+    orchestrator_model: str = Field(
+        default=LLMModel.GPT4oMini.value.get("model"),
+        description="Orchestrator model to use",
+        validation_alias=AliasChoices("orchestrator_model", "router_model"),
     )
     portfolio_model: str = Field(
         default=LLMModel.GPT4p1.value.get("model"), description="Portfolio model to use"
     )
-    news_model: str = Field(
+    web_search_model: str = Field(
         default=LLMModel.GPT4oMini.value.get("model"), description="News model to use"
     )
 

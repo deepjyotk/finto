@@ -68,15 +68,16 @@ def main() -> None:
 
     graph_builder = build_agent_graph()
     compiled_graph = asyncio.run(graph_builder.get_graph())
+    drawable_graph = compiled_graph.get_graph()
 
     # render the main requested format
     drawer = DRAWERS[args.format]
-    drawer(compiled_graph, output_path)
+    drawer(drawable_graph, output_path)
     print(f"LangGraph rendered to {output_path.resolve()}")
 
     # always also write a mermaid file
     mermaid_path = output_path.parent / MERMAID_FILENAME
-    _draw_mermaid_to_file(compiled_graph, mermaid_path)
+    _draw_mermaid_to_file(drawable_graph, mermaid_path)
     print(f"Mermaid topology written to {mermaid_path.resolve()}")
 
 

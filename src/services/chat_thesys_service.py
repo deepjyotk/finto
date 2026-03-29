@@ -1,9 +1,8 @@
 """Thesys chat service wired to the LangGraph flow (mirrors ChatService)."""
 
-from typing import List, Optional
+from typing import Any, List, Optional
 from uuid import UUID
 
-import psycopg
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
@@ -139,6 +138,64 @@ class ThesysChatService:
         # Commit the transaction
         await self.chat_repo.session.commit()
 
+    async def _build_graph_invocation(
+        self,
+        *,
+        graph_runner: Any,
+        thread_id: str,
+        question: str,
+        user_id: UUID,
+        broker_id: UUID,
+        callbacks: Optional[List[BaseCallbackHandler]],
+    ) -> tuple[RunnableConfig, dict[str, Any], dict[str, Any]]:
+        """Build the config, initial state, and agent context for a graph invocation.
+
+        history_message_length captures how many messages existed in the thread
+        before this turn (used by nodes to prune old iteration messages).
+        We read the existing checkpoint via aget_state so the count reflects the
+        real persisted history rather than a hard-coded zero.
+        """
+        config: RunnableConfig = {
+            "configurable": {"thread_id": str(thread_id)},
+            "callbacks": callbacks or [],
+        }
+
+        snapshot = await graph_runner.aget_state(config)
+        history_message_length = len(snapshot.values.get("messages", [])) if snapshot else 0
+        logger.info(f"History message length for thread {thread_id}: {history_message_length}")
+
+        initial_state: dict[str, Any] = {
+            "messages": [HumanMessage(content=question)],
+            "symbol_names": [],
+            "user_request": question,
+            "attempts": 0,
+            "last_code_success": True,
+            "last_code": None,
+            "last_output": None,
+            "done": False,
+            "final_rendered_ui_answer": None,
+        }
+
+        llm_settings = LLMSettings()
+        orchestrator_model = llm_settings.orchestrator_model
+        portfolio_model = llm_settings.portfolio_model
+        web_search_model = llm_settings.web_search_model
+
+        logger.info(f"Orchestrator model: {orchestrator_model}")
+        logger.info(f"Portfolio model: {portfolio_model}")
+        logger.info(f"News model: {web_search_model}")
+
+        context: dict[str, Any] = {
+            "user_id": user_id,
+            "orchestrator_model": LLMModel.from_model_name(orchestrator_model),
+            "portfolio_model": LLMModel.from_model_name(portfolio_model),
+            "web_search_model": LLMModel.from_model_name(web_search_model),
+            "broker_id": broker_id,
+            "history_message_length": history_message_length,
+        }
+
+        return config, initial_state, context
+
     async def query(
         self,
         request: C1ChatRequest,
@@ -175,90 +232,29 @@ class ThesysChatService:
             content=question,
         )
 
+        graph_runner = await self.graph.get_graph()
         try:
-            graph_runner = await self.graph.get_graph()
-            try:
-                logger.info(f"Starting Thesys chat session with session_id: {thread_id}")
+            logger.info(f"Starting Thesys chat session with session_id: {thread_id}")
 
-                config: RunnableConfig = {
-                    "configurable": {"thread_id": str(thread_id)},
-                    "callbacks": callbacks or [],
-                }
+            config, initial_state, context = await self._build_graph_invocation(
+                graph_runner=graph_runner,
+                thread_id=thread_id,
+                question=question,
+                user_id=user_id,
+                broker_id=broker_id,
+                callbacks=callbacks,
+            )
 
-                initial_state = {
-                    "messages": [HumanMessage(content=question)],
-                    "symbol_names": [],
-                    "user_request": question,
-                    "attempts": 0,
-                    "last_code_success": True,
-                    "last_code": None,
-                    "last_output": None,
-                    "done": False,
-                    "final_answer": None,
-                }
-                llm_settings = LLMSettings()
-                router_model = llm_settings.router_model
-                portfolio_model = llm_settings.portfolio_model
-                news_model = llm_settings.news_model
+            out = await graph_runner.ainvoke(initial_state, config=config, context=context)
 
-                logger.info(f"Router model: {router_model}")
-                logger.info(f"Portfolio model: {portfolio_model}")
-                logger.info(f"News model: {news_model}")
+            content = out.get("final_rendered_ui_answer") or ""
 
-                context = {
-                    "user_id": user_id,
-                    "router_model": LLMModel.from_model_name(router_model),
-                    "portfolio_model": LLMModel.from_model_name(portfolio_model),
-                    "news_model": LLMModel.from_model_name(news_model),
-                    "broker_id": broker_id,
-                    "history_message_length": 0,
-                }
+            await self.chat_repo.create_ai_message(session_id=session_id, content=content)
+            await self.chat_repo.session.commit()
 
-                try:
-                    out = await graph_runner.ainvoke(initial_state, config=config, context=context)
-                except Exception as e:
-                    msg = str(e).lower()
-                    if (
-                        "connection is closed" in msg
-                        or "server closed the connection" in msg
-                        or isinstance(e, psycopg.OperationalError)
-                    ):
-                        logger.warning(
-                            "DB connection error detected, resetting checkpointer and retrying once"
-                        )
-                        await self.graph.close_graph(graph_runner)
-                        await self.graph.reset_checkpointer()
-                        graph_runner = await self.graph.get_graph()
-                        out = await graph_runner.ainvoke(
-                            initial_state, config=config, context=context
-                        )
-                    else:
-                        raise
-
-                if isinstance(out, list):
-                    last_message = out[-1]
-                    content = (
-                        last_message.content
-                        if hasattr(last_message, "content")
-                        else str(last_message)
-                    )
-                elif isinstance(out, dict):
-                    messages = out.get("messages", [])
-                    content = messages[-1].content if messages else ""
-                else:
-                    content = str(out)
-
-                # Persist the AI message to the chat_messages table
-                await self.chat_repo.create_ai_message(
-                    session_id=session_id,
-                    content=content,
-                )
-                # Commit the transaction to persist both messages
-                await self.chat_repo.session.commit()
-
-                return AgentMessage(role="assistant", content=content)
-            finally:
-                await self.graph.close_graph(graph_runner)
+            return AgentMessage(role="assistant", content=content)
         except Exception as e:
             logger.error("Thesys agent run failed: %s", str(e), exc_info=True)
             raise RuntimeError(f"Thesys agent run failed: {e}") from e
+        finally:
+            await self.graph.close_graph(graph_runner)

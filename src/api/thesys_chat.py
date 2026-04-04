@@ -111,7 +111,9 @@ async def get_sessions(
     )
 
     # Calculate pagination metadata
-    total_pages = (total_sessions + page_limit - 1) // page_limit if total_sessions > 0 else 0
+    total_pages = (
+        (total_sessions + page_limit - 1) // page_limit if total_sessions > 0 else 0
+    )
     has_next_page = page < total_pages
 
     return SessionsListResponse(
@@ -258,11 +260,13 @@ async def get_chat_metadata(
             label="Auto" if model is LLMModel.Auto else model.model_name.upper(),
         )
         for model in LLMModel
+        if not model.hide
     ]
 
     return ChatMetadataResponse(
         brokers=[
-            UserBrokerItem(broker_id=b["broker_id"], broker_name=b["broker_name"]) for b in brokers
+            UserBrokerItem(broker_id=b["broker_id"], broker_name=b["broker_name"])
+            for b in brokers
         ],
         chat_modes=chat_modes,
         llm_models=llm_models,

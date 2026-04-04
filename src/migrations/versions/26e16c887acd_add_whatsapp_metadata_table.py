@@ -38,7 +38,9 @@ def upgrade() -> None:
 
     # Create indexes
     op.create_index("ix_whatsapp_metadata_user_id", "whatsapp_metadata", ["user_id"])
-    op.create_index("ix_whatsapp_metadata_user_e164", "whatsapp_metadata", ["user_e164"])
+    op.create_index(
+        "ix_whatsapp_metadata_user_e164", "whatsapp_metadata", ["user_e164"]
+    )
 
 
 def downgrade() -> None:

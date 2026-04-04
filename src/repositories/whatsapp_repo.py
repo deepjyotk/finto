@@ -56,7 +56,9 @@ class WhatsAppRepository:
         Args:
             cache_id: UUID of the cache entry to delete
         """
-        await self.session.execute(delete(WhatsAppCache).where(WhatsAppCache.id == cache_id))
+        await self.session.execute(
+            delete(WhatsAppCache).where(WhatsAppCache.id == cache_id)
+        )
 
     # WhatsAppMetadata methods
     async def get_metadata_by_e164(self, user_e164: str) -> Optional[WhatsAppMetadata]:
@@ -74,7 +76,9 @@ class WhatsAppRepository:
         )
         return result.scalar_one_or_none()
 
-    async def get_metadata_by_user_id(self, user_id: UUID) -> Optional[WhatsAppMetadata]:
+    async def get_metadata_by_user_id(
+        self, user_id: UUID
+    ) -> Optional[WhatsAppMetadata]:
         """
         Find WhatsApp metadata by user ID.
 
@@ -132,7 +136,9 @@ class WhatsAppRepository:
         )
 
     # WhatsappChatSession methods
-    async def get_active_session_by_user_id(self, user_id: UUID) -> Optional[WhatsappChatSession]:
+    async def get_active_session_by_user_id(
+        self, user_id: UUID
+    ) -> Optional[WhatsappChatSession]:
         """
         Get the active WhatsApp chat session for a user.
 

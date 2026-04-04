@@ -33,12 +33,17 @@ def upgrade() -> None:
         sa.Column("synced_count", sa.Integer(), nullable=False, server_default="0"),
         sa.Column("updated_count", sa.Integer(), nullable=False, server_default="0"),
         sa.Column(
-            "synced_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False
+            "synced_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
         sa.ForeignKeyConstraint(["user_id"], ["f_users.user_id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_holding_syncs_user_id"), "holding_syncs", ["user_id"], unique=False)
+    op.create_index(
+        op.f("ix_holding_syncs_user_id"), "holding_syncs", ["user_id"], unique=False
+    )
     op.create_index(
         op.f("ix_holding_syncs_synced_at"), "holding_syncs", ["synced_at"], unique=False
     )

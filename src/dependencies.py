@@ -12,11 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.db import SessionLocal, get_session
 from src.core.enums import LLMModel, ThesysModel
 from src.core.llm import LLMFactory
-from src.core.settings import sendgrid_settings, settings
+from src.core.settings import llm_settings, sendgrid_settings, settings
 from src.graph import Graph
 from src.nodes.final_response_generation import FinalResponseGenerationNode
 from src.nodes.orchestrator import OrchestratorNode
-from src.nodes.portfolio_worker_tool_node import PortfolioNode
+from src.nodes.financial_analysis_tool_node import PortfolioNode
 from src.nodes.web_search import WebSearchNode
 from src.repositories.broker_repo import BrokerRepository
 from src.repositories.chat_repo import ChatRepository
@@ -24,6 +24,7 @@ from src.repositories.holdings_repo import HoldingsRepository
 from src.repositories.pending_registration_repo import PendingRegistrationRepository
 from src.repositories.user_repo import UserRepository
 from src.repositories.whatsapp_repo import WhatsAppRepository
+from src.services.a2ui_chat_service import A2UIChatService
 from src.services.auth import AuthService
 from src.services.broker import BrokerService
 from src.services.chat import ChatService
@@ -42,9 +43,15 @@ def get_llm_factory() -> LLMFactory:
             if resolved.provider == "anthropic":
                 return ChatAnthropic(model=resolved.model_name, **resolved.llm_kwargs)
             if resolved.provider == "google":
-                return ChatGoogleGenerativeAI(model=resolved.model_name, **resolved.llm_kwargs)
-            return ChatOpenAI(model=resolved.model_name, **resolved.llm_kwargs)
-        return ChatOpenAI(model=model.value)
+                return ChatGoogleGenerativeAI(
+                    model=resolved.model_name, **resolved.llm_kwargs
+                )
+            return ChatOpenAI(
+                model=resolved.model_name,
+                api_key=llm_settings.openai_api_key,
+                **resolved.llm_kwargs,
+            )
+        return ChatOpenAI(model=model.value, api_key=llm_settings.openai_api_key)
 
     return factory
 
@@ -123,7 +130,9 @@ def build_agent_graph(session: AsyncSession | None = None) -> Graph:
     session_to_use = session or SessionLocal()
     holdings_repo = HoldingsRepository(session_to_use)
     holdings_service = HoldingsService(repo=holdings_repo)
-    portfolio_node = PortfolioNode(llm_factory=llm_factory, holding_service=holdings_service)
+    portfolio_node = PortfolioNode(
+        llm_factory=llm_factory, holding_service=holdings_service
+    )
 
     orchestrator_node = OrchestratorNode(
         llm_factory=llm_factory,
@@ -138,7 +147,9 @@ def build_agent_graph(session: AsyncSession | None = None) -> Graph:
 
 
 def get_graph(
-    final_response_node: Annotated[FinalResponseGenerationNode, Depends(_get_final_response_node)],
+    final_response_node: Annotated[
+        FinalResponseGenerationNode, Depends(_get_final_response_node)
+    ],
     orchestrator_node: Annotated[OrchestratorNode, Depends(_get_orchestrator_node)],
 ) -> Graph:
     """Provide Graph instance with all node dependencies injected."""
@@ -148,7 +159,9 @@ def get_graph(
     )
 
 
-def _get_auth_repository(session: Annotated[AsyncSession, Depends(get_session)]) -> UserRepository:
+def _get_auth_repository(
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> UserRepository:
     """
     Provide UserRepository instance.
 
@@ -275,6 +288,18 @@ def get_thesys_chat_service(
         Configured ThesysChatService instance
     """
     return ThesysChatService(graph=graph, chat_repo=chat_repo)
+
+
+def get_a2ui_chat_service(
+    graph: Annotated[Graph, Depends(get_graph)],
+    chat_repo: Annotated[ChatRepository, Depends(_get_chat_repository)],
+) -> A2UIChatService:
+    """
+    Provide A2UIChatService instance.
+    Returns:
+        Configured A2UIChatService instance
+    """
+    return A2UIChatService(graph=graph, chat_repo=chat_repo)
 
 
 def _get_broker_repository(

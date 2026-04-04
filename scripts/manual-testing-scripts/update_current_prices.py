@@ -20,9 +20,7 @@ from google.oauth2.service_account import Credentials
 from gspread.utils import rowcol_to_a1
 from src.tools.yfinance_wrappers import get_last_close_price
 
-DEFAULT_SHEET_URL = (
-    "https://docs.google.com/spreadsheets/d/1c6CS1Qp9hswt0MsHSyq7mny17eVXfsi2gvphgrDGPlg/edit"
-)
+DEFAULT_SHEET_URL = "https://docs.google.com/spreadsheets/d/1c6CS1Qp9hswt0MsHSyq7mny17eVXfsi2gvphgrDGPlg/edit"
 DEFAULT_WORKSHEET = "Sheet1"
 DEFAULT_SYMBOL_COLUMN = "Symbol"
 DEFAULT_PRICE_COLUMN = "Current Price"
@@ -39,10 +37,14 @@ def extract_sheet_id(sheet_url: str) -> str:
     return match.group(1)
 
 
-def build_client(credentials_file: str | None, credentials_json: str | None) -> gspread.Client:
+def build_client(
+    credentials_file: str | None, credentials_json: str | None
+) -> gspread.Client:
     if credentials_json:
         credentials_info: dict[str, Any] = json.loads(credentials_json)
-        credentials = Credentials.from_service_account_info(credentials_info, scopes=SHEETS_SCOPE)
+        credentials = Credentials.from_service_account_info(
+            credentials_info, scopes=SHEETS_SCOPE
+        )
         return gspread.authorize(credentials)
     if credentials_file:
         if not Path(credentials_file).expanduser().exists():
@@ -51,7 +53,9 @@ def build_client(credentials_file: str | None, credentials_json: str | None) -> 
                 "Provide a valid path via --credentials-file or GOOGLE_APPLICATION_CREDENTIALS."
             )
             raise FileNotFoundError(msg)
-        credentials = Credentials.from_service_account_file(credentials_file, scopes=SHEETS_SCOPE)
+        credentials = Credentials.from_service_account_file(
+            credentials_file, scopes=SHEETS_SCOPE
+        )
         return gspread.authorize(credentials)
     if DEFAULT_CREDENTIALS_PATH.exists():
         return gspread.service_account()
@@ -110,7 +114,9 @@ def update_price_column(
     worksheet.update(f"{start}:{end}", [[value] for value in prices])
 
 
-def build_price_column(df: pd.DataFrame, symbol_column: str, prices: dict[str, float]) -> list[Any]:
+def build_price_column(
+    df: pd.DataFrame, symbol_column: str, prices: dict[str, float]
+) -> list[Any]:
     symbols = df[symbol_column].fillna("").astype(str).str.strip()
     return [prices.get(symbol.upper(), "") for symbol in symbols]
 
@@ -160,10 +166,18 @@ def main() -> None:
     if df.empty:
         raise SystemExit("Worksheet is empty; nothing to update.")
     if args.symbol_column not in df.columns:
-        raise SystemExit(f"Symbol column '{args.symbol_column}' not found in the sheet.")
+        raise SystemExit(
+            f"Symbol column '{args.symbol_column}' not found in the sheet."
+        )
 
     unique_symbols = (
-        df[args.symbol_column].dropna().astype(str).str.strip().str.upper().unique().tolist()
+        df[args.symbol_column]
+        .dropna()
+        .astype(str)
+        .str.strip()
+        .str.upper()
+        .unique()
+        .tolist()
     )
     prices_map = fetch_prices(unique_symbols)
     price_values = build_price_column(df, args.symbol_column, prices_map)

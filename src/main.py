@@ -1,17 +1,36 @@
-import uvicorn
+from pathlib import Path
+
 from dotenv import load_dotenv
+
+# Load `finto/.env` before any `src.*` imports. `override=True` so values here win over a stray
+# `OPENAI_API_KEY` exported in ~/.zprofile, Cursor's inherited env, etc.
+_env_file = Path(__file__).resolve().parent.parent / ".env"
+load_dotenv(_env_file, override=True)
+
+import uvicorn
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+import os
+
 from src.api.routes import api_router
 from src.core.json_logging import logger_for, setup_json_logging
-
-load_dotenv()
+from src.core.settings import llm_settings
 
 setup_json_logging()
 logger = logger_for(__name__)
+
+if os.getenv("FINTO_LOG_OPENAI_KEY_FINGERPRINT", "").lower() in ("1", "true", "yes"):
+    k = llm_settings.openai_api_key
+    logger.warning(
+        "OPENAI_API_KEY fingerprint (prefix + suffix only; revoke key if this log is leaked): "
+        "prefix=%s ...%s len=%s",
+        k[:14],
+        k[-4:] if len(k) > 4 else "****",
+        len(k),
+    )
 
 app = FastAPI(
     title="Arthik API",
@@ -67,7 +86,11 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     sanitized_errors = _sanitize_errors(errors)
     logger.error(
         "validation_error",
-        extra={"path": request.url.path, "method": request.method, "errors": sanitized_errors},
+        extra={
+            "path": request.url.path,
+            "method": request.method,
+            "errors": sanitized_errors,
+        },
     )
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

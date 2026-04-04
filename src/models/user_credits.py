@@ -20,7 +20,9 @@ class UserCredits(Base):
         ForeignKey("f_users.user_id", ondelete="CASCADE"),
         primary_key=True,
     )
-    credits_left: Mapped[int] = mapped_column(Integer, nullable=False, server_default="5000")
+    credits_left: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="5000"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -35,4 +37,6 @@ class UserCredits(Base):
     user: Mapped["User"] = relationship("User", back_populates="credits")
 
     def __repr__(self) -> str:
-        return f"<UserCredits(user_id={self.user_id}, credits_left={self.credits_left})>"
+        return (
+            f"<UserCredits(user_id={self.user_id}, credits_left={self.credits_left})>"
+        )

@@ -52,10 +52,16 @@ def downgrade() -> None:
     op.create_index(op.f("idx_f_users_username"), "f_users", ["username"], unique=False)
     op.create_index(op.f("idx_f_users_email"), "f_users", ["email"], unique=False)
     op.create_unique_constraint(
-        op.f("f_users_username_key"), "f_users", ["username"], postgresql_nulls_not_distinct=False
+        op.f("f_users_username_key"),
+        "f_users",
+        ["username"],
+        postgresql_nulls_not_distinct=False,
     )
     op.create_unique_constraint(
-        op.f("f_users_email_key"), "f_users", ["email"], postgresql_nulls_not_distinct=False
+        op.f("f_users_email_key"),
+        "f_users",
+        ["email"],
+        postgresql_nulls_not_distinct=False,
     )
     op.alter_column(
         "f_users",

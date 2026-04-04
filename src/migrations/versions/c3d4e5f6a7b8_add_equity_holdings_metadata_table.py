@@ -54,9 +54,13 @@ def upgrade() -> None:
             uploaded_via_enum,
             nullable=False,
         ),
-        sa.Column("extra_metadata", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column(
+            "extra_metadata", postgresql.JSONB(astext_type=sa.Text()), nullable=True
+        ),
         sa.ForeignKeyConstraint(["user_id"], ["f_users.user_id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["broker_id"], ["brokers.broker_id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(
+            ["broker_id"], ["brokers.broker_id"], ondelete="CASCADE"
+        ),
         sa.PrimaryKeyConstraint("user_broker_id"),
     )
 
@@ -101,7 +105,9 @@ def upgrade() -> None:
     )
 
     # 8. Drop the old foreign key constraints on user_id and broker_id
-    op.drop_constraint("equity_holdings_in_user_id_fkey", "equity_holdings_in", type_="foreignkey")
+    op.drop_constraint(
+        "equity_holdings_in_user_id_fkey", "equity_holdings_in", type_="foreignkey"
+    )
     op.drop_constraint(
         "equity_holdings_in_broker_id_fkey", "equity_holdings_in", type_="foreignkey"
     )
@@ -155,7 +161,9 @@ def downgrade() -> None:
     )
 
     # 5. Drop the new foreign key constraint
-    op.drop_constraint("fk_equity_holdings_in_metadata", "equity_holdings_in", type_="foreignkey")
+    op.drop_constraint(
+        "fk_equity_holdings_in_metadata", "equity_holdings_in", type_="foreignkey"
+    )
 
     # 6. Drop user_broker_id column
     op.drop_column("equity_holdings_in", "user_broker_id")

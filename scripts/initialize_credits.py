@@ -37,7 +37,9 @@ async def initialize_user_credits(user_id: str, amount_usd: float = 5.0):
 
             new_balance = await manager.add_credits(credits)
             print(f"✅ Added {credits} credits (${amount_usd:.2f}) to user {user_id}")
-            print(f"   New balance: {new_balance} credits (${new_balance/CREDITS_PER_DOLLAR:.2f})")
+            print(
+                f"   New balance: {new_balance} credits (${new_balance/CREDITS_PER_DOLLAR:.2f})"
+            )
         except ValueError as e:
             print(f"❌ Error: {e}")
             sys.exit(1)
@@ -50,7 +52,9 @@ async def initialize_user_credits(user_id: str, amount_usd: float = 5.0):
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python initialize_credits.py <user_id> [amount_usd]")
-        print("Example: python initialize_credits.py 123e4567-e89b-12d3-a456-426614174000 5.0")
+        print(
+            "Example: python initialize_credits.py 123e4567-e89b-12d3-a456-426614174000 5.0"
+        )
         sys.exit(1)
 
     user_id = sys.argv[1]

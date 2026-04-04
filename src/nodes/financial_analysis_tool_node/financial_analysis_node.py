@@ -11,12 +11,12 @@ from src.core.enums import LLMModel, Nodes
 from src.core.json_logging import logger_for
 from src.core.llm import LLMFactory
 from src.nodes.code_execution_tool import build_execute_code_tool
-from src.nodes.portfolio_worker_tool_node.portfolio_node_prompt import (
+from src.nodes.financial_analysis_tool_node.financial_analysis_prompt import (
     CODE_GENERATION_PROMPT,
     SYMBOL_CLASSIFIER_PROMPT_GRAPH,
     SYMBOL_EXTRACTION_PROMPT,
 )
-from src.nodes.portfolio_worker_tool_node.portfolio_node_utils import (
+from src.nodes.financial_analysis_tool_node.financial_analysis_utils import (
     QueryTypeResult,
     SymbolExtractionResult,
     build_code_gen_invoke_args,
@@ -53,7 +53,7 @@ class PortfolioNode:
         self,
         llm_factory: LLMFactory,
         holding_service: HoldingsService,
-        max_attempts: int = 2,
+        max_attempts: int = 4,
     ):
         """Initialize PortfolioNode with LLM factory, holdings service, and retry config."""
         self._llm_factory = llm_factory
@@ -99,7 +99,7 @@ class PortfolioNode:
         node = self
 
         @tool
-        async def portfolio_worker_tool(task: str) -> str:
+        async def financial_analysis_tool(task: str) -> str:
             """Analyse the user's portfolio: holdings, P&L, returns, allocation, risk,
             or any stock/fund query.  Use for personal portfolio questions and stock
             analysis.
@@ -126,7 +126,10 @@ class PortfolioNode:
             messages_ctx: List[BaseMessage] = [scope_msg, ai_response]
             attempts = 0
 
-            while getattr(ai_response, "tool_calls", None) and attempts < node.max_attempts:
+            while (
+                getattr(ai_response, "tool_calls", None)
+                and attempts < node.max_attempts
+            ):
                 tool_call = ai_response.tool_calls[0]
                 code = tool_call["args"].get("code", "")
                 tool_call_id = tool_call.get("id", f"call_{attempts}")
@@ -139,7 +142,8 @@ class PortfolioNode:
                     return tool_result
 
                 logger.info(
-                    "portfolio_worker_tool retrying code generation (attempt %d)", attempts + 1
+                    "financial_analysis_tool retrying code generation (attempt %d)",
+                    attempts + 1,
                 )
                 tool_msg = ToolMessage(content=tool_result, tool_call_id=tool_call_id)
                 messages_ctx = messages_ctx + [tool_msg]
@@ -153,7 +157,7 @@ class PortfolioNode:
 
             return "Portfolio analysis completed with no output."
 
-        return portfolio_worker_tool
+        return financial_analysis_tool
 
     def get_runnable_sequence(self) -> RunnableLambda:
         """Return the combined runnable for symbol extraction and code generation/execution."""
@@ -163,7 +167,9 @@ class PortfolioNode:
                 return state
 
             messages = state.get("messages", [])
-            user_request = state.get("user_request") or self._latest_user_message_content(messages)
+            user_request = state.get(
+                "user_request"
+            ) or self._latest_user_message_content(messages)
             user_request = (user_request or "").strip()
 
             runtime = get_runtime(AgentContext)
@@ -182,7 +188,9 @@ class PortfolioNode:
 
                 if is_success or attempts >= self.max_attempts:
                     status_note = (
-                        "successfully" if is_success else f"after {attempts} attempt(s) with errors"
+                        "successfully"
+                        if is_success
+                        else f"after {attempts} attempt(s) with errors"
                     )
                     done_msg = AIMessage(
                         content=f"Code execution complete ({status_note}).",
@@ -224,8 +232,9 @@ class PortfolioNode:
                 }
 
             extracted_symbols: List[str] = []
-            classifier_chain = SYMBOL_CLASSIFIER_PROMPT_GRAPH | llm.with_structured_output(
-                QueryTypeResult
+            classifier_chain = (
+                SYMBOL_CLASSIFIER_PROMPT_GRAPH
+                | llm.with_structured_output(QueryTypeResult)
             )
             try:
                 query_type = classifier_chain.invoke({"user_query": user_request})
@@ -248,7 +257,9 @@ class PortfolioNode:
             else:
                 summary = "User is asking about the entire portfolio"
 
-            symbol_message = AIMessage(content=summary, name="portfolio_symbol_extractor")
+            symbol_message = AIMessage(
+                content=summary, name="portfolio_symbol_extractor"
+            )
 
             invoke_args = build_code_gen_invoke_args(
                 messages=messages + [symbol_message],

@@ -52,7 +52,9 @@ class WhatsappChatSession(Base):
         PG_UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
     )
     user_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("f_users.user_id", ondelete="CASCADE"), nullable=False
+        PG_UUID(as_uuid=True),
+        ForeignKey("f_users.user_id", ondelete="CASCADE"),
+        nullable=False,
     )
     whatsapp_started_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -69,9 +71,14 @@ class WhatsappChatSession(Base):
     whatsapp_closed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    whatsapp_closed_reason: Mapped[WhatsappChatSessionClosedReason | None] = mapped_column(
-        SQLEnum(WhatsappChatSessionClosedReason, name="whatsapp_chat_session_closed_reason"),
-        nullable=True,
+    whatsapp_closed_reason: Mapped[WhatsappChatSessionClosedReason | None] = (
+        mapped_column(
+            SQLEnum(
+                WhatsappChatSessionClosedReason,
+                name="whatsapp_chat_session_closed_reason",
+            ),
+            nullable=True,
+        )
     )
     whatsapp_metadata: Mapped[dict[str, Any]] = mapped_column(
         "whatsapp_metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")
@@ -93,7 +100,9 @@ class ChatSession(Base):
         PG_UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
     )
     user_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("f_users.user_id", ondelete="CASCADE"), nullable=False
+        PG_UUID(as_uuid=True),
+        ForeignKey("f_users.user_id", ondelete="CASCADE"),
+        nullable=False,
     )
     started_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

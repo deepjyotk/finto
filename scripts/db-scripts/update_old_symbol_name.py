@@ -46,7 +46,9 @@ async def update_symbols():
             rows_affected = int(result.split()[-1])
 
             if rows_affected > 0:
-                print(f"✅ Updated: {old_symbol} -> {new_symbol} ({rows_affected} rows)")
+                print(
+                    f"✅ Updated: {old_symbol} -> {new_symbol} ({rows_affected} rows)"
+                )
                 updated_count += rows_affected
             else:
                 print(f"⏭️  Skipped: {old_symbol} (not found)")

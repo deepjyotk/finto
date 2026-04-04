@@ -37,7 +37,9 @@ class EquityHolding(Base):
     qty_pledged_margin: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     # Prices (decimal with precision)
-    avg_price: Mapped[Decimal] = mapped_column(Numeric(precision=20, scale=4), nullable=False)
+    avg_price: Mapped[Decimal] = mapped_column(
+        Numeric(precision=20, scale=4), nullable=False
+    )
     prev_close_price: Mapped[Decimal] = mapped_column(
         Numeric(precision=20, scale=4), nullable=False
     )

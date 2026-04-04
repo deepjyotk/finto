@@ -101,7 +101,7 @@ class Graph:
     Architecture (hub-and-spoke with sequential tool collection):
 
         orchestrator_node
-            ├─► portfolio_worker_tool_node ──┐
+            ├─► financial_analysis_tool_node ──┐
             ├─► web_search_tool_node ────────┤
             │   (both loop back to ──────────┘
             │    orchestrator_node)
@@ -117,7 +117,9 @@ class Graph:
         self,
         orchestrator_node: OrchestratorNode,
         final_response_node: FinalResponseGenerationNode,
-        checkpointer_factory: Callable[[], Awaitable[AsyncPostgresSaver]] = _create_checkpointer,
+        checkpointer_factory: Callable[
+            [], Awaitable[AsyncPostgresSaver]
+        ] = _create_checkpointer,
     ):
         self.orchestrator_node = orchestrator_node
         self.final_response_node = final_response_node
@@ -148,9 +150,9 @@ class Graph:
         # Worker ToolNodes — each wraps a self-contained tool created by the
         # respective node class.  The orchestrator owns (and binds to) these tools;
         # we reuse the same tool objects for the ToolNodes so names/schemas match.
-        portfolio_worker_tool_node = ToolNode(
-            [self.orchestrator_node._portfolio_worker_tool],
-            name=Nodes.portfolio_worker_tools.get("name"),
+        financial_analysis_tool_node = ToolNode(
+            [self.orchestrator_node._financial_analysis_tool],
+            name=Nodes.financial_analysis_worker_tools.get("name"),
         )
         web_search_tool_node = ToolNode(
             [self.orchestrator_node._web_search_tool],
@@ -161,14 +163,24 @@ class Graph:
         orchestrator_node = self.orchestrator_node.get_runnable_sequence()
 
         builder.add_node(Nodes.orchestrator.get("name"), orchestrator_node)
-        builder.add_node(Nodes.portfolio_worker_tools.get("name"), portfolio_worker_tool_node)
-        builder.add_node(Nodes.web_search_worker_tools.get("name"), web_search_tool_node)
+        builder.add_node(
+            Nodes.financial_analysis_worker_tools.get("name"),
+            financial_analysis_tool_node,
+        )
+        builder.add_node(
+            Nodes.web_search_worker_tools.get("name"), web_search_tool_node
+        )
         builder.add_node(Nodes.final_response.get("name"), final_response_node)
         builder.add_node(Nodes.unknown.get("name"), Graph._handle_unknown_node)
 
         # Worker tool nodes always return to the orchestrator for the next decision
-        builder.add_edge(Nodes.portfolio_worker_tools.get("name"), Nodes.orchestrator.get("name"))
-        builder.add_edge(Nodes.web_search_worker_tools.get("name"), Nodes.orchestrator.get("name"))
+        builder.add_edge(
+            Nodes.financial_analysis_worker_tools.get("name"),
+            Nodes.orchestrator.get("name"),
+        )
+        builder.add_edge(
+            Nodes.web_search_worker_tools.get("name"), Nodes.orchestrator.get("name")
+        )
 
         # Orchestrator routes to workers (if it still has tool calls to make) or
         # to final_response when context collection is complete
@@ -176,10 +188,12 @@ class Graph:
             Nodes.orchestrator.get("name"),
             self.orchestrator_node.orchestrator_decision,
             {
-                Nodes.portfolio_worker_tools.get("name"): Nodes.portfolio_worker_tools.get("name"),
-                Nodes.web_search_worker_tools.get("name"): Nodes.web_search_worker_tools.get(
+                Nodes.financial_analysis_worker_tools.get(
                     "name"
-                ),
+                ): Nodes.financial_analysis_worker_tools.get("name"),
+                Nodes.web_search_worker_tools.get(
+                    "name"
+                ): Nodes.web_search_worker_tools.get("name"),
                 Nodes.final_response.get("name"): Nodes.final_response.get("name"),
                 Nodes.unknown.get("name"): Nodes.unknown.get("name"),
             },

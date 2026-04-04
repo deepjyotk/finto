@@ -46,17 +46,27 @@ def upgrade() -> None:
     )
 
     # Create indexes for better query performance
-    op.create_index("ix_credit_transactions_user_id", "credit_transactions", ["user_id"])
-    op.create_index("ix_credit_transactions_request_id", "credit_transactions", ["request_id"])
-    op.create_index("ix_credit_transactions_created_at", "credit_transactions", ["created_at"])
     op.create_index(
-        "ix_credit_transactions_user_created", "credit_transactions", ["user_id", "created_at"]
+        "ix_credit_transactions_user_id", "credit_transactions", ["user_id"]
+    )
+    op.create_index(
+        "ix_credit_transactions_request_id", "credit_transactions", ["request_id"]
+    )
+    op.create_index(
+        "ix_credit_transactions_created_at", "credit_transactions", ["created_at"]
+    )
+    op.create_index(
+        "ix_credit_transactions_user_created",
+        "credit_transactions",
+        ["user_id", "created_at"],
     )
 
 
 def downgrade() -> None:
     """Drop credit_transactions table and its indexes."""
-    op.drop_index("ix_credit_transactions_user_created", table_name="credit_transactions")
+    op.drop_index(
+        "ix_credit_transactions_user_created", table_name="credit_transactions"
+    )
     op.drop_index("ix_credit_transactions_created_at", table_name="credit_transactions")
     op.drop_index("ix_credit_transactions_request_id", table_name="credit_transactions")
     op.drop_index("ix_credit_transactions_user_id", table_name="credit_transactions")

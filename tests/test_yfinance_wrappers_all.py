@@ -235,8 +235,13 @@ if __name__ == "__main__":
     for symbol in symbols:
         try:
             income_data = get_income_statement(symbol, freq="yearly")
-            if "income_statement" not in income_data or not income_data["income_statement"]:
-                print(f"Warning: No income statement data found for {symbol}. Skipping.")
+            if (
+                "income_statement" not in income_data
+                or not income_data["income_statement"]
+            ):
+                print(
+                    f"Warning: No income statement data found for {symbol}. Skipping."
+                )
                 continue
             print(f"Income DataFrame for {symbol}:\n{income_data}")
             income_df = pd.DataFrame(income_data["income_statement"]).T

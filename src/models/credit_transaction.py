@@ -21,7 +21,9 @@ class CreditTransaction(Base):
     __tablename__ = "credit_transactions"
 
     # Primary key
-    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), primary_key=True, default=uuid4
+    )
 
     # Foreign key to user
     user_id: Mapped[UUID] = mapped_column(
@@ -32,7 +34,9 @@ class CreditTransaction(Base):
     )
 
     # Transaction details
-    amount: Mapped[int] = mapped_column(nullable=False)  # Positive for add, negative for deduct
+    amount: Mapped[int] = mapped_column(
+        nullable=False
+    )  # Positive for add, negative for deduct
     transaction_type: Mapped[str] = mapped_column(
         String(50), nullable=False
     )  # 'addition', 'deduction', 'initial', 'refund'

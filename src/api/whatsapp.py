@@ -79,7 +79,9 @@ def _check_signature(raw_body: bytes, signature_header: str | None) -> None:
         return
     expected = (
         "sha256="
-        + hmac.new(whatsapp_settings.wa_app_secret.encode(), raw_body, hashlib.sha256).hexdigest()
+        + hmac.new(
+            whatsapp_settings.wa_app_secret.encode(), raw_body, hashlib.sha256
+        ).hexdigest()
     )
     if not hmac.compare_digest(expected, signature_header):
         raise HTTPException(status_code=401, detail="Bad signature")
@@ -205,8 +207,12 @@ async def create_connect_intent(
             user_id=user_id, ttl_minutes=body.ttl_minutes or 10
         )
 
-        logger.info(f"Connect intent created successfully: {code}, {deeplink}, {expires_at}")
-        return ConnectIntentResponse(code=code, deeplink=deeplink, expires_at=expires_at)
+        logger.info(
+            f"Connect intent created successfully: {code}, {deeplink}, {expires_at}"
+        )
+        return ConnectIntentResponse(
+            code=code, deeplink=deeplink, expires_at=expires_at
+        )
     except Exception as e:
         logger.error(f"Error creating connect intent: {e}")
         raise HTTPException(status_code=e.status_code, detail=str(e))

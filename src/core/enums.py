@@ -30,15 +30,18 @@ class LLMModel(Enum):
     Each enum member stores both the model name and its configuration kwargs.
     Access the model name with `.value['model']` or `.model_name`
     Access the kwargs with `.value['kwargs']` or `.llm_kwargs`
-    Access the provider with `.value['provider']` or `.provider` (defaults to ``"openai"``)
+    Access the provider with `.value['provider']` or `.provider` (defaults to ``"openai"``).
+    Access UI visibility with `.hide` (defaults to ``False``); members with ``hide: True`` are
+    omitted from model pickers sent to the client.
 
     Auto — API / UI id ``"auto"``; use :meth:`resolve_to_openai_member` before
     calling OpenAI (maps to GPT-4o-mini). Graph context uses server defaults when Auto.
 
     **Switching models:** Pick a member and pass its ``model_name`` from the UI/API.
-    GPT-5 / GPT-5.1 often restrict ``temperature`` (many only allow ``1``). For a fast
+    GPT-5 / GPT-5.1 / GPT-5.4 often restrict ``temperature`` (many only allow ``1``). For a fast
     conversational GPT-5.1, use :attr:`GPT5p1ChatLatest` (``gpt-5.1-chat-latest``); for a
-    pinned snapshot, use :attr:`GPT5p1Snapshot`.
+    pinned snapshot, use :attr:`GPT5p1Snapshot`. Frontier GPT-5.4 models are :attr:`GPT5p4`,
+    :attr:`GPT5p4Pro`, :attr:`GPT5p4Mini`, and :attr:`GPT5p4Nano``.
 
     **Claude models** require ``ANTHROPIC_API_KEY`` in the environment.
     **Gemini models** require ``GOOGLE_API_KEY`` in the environment.
@@ -48,44 +51,94 @@ class LLMModel(Enum):
     Auto = {"model": "auto", "kwargs": {}}
 
     # GPT-3.5 Series
-    GPT35Turbo = {"model": "gpt-3.5-turbo", "kwargs": {"temperature": 0}}
-    GPT35Turbo16K = {"model": "gpt-3.5-turbo-16k", "kwargs": {"temperature": 0}}
+    GPT35Turbo = {"model": "gpt-3.5-turbo", "kwargs": {"temperature": 0}, "hide": True}
+    GPT35Turbo16K = {
+        "model": "gpt-3.5-turbo-16k",
+        "kwargs": {"temperature": 0},
+        "hide": True,
+    }
 
     # GPT-4 Series
-    GPT4 = {"model": "gpt-4", "kwargs": {"temperature": 0}}
-    GPT4Turbo = {"model": "gpt-4-turbo", "kwargs": {"temperature": 0}}
-    GPT4TurboPreview = {"model": "gpt-4-turbo-preview", "kwargs": {"temperature": 0}}
-    GPT432K = {"model": "gpt-4-32k", "kwargs": {"temperature": 0}}
+    GPT4 = {"model": "gpt-4", "kwargs": {"temperature": 0}, "hide": True}
+    GPT4Turbo = {"model": "gpt-4-turbo", "kwargs": {"temperature": 0}, "hide": True}
+    GPT4TurboPreview = {
+        "model": "gpt-4-turbo-preview",
+        "kwargs": {"temperature": 0},
+        "hide": True,
+    }
+    GPT432K = {"model": "gpt-4-32k", "kwargs": {"temperature": 0}, "hide": True}
 
     # GPT-4o Series (Omni - multimodal)
-    GPT4o = {"model": "gpt-4o", "kwargs": {"temperature": 0.5}}
-    GPT4oMini = {"model": "gpt-4o-mini", "kwargs": {"temperature": 0}}
-    GPT4o20240806 = {"model": "gpt-4o-2024-08-06", "kwargs": {"temperature": 0}}  # Dated version
+    GPT4o = {"model": "gpt-4o", "kwargs": {"temperature": 0.5}, "hide": True}
+    GPT4oMini = {"model": "gpt-4o-mini", "kwargs": {"temperature": 0}, "hide": True}
+    GPT4o20240806 = {
+        "model": "gpt-4o-2024-08-06",
+        "kwargs": {"temperature": 0},
+        "hide": True,
+    }  # Dated version
 
     # GPT-4.1 Series
     GPT4p1 = {"model": "gpt-4.1", "kwargs": {"temperature": 0.5}}
     GPT4p1Mini = {"model": "gpt-4.1-mini", "kwargs": {"temperature": 0}}
-    GPT4p1Nano = {"model": "gpt-4.1-nano", "kwargs": {"temperature": 0}}
+    GPT4p1Nano = {"model": "gpt-4.1-nano", "kwargs": {"temperature": 0}, "hide": True}
 
     # GPT-5 Series (temperature: many GPT-5 models only accept 1 — see OpenAI model docs)
-    GPT5 = {"model": "gpt-5", "kwargs": {}}
-    GPT5Mini = {"model": "gpt-5-mini", "kwargs": {}}
-    GPT5Nano = {"model": "gpt-5-nano", "kwargs": {}}
-    GPT5Chat = {"model": "gpt-5-chat", "kwargs": {}}
-    GPT5p1 = {"model": "gpt-5.1", "kwargs": {"temperature": 1}}
-    GPT5p1Snapshot = {"model": "gpt-5.1-2025-11-13", "kwargs": {"temperature": 1}}
+    GPT5 = {"model": "gpt-5", "kwargs": {}, "hide": True}
+    GPT5Mini = {"model": "gpt-5-mini", "kwargs": {}, "hide": True}
+    GPT5Nano = {"model": "gpt-5-nano", "kwargs": {}, "hide": True}
+    GPT5Chat = {"model": "gpt-5-chat", "kwargs": {}, "hide": True}
+    GPT5p1 = {"model": "gpt-5.1", "kwargs": {"temperature": 1}, "hide": True}
+    GPT5p1Snapshot = {
+        "model": "gpt-5.1-2025-11-13",
+        "kwargs": {"temperature": 1},
+        "hide": True,
+    }
     # Conversational / "instant" style (documented alias for ChatGPT-style GPT-5.1)
-    GPT5p1ChatLatest = {"model": "gpt-5.1-chat-latest", "kwargs": {"temperature": 1}}
+    GPT5p1ChatLatest = {
+        "model": "gpt-5.1-chat-latest",
+        "kwargs": {"temperature": 1},
+        "hide": True,
+    }
     GPT5p1Instant = GPT5p1ChatLatest
 
+    # GPT-5.4 Series (frontier — agentic, coding, professional workflows)
+    GPT5p4 = {"model": "gpt-5.4", "kwargs": {"temperature": 1}}
+    GPT5p4Pro = {"model": "gpt-5.4-pro", "kwargs": {"temperature": 1}, "hide": True}
+    GPT5p4Mini = {"model": "gpt-5.4-mini", "kwargs": {"temperature": 1}}
+    GPT5p4Nano = {"model": "gpt-5.4-nano", "kwargs": {"temperature": 1}}
+
+    # GPT-5.2 Series (previous frontier; configurable reasoning effort on some endpoints)
+    GPT5p2 = {"model": "gpt-5.2", "kwargs": {"temperature": 1}}
+    GPT5p2Pro = {"model": "gpt-5.2-pro", "kwargs": {"temperature": 1}, "hide": True}
+
+    # GPT-5 pro — higher-quality variant of GPT-5
+    GPT5Pro = {"model": "gpt-5-pro", "kwargs": {"temperature": 1}, "hide": True}
+
+    # ChatGPT "instant" style aliases (gpt-5.*-chat-latest on the models list)
+    GPT5p3ChatLatest = {
+        "model": "gpt-5.3-chat-latest",
+        "kwargs": {"temperature": 1},
+        "hide": True,
+    }
+    GPT5p2ChatLatest = {
+        "model": "gpt-5.2-chat-latest",
+        "kwargs": {"temperature": 1},
+        "hide": True,
+    }
+    GPT5ChatLatest = {
+        "model": "gpt-5-chat-latest",
+        "kwargs": {"temperature": 1},
+        "hide": True,
+    }
+
     # O-Series (Reasoning Models - don't support temperature parameter)
-    O1 = {"model": "o1", "kwargs": {}}
-    O1Preview = {"model": "o1-preview", "kwargs": {}}
-    O1Mini = {"model": "o1-mini", "kwargs": {}}
+    O1 = {"model": "o1", "kwargs": {}, "hide": True}
+    O1Preview = {"model": "o1-preview", "kwargs": {}, "hide": True}
+    O1Mini = {"model": "o1-mini", "kwargs": {}, "hide": True}
     O3 = {"model": "o3", "kwargs": {}}
-    O3Pro = {"model": "o3-pro", "kwargs": {}}
-    O4Mini = {"model": "o4-mini", "kwargs": {}}
-    O4MiniHigh = {"model": "o4-mini-high", "kwargs": {}}
+    O3Pro = {"model": "o3-pro", "kwargs": {}, "hide": True}
+    O4Mini = {"model": "o4-mini", "kwargs": {}, "hide": True}
+    O4MiniHigh = {"model": "o4-mini-high", "kwargs": {}, "hide": True}
 
     # ── Claude (Anthropic) ─────────────────────────────────────────────────────
     # Latest generation (recommended for new projects)
@@ -94,16 +147,19 @@ class LLMModel(Enum):
         "model": "claude-opus-4-6",
         "kwargs": {"temperature": 0.5},
         "provider": "anthropic",
+        "hide": True,
     }
     ClaudeSonnet46 = {
         "model": "claude-sonnet-4-6",
         "kwargs": {"temperature": 0.5},
         "provider": "anthropic",
+        "hide": True,
     }
     ClaudeHaiku45 = {
         "model": "claude-haiku-4-5-20251001",
         "kwargs": {"temperature": 0},
         "provider": "anthropic",
+        "hide": True,
     }
 
     # Previous Claude 4 generation (still available, not deprecated)
@@ -111,41 +167,53 @@ class LLMModel(Enum):
         "model": "claude-sonnet-4-5-20250929",
         "kwargs": {"temperature": 0.5},
         "provider": "anthropic",
+        "hide": True,
     }
     ClaudeOpus45 = {
         "model": "claude-opus-4-5-20251101",
         "kwargs": {"temperature": 0.5},
         "provider": "anthropic",
+        "hide": True,
     }
     ClaudeOpus41 = {
         "model": "claude-opus-4-1-20250805",
         "kwargs": {"temperature": 0.5},
         "provider": "anthropic",
+        "hide": True,
     }
     ClaudeSonnet4 = {
         "model": "claude-sonnet-4-20250514",
         "kwargs": {"temperature": 0.5},
         "provider": "anthropic",
+        "hide": True,
     }
     ClaudeOpus4 = {
         "model": "claude-opus-4-20250514",
         "kwargs": {"temperature": 0.5},
         "provider": "anthropic",
+        "hide": True,
     }
 
     # ── Gemini (Google) ────────────────────────────────────────────────────────
     # Stable models (recommended for production)
     # Requires GOOGLE_API_KEY. Docs: https://ai.google.dev/gemini-api/docs/models
-    Gemini25Pro = {"model": "gemini-2.5-pro", "kwargs": {"temperature": 0.5}, "provider": "google"}
+    Gemini25Pro = {
+        "model": "gemini-2.5-pro",
+        "kwargs": {"temperature": 0.5},
+        "provider": "google",
+        "hide": True,
+    }
     Gemini25Flash = {
         "model": "gemini-2.5-flash",
         "kwargs": {"temperature": 0.5},
         "provider": "google",
+        "hide": True,
     }
     Gemini25FlashLite = {
         "model": "gemini-2.5-flash-lite",
         "kwargs": {"temperature": 0},
         "provider": "google",
+        "hide": True,
     }
 
     # Preview models (Gemini 3 series — may have stricter rate limits)
@@ -153,11 +221,13 @@ class LLMModel(Enum):
         "model": "gemini-3.1-pro-preview",
         "kwargs": {"temperature": 0.5},
         "provider": "google",
+        "hide": True,
     }
     Gemini3FlashPreview = {
         "model": "gemini-3-flash-preview",
         "kwargs": {"temperature": 0.5},
         "provider": "google",
+        "hide": True,
     }
 
     @property
@@ -174,6 +244,11 @@ class LLMModel(Enum):
     def provider(self) -> str:
         """Get the model provider (``"openai"``, ``"anthropic"``, or ``"google"``)."""
         return self.value.get("provider", "openai")  # type: ignore[return-value]
+
+    @property
+    def hide(self) -> bool:
+        """If True, exclude from lists exposed to the frontend (still valid for API/config)."""
+        return bool(self.value.get("hide", False))
 
     def resolve_to_openai_member(self) -> "LLMModel":
         """Map :attr:`Auto` to a concrete OpenAI-backed model; identity otherwise."""
@@ -228,8 +303,8 @@ class Nodes:
         "description": "LLM node that generates and executes Python code for portfolio analysis.",
         "max_ai_messages_allowed": 60,
     }
-    portfolio_worker_tools = {
-        "name": "portfolio_worker_tool_node",
+    financial_analysis_worker_tools = {
+        "name": "financial_analysis_tool_node",
         "description": "ToolNode that executes portfolio analysis tasks dispatched by the orchestrator.",
     }
     web_search_worker_tools = {

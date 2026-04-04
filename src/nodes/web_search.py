@@ -93,7 +93,9 @@ Boundaries
                 MessagesPlaceholder(variable_name="messages"),
             ]
         )
-        complete_template = chat_template.partial(today_utc_iso=now_utc, today_ist_iso=now_ist)
+        complete_template = chat_template.partial(
+            today_utc_iso=now_utc, today_ist_iso=now_ist
+        )
         return complete_template
 
     def create_worker_tool(self):
@@ -148,7 +150,9 @@ Boundaries
                 )
             except Exception as exc:
                 logger.exception("web_search_tool: Tavily search failed")
-                return f"Web search failed: {exc!s}. Try a shorter query or retry later."
+                return (
+                    f"Web search failed: {exc!s}. Try a shorter query or retry later."
+                )
 
             # Format and return Tavily results for the orchestrator
             results_text = _format_tavily_for_llm(search_result)

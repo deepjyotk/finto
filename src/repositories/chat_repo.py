@@ -78,7 +78,9 @@ class ChatRepository:
             A tuple containing the list of ChatSession objects and the total count
         """
         total_result = await self.session.execute(
-            select(func.count()).select_from(ChatSession).where(ChatSession.user_id == user_id)
+            select(func.count())
+            .select_from(ChatSession)
+            .where(ChatSession.user_id == user_id)
         )
         total_sessions = total_result.scalar_one()
 
@@ -211,7 +213,9 @@ class ChatRepository:
             True if session was deleted, False if session not found
         """
         # First, delete all messages for this session
-        await self.session.execute(delete(ChatMessage).where(ChatMessage.session_id == session_id))
+        await self.session.execute(
+            delete(ChatMessage).where(ChatMessage.session_id == session_id)
+        )
 
         # Then delete the session itself
         result = await self.session.execute(

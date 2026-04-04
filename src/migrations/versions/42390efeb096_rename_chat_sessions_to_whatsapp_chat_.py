@@ -28,22 +28,42 @@ def upgrade() -> None:
     op.rename_table("chat_sessions", "whatsapp_chat_sessions")
 
     # Rename columns
-    op.alter_column("whatsapp_chat_sessions", "session_id", new_column_name="whatsapp_session_id")
-    op.alter_column("whatsapp_chat_sessions", "started_at", new_column_name="whatsapp_started_at")
     op.alter_column(
-        "whatsapp_chat_sessions", "last_activity_at", new_column_name="whatsapp_last_activity_at"
+        "whatsapp_chat_sessions", "session_id", new_column_name="whatsapp_session_id"
     )
-    op.alter_column("whatsapp_chat_sessions", "expires_at", new_column_name="whatsapp_expires_at")
-    op.alter_column("whatsapp_chat_sessions", "is_active", new_column_name="whatsapp_is_active")
-    op.alter_column("whatsapp_chat_sessions", "closed_at", new_column_name="whatsapp_closed_at")
     op.alter_column(
-        "whatsapp_chat_sessions", "closed_reason", new_column_name="whatsapp_closed_reason"
+        "whatsapp_chat_sessions", "started_at", new_column_name="whatsapp_started_at"
     )
-    op.alter_column("whatsapp_chat_sessions", "metadata", new_column_name="whatsapp_metadata")
+    op.alter_column(
+        "whatsapp_chat_sessions",
+        "last_activity_at",
+        new_column_name="whatsapp_last_activity_at",
+    )
+    op.alter_column(
+        "whatsapp_chat_sessions", "expires_at", new_column_name="whatsapp_expires_at"
+    )
+    op.alter_column(
+        "whatsapp_chat_sessions", "is_active", new_column_name="whatsapp_is_active"
+    )
+    op.alter_column(
+        "whatsapp_chat_sessions", "closed_at", new_column_name="whatsapp_closed_at"
+    )
+    op.alter_column(
+        "whatsapp_chat_sessions",
+        "closed_reason",
+        new_column_name="whatsapp_closed_reason",
+    )
+    op.alter_column(
+        "whatsapp_chat_sessions", "metadata", new_column_name="whatsapp_metadata"
+    )
 
     # Drop and recreate indexes with new names and column references
-    op.drop_index("idx_chat_sessions_active_expiry", table_name="whatsapp_chat_sessions")
-    op.drop_index("idx_chat_sessions_user_active_expiry", table_name="whatsapp_chat_sessions")
+    op.drop_index(
+        "idx_chat_sessions_active_expiry", table_name="whatsapp_chat_sessions"
+    )
+    op.drop_index(
+        "idx_chat_sessions_user_active_expiry", table_name="whatsapp_chat_sessions"
+    )
     op.drop_index("uq_chat_sessions_user_active", table_name="whatsapp_chat_sessions")
 
     op.create_index(
@@ -69,11 +89,16 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     # Drop new indexes
-    op.drop_index("uq_whatsapp_chat_sessions_user_active", table_name="whatsapp_chat_sessions")
     op.drop_index(
-        "idx_whatsapp_chat_sessions_user_active_expiry", table_name="whatsapp_chat_sessions"
+        "uq_whatsapp_chat_sessions_user_active", table_name="whatsapp_chat_sessions"
     )
-    op.drop_index("idx_whatsapp_chat_sessions_active_expiry", table_name="whatsapp_chat_sessions")
+    op.drop_index(
+        "idx_whatsapp_chat_sessions_user_active_expiry",
+        table_name="whatsapp_chat_sessions",
+    )
+    op.drop_index(
+        "idx_whatsapp_chat_sessions_active_expiry", table_name="whatsapp_chat_sessions"
+    )
 
     # Recreate old indexes
     op.create_index(
@@ -97,18 +122,34 @@ def downgrade() -> None:
     )
 
     # Rename columns back
-    op.alter_column("whatsapp_chat_sessions", "whatsapp_metadata", new_column_name="metadata")
     op.alter_column(
-        "whatsapp_chat_sessions", "whatsapp_closed_reason", new_column_name="closed_reason"
+        "whatsapp_chat_sessions", "whatsapp_metadata", new_column_name="metadata"
     )
-    op.alter_column("whatsapp_chat_sessions", "whatsapp_closed_at", new_column_name="closed_at")
-    op.alter_column("whatsapp_chat_sessions", "whatsapp_is_active", new_column_name="is_active")
-    op.alter_column("whatsapp_chat_sessions", "whatsapp_expires_at", new_column_name="expires_at")
     op.alter_column(
-        "whatsapp_chat_sessions", "whatsapp_last_activity_at", new_column_name="last_activity_at"
+        "whatsapp_chat_sessions",
+        "whatsapp_closed_reason",
+        new_column_name="closed_reason",
     )
-    op.alter_column("whatsapp_chat_sessions", "whatsapp_started_at", new_column_name="started_at")
-    op.alter_column("whatsapp_chat_sessions", "whatsapp_session_id", new_column_name="session_id")
+    op.alter_column(
+        "whatsapp_chat_sessions", "whatsapp_closed_at", new_column_name="closed_at"
+    )
+    op.alter_column(
+        "whatsapp_chat_sessions", "whatsapp_is_active", new_column_name="is_active"
+    )
+    op.alter_column(
+        "whatsapp_chat_sessions", "whatsapp_expires_at", new_column_name="expires_at"
+    )
+    op.alter_column(
+        "whatsapp_chat_sessions",
+        "whatsapp_last_activity_at",
+        new_column_name="last_activity_at",
+    )
+    op.alter_column(
+        "whatsapp_chat_sessions", "whatsapp_started_at", new_column_name="started_at"
+    )
+    op.alter_column(
+        "whatsapp_chat_sessions", "whatsapp_session_id", new_column_name="session_id"
+    )
 
     # Rename the table back
     op.rename_table("whatsapp_chat_sessions", "chat_sessions")

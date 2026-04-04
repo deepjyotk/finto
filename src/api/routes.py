@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter
 
+from src.api.a2ui_chat import router as a2ui_chat_router
 from src.api.auth import router as auth_router
 from src.api.billing import router as billing_router
 from src.api.chat import router as chat_router
@@ -14,6 +15,7 @@ from src.api.whatsapp import router as whatsapp_router
 api_router = APIRouter(prefix="/api/v1")
 
 # Include all routers
+api_router.include_router(a2ui_chat_router)
 api_router.include_router(auth_router)
 api_router.include_router(billing_router)
 api_router.include_router(chat_router)

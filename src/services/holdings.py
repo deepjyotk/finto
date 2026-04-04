@@ -111,7 +111,9 @@ class HoldingsService:
             ValueError: If user_broker_id not found or doesn't belong to user
         """
         # Verify metadata exists and belongs to user
-        metadata = await self.repo.get_metadata_by_user_broker_id(user_broker_id, user_id)
+        metadata = await self.repo.get_metadata_by_user_broker_id(
+            user_broker_id, user_id
+        )
         if metadata is None:
             raise ValueError("Holdings metadata not found or access denied")
 
@@ -172,7 +174,9 @@ class HoldingsService:
 
         # Get holdings based on whether broker_id is provided
         if broker_id is not None:
-            holdings = await self.repo.by_user_and_broker(user_id=user_id, broker_id=broker_id)
+            holdings = await self.repo.by_user_and_broker(
+                user_id=user_id, broker_id=broker_id
+            )
         else:
             holdings = await self.repo.by_user_id(user_id=user_id)
 
@@ -237,7 +241,9 @@ class HoldingsService:
             quantity = holding_data.get("quantity", 0)
             average_price = Decimal(str(holding_data.get("average_price", 0)))
             last_price = Decimal(str(holding_data.get("last_price", 0)))
-            company_name = holding_data.get("tradingsymbol", "")  # Use symbol as fallback
+            company_name = holding_data.get(
+                "tradingsymbol", ""
+            )  # Use symbol as fallback
 
             # Check if holding exists
             existing_holding = await self.repo.get_holding_by_symbol(
@@ -307,7 +313,9 @@ class HoldingsService:
             "updated_count": sync_record.updated_count,
         }
 
-    async def delete_broker_holdings(self, user_id: UUID, broker_id: UUID) -> tuple[int, bool]:
+    async def delete_broker_holdings(
+        self, user_id: UUID, broker_id: UUID
+    ) -> tuple[int, bool]:
         """
         Delete all holdings and metadata for a user-broker pair.
 
@@ -353,7 +361,9 @@ class HoldingsService:
         deleted_holdings_count = len(holdings)
 
         # Delete metadata record using repository method (this will cascade delete all holdings)
-        metadata_deleted = await self.repo.delete_metadata_by_user_and_broker(user_id, broker_id)
+        metadata_deleted = await self.repo.delete_metadata_by_user_and_broker(
+            user_id, broker_id
+        )
 
         if not metadata_deleted:
             # This shouldn't happen since we found metadata above, but handle it

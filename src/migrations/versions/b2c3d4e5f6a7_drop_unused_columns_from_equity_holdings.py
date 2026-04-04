@@ -56,7 +56,9 @@ def downgrade() -> None:
     )
     op.add_column(
         "equity_holdings_in",
-        sa.Column("unrealized_pnl_pct", sa.Numeric(precision=10, scale=4), nullable=False),
+        sa.Column(
+            "unrealized_pnl_pct", sa.Numeric(precision=10, scale=4), nullable=False
+        ),
     )
     op.add_column(
         "equity_holdings_in",

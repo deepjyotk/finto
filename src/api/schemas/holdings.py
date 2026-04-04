@@ -10,22 +10,32 @@ class HoldingsRequestSchema(BaseModel):
     """Schema for creating a new equity holding"""
 
     broker_id: UUID = Field(
-        ..., description="ID of the broker", example="123e4567-e89b-12d3-a456-426614174000"
+        ...,
+        description="ID of the broker",
+        example="123e4567-e89b-12d3-a456-426614174000",
     )
     symbol: str = Field(..., description="Trading symbol", example="RELIANCE")
     company_name: str = Field(
         ..., description="Company name", example="Reliance Industries Limited"
     )
-    sector: str | None = Field(None, description="Sector of the equity", example="Energy")
+    sector: str | None = Field(
+        None, description="Sector of the equity", example="Energy"
+    )
 
     # Quantities
     qty_available: int = Field(default=0, description="Available quantity", example=100)
     qty_long_term: int = Field(default=0, description="Long term quantity", example=50)
-    qty_pledged_margin: int = Field(default=0, description="Quantity pledged for margin", example=0)
+    qty_pledged_margin: int = Field(
+        default=0, description="Quantity pledged for margin", example=0
+    )
 
     # Prices
-    avg_price: Decimal = Field(..., description="Average purchase price", example=2450.75)
-    prev_close_price: Decimal = Field(..., description="Previous closing price", example=2500.00)
+    avg_price: Decimal = Field(
+        ..., description="Average purchase price", example=2450.75
+    )
+    prev_close_price: Decimal = Field(
+        ..., description="Previous closing price", example=2500.00
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -153,8 +163,12 @@ class SyncStatusResponse(BaseModel):
     """Schema for sync status response"""
 
     last_sync: str | None = Field(None, description="ISO timestamp of last sync")
-    synced_count: int | None = Field(None, description="Number of holdings synced in last sync")
-    updated_count: int | None = Field(None, description="Number of holdings updated in last sync")
+    synced_count: int | None = Field(
+        None, description="Number of holdings synced in last sync"
+    )
+    updated_count: int | None = Field(
+        None, description="Number of holdings updated in last sync"
+    )
 
     model_config = {
         "json_schema_extra": {

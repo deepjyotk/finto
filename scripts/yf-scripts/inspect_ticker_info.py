@@ -30,7 +30,8 @@ for key, value in sorted(info.items()):
     ):
         valuation_metrics[key] = value
     elif any(
-        word in key.lower() for word in ["debt", "cash", "asset", "equity", "margin", "return"]
+        word in key.lower()
+        for word in ["debt", "cash", "asset", "equity", "margin", "return"]
     ):
         financial_metrics[key] = value
     else:

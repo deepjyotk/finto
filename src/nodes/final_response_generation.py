@@ -77,7 +77,10 @@ class FinalResponseGenerationNode:
                 continue
             if (
                 isinstance(msg, ToolMessage)
-                or (isinstance(msg, AIMessage) and (hasattr(msg, "tool_calls") and msg.tool_calls))
+                or (
+                    isinstance(msg, AIMessage)
+                    and (hasattr(msg, "tool_calls") and msg.tool_calls)
+                )
                 or (isinstance(msg, AIMessage) and not hasattr(msg, "tool_calls"))
                 or isinstance(msg, SystemMessage)
             ):
@@ -106,12 +109,81 @@ class FinalResponseGenerationNode:
         )
         return final_list_of_messages
 
-    _PROMPT_TEMPLATE = ChatPromptTemplate.from_template(
+    # Used when thesys_enabled=True: instructs the TheSys LLM to produce a C1 UI spec.
+    _PROMPT_TEMPLATE_THESYS = ChatPromptTemplate.from_template(
         """Here's the final answer: {execution_result}
 
 Here's the user_query: {user_request}
 
 Without editing, changing, or tweaking anything in the final answer, your job is to generate a good Thesys UI to render the final_answer on the UI respecting the user's query."""
+    )
+
+    # Used when thesys_enabled=False (A2UI path).
+    # The LLM generates a declarative A2UI component JSON payload that the React
+    # client renders using its pre-approved catalog of native UI components.
+    # Output must be ONLY valid JSON — no markdown fences, no explanations.
+    _PROMPT_TEMPLATE_A2UI = ChatPromptTemplate.from_template(
+        """You are a UI generation assistant for a financial portfolio application.
+Given the data below, output ONLY a valid JSON object in the A2UI format described here.
+Do NOT wrap the JSON in code fences. Do NOT add any explanation or text outside the JSON.
+
+─── A2UI FORMAT ───
+{{
+  "type": "a2ui_response",
+  "root": ["<id1>", "<id2>", ...],
+  "components": {{
+    "<id>": {{
+      "type": "<component_type>",
+      "props": {{ ... }},
+      "children": ["<child_id>", ...]
+    }}
+  }}
+}}
+
+─── AVAILABLE COMPONENT TYPES ───
+• "heading"      props: {{ "text": string, "level": 1|2|3 }}
+• "badge"        props: {{ "text": string, "variant": "success"|"warning"|"error"|"info"|"neutral" }}
+• "data-table"   props: {{
+                   "columns": [{{"key": string, "label": string, "format": "text"|"currency_inr"|"number"|"percentage"}}],
+                   "rows": [[...values in column order]]
+                 }}
+• "metric-card"  props: {{ "label": string, "value": string, "change": string (optional) }}
+• "info-box"     props: {{ "text": string, "variant": "info"|"warning"|"success"|"error" }}
+• "text"         props: {{ "content": string }}
+• "divider"      props: {{}}
+• "chart"        props: {{
+                   "chart_type": "pie"|"bar"|"line"|"area",
+                   "title": string (optional),
+                   "data": [{{"name": string, "<value_key>": number, ...}}],
+                   "data_keys": [string, ...] (keys to plot; omit to auto-detect),
+                   "x_key": string (x-axis key for bar/line/area; default "name"),
+                   "unit": string (prefix for tooltip values, e.g. "₹" or "%"; optional)
+                 }}
+
+─── RULES ───
+• Use short unique IDs: "h1", "badge1", "table1", "chart1", "info1", etc.
+• Format all INR monetary values as "₹X,XXX.XX" (comma-separated, 2 decimal places).
+• Mark money columns with "format": "currency_inr" in data-table columns.
+• Mark quantity/count columns with "format": "number".
+• Do NOT invent or modify data — use only the values provided below.
+• Keep the hierarchy flat: prefer root-level components over deep nesting.
+• For a success/error status in the data, add a badge component.
+• If the data contains tabular data, use "data-table" — never render tables as plain text.
+• If the user asks for a chart, pie, graph, or visualization → use "chart".
+  - Use "pie" for distribution/breakdown by category (e.g. sector allocation).
+  - Use "bar" for comparing values across categories.
+  - Use "line" or "area" for trends over time.
+  - For pie charts: data must have "name" and one numeric value key (e.g. "value").
+  - For INR pie/bar charts, set "unit": "₹".
+• You can include both a chart AND a data-table when both are useful.
+
+─── USER QUERY ───
+{user_request}
+
+─── DATA TO PRESENT ───
+{execution_result}
+
+Output ONLY the JSON object:"""
     )
 
     def __init__(self, llm_factory: LLMFactory):
@@ -130,9 +202,14 @@ Without editing, changing, or tweaking anything in the final answer, your job is
 
             if thesys_settings.thesys_enabled:
                 llm = ThesysChatOpenAI()
+                prompt_template = self._PROMPT_TEMPLATE_THESYS
             else:
                 llm = self._llm_factory(model)
-            user_request = (state.get("user_request") or "").strip() or "No user request provided."
+                prompt_template = self._PROMPT_TEMPLATE_A2UI
+
+            user_request = (
+                state.get("user_request") or ""
+            ).strip() or "No user request provided."
             execution_result = (state.get("last_output") or "").strip()
             messages = state.get("messages", [])
 
@@ -147,7 +224,7 @@ Without editing, changing, or tweaking anything in the final answer, your job is
                     "done": True,
                 }
 
-            chain = self._PROMPT_TEMPLATE | llm
+            chain = prompt_template | llm
             ai_response = chain.invoke(
                 {
                     "user_request": user_request,
@@ -155,9 +232,13 @@ Without editing, changing, or tweaking anything in the final answer, your job is
                 }
             )
             final_rendered_ui_answer = (
-                ai_response.content if hasattr(ai_response, "content") else str(ai_response)
+                ai_response.content
+                if hasattr(ai_response, "content")
+                else str(ai_response)
             )
-            ai_msg = AIMessage(content=final_rendered_ui_answer, name="final_response_generation")
+            ai_msg = AIMessage(
+                content=final_rendered_ui_answer, name="final_response_generation"
+            )
 
             pruned_messages = self._prune_iteration_messages(
                 context.get("history_message_length"), messages

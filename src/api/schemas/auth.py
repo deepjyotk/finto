@@ -6,7 +6,9 @@ from pydantic import BaseModel, EmailStr, Field
 
 class UserBase(BaseModel):
     username: str = Field(..., description="Unique username", example="johndoe")
-    email: EmailStr = Field(..., description="User email address", example="john@example.com")
+    email: EmailStr = Field(
+        ..., description="User email address", example="john@example.com"
+    )
     full_name: str = Field(..., description="User's full name", example="John Doe")
 
 
@@ -35,7 +37,9 @@ class UserLogin(BaseModel):
     password: str = Field(..., description="User password", example="SecurePass123!")
 
     model_config = {
-        "json_schema_extra": {"example": {"username": "johndoe", "password": "SecurePass123!"}}
+        "json_schema_extra": {
+            "example": {"username": "johndoe", "password": "SecurePass123!"}
+        }
     }
 
 
@@ -78,4 +82,6 @@ class OTPVerifyRequest(BaseModel):
 class OTPResponse(BaseModel):
     message: str = Field(..., description="Response message")
 
-    model_config = {"json_schema_extra": {"example": {"message": "OTP sent successfully"}}}
+    model_config = {
+        "json_schema_extra": {"example": {"message": "OTP sent successfully"}}
+    }

@@ -81,7 +81,9 @@ class AuthService:
         """Verify a plain OTP against a hashed OTP."""
         return pwd_context.verify(plain_otp, hashed_otp)
 
-    def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    def create_access_token(
+        self, data: dict, expires_delta: Optional[timedelta] = None
+    ) -> str:
         """
         Create a JWT access token.
 
@@ -122,7 +124,9 @@ class AuthService:
         except jwt.PyJWTError:
             return None
 
-    async def initiate_registration(self, user_data: UserCreate) -> tuple[bool, str, Optional[str]]:
+    async def initiate_registration(
+        self, user_data: UserCreate
+    ) -> tuple[bool, str, Optional[str]]:
         """
         Initiate registration by creating pending registration and sending OTP.
 
@@ -155,7 +159,11 @@ class AuthService:
             time_since_created = (now - existing_pending.created_at).total_seconds()
             if time_since_created < OTP_RESEND_COOLDOWN_SECONDS:
                 remaining = int(OTP_RESEND_COOLDOWN_SECONDS - time_since_created)
-                return False, f"Please wait {remaining} seconds before requesting a new OTP", None
+                return (
+                    False,
+                    f"Please wait {remaining} seconds before requesting a new OTP",
+                    None,
+                )
 
             # Delete old pending registration to create a new one
             await self.pending_repo.delete_by_email(user_data.email)
@@ -205,7 +213,9 @@ class AuthService:
             )
         else:
             # Fallback for testing without email service
-            logger.warning("email_service_not_configured", extra={"email": user_data.email})
+            logger.warning(
+                "email_service_not_configured", extra={"email": user_data.email}
+            )
             await asyncio.sleep(1)  # Minimal delay for testing
 
         # Return success (OTP not returned in production)
@@ -253,13 +263,21 @@ class AuthService:
         if existing_user:
             await self.pending_repo.delete_by_email(email)
             await self.pending_repo.session.commit()
-            return False, "Username was taken while verifying. Please register again.", None
+            return (
+                False,
+                "Username was taken while verifying. Please register again.",
+                None,
+            )
 
         existing_email = await self.repo.by_email(pending.email)
         if existing_email:
             await self.pending_repo.delete_by_email(email)
             await self.pending_repo.session.commit()
-            return False, "Email was registered while verifying. Please try again.", None
+            return (
+                False,
+                "Email was registered while verifying. Please try again.",
+                None,
+            )
 
         # Create the user
         user = await self.repo.add(

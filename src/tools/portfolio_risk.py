@@ -289,7 +289,9 @@ def max_drawdown_asset(
 
     if weights is not None:
         if len(weights) != df.shape[1]:
-            raise ValueError("weights length must match number of symbol_names in prices")
+            raise ValueError(
+                "weights length must match number of symbol_names in prices"
+            )
         w = np.array(weights, dtype=float)
         df = df * w
 
@@ -345,7 +347,9 @@ if __name__ == "__main__":
     dd = max_drawdown(port_price)
     print(f"Max drawdown (historical) = {dd:.2%}")
     # Identify the single stock with worst drawdown (weighted)
-    drawdown_results = max_drawdown_asset(prices=prices, weights=details["weights_used"])
+    drawdown_results = max_drawdown_asset(
+        prices=prices, weights=details["weights_used"]
+    )
     if drawdown_results:
         print("\nDrawdown Analysis (sorted by severity):")
         for result in drawdown_results:

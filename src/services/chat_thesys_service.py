@@ -63,8 +63,10 @@ class ThesysChatService:
             Tuple containing list of ChatSessionSchema objects and total session count
         """
         offset = (page - 1) * page_limit
-        sessions, total_sessions = await self.chat_repo.get_sessions_by_user_id_paginated(
-            user_id, limit=page_limit, offset=offset
+        sessions, total_sessions = (
+            await self.chat_repo.get_sessions_by_user_id_paginated(
+                user_id, limit=page_limit, offset=offset
+            )
         )
         session_schemas = [
             ChatSessionSchema(
@@ -75,7 +77,9 @@ class ThesysChatService:
         ]
         return session_schemas, total_sessions
 
-    async def get_session_messages(self, session_id: UUID, user_id: UUID) -> SessionMessageConfig:
+    async def get_session_messages(
+        self, session_id: UUID, user_id: UUID
+    ) -> SessionMessageConfig:
         """
         Get all messages for a session, verifying the session belongs to the user.
 
@@ -180,8 +184,12 @@ class ThesysChatService:
         }
 
         snapshot = await graph_runner.aget_state(config)
-        history_message_length = len(snapshot.values.get("messages", [])) if snapshot else 0
-        logger.info(f"History message length for thread {thread_id}: {history_message_length}")
+        history_message_length = (
+            len(snapshot.values.get("messages", [])) if snapshot else 0
+        )
+        logger.info(
+            f"History message length for thread {thread_id}: {history_message_length}"
+        )
 
         initial_state: dict[str, Any] = {
             "messages": [HumanMessage(content=question)],
@@ -262,11 +270,15 @@ class ThesysChatService:
                 chat_model=request.model_payload,
             )
 
-            out = await graph_runner.ainvoke(initial_state, config=config, context=context)
+            out = await graph_runner.ainvoke(
+                initial_state, config=config, context=context
+            )
 
             content = out.get("final_rendered_ui_answer") or ""
 
-            await self.chat_repo.create_ai_message(session_id=session_id, content=content)
+            await self.chat_repo.create_ai_message(
+                session_id=session_id, content=content
+            )
             await self.chat_repo.session.commit()
 
             return AgentMessage(role="assistant", content=content)

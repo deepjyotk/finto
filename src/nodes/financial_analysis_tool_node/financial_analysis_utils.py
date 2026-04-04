@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 
 from src.core.json_logging import logger_for
 from src.core.schema import EquityHoldingSchema
-from src.nodes.portfolio_worker_tool_node.portfolio_node_prompt import (
+from src.nodes.financial_analysis_tool_node.financial_analysis_prompt import (
     SYMBOL_CLASSIFIER_PROMPT_WORKER,
     SYMBOL_EXTRACTION_PROMPT,
 )
@@ -120,9 +120,11 @@ def build_portfolio_scope_message(task: str, llm) -> tuple[AIMessage, List[str]]
             )
             sym_result = symbol_chain.invoke({"user_query": task})
             extracted_symbols = get_symbol_names(sym_result.symbol_names)
-            logger.info("portfolio_worker_tool extracted symbols: %s", extracted_symbols)
+            logger.info(
+                "financial_analysis_tool extracted symbols: %s", extracted_symbols
+            )
     except Exception as exc:
-        logger.warning("Symbol extraction failed in portfolio_worker_tool: %s", exc)
+        logger.warning("Symbol extraction failed in financial_analysis_tool: %s", exc)
 
     scope_msg = AIMessage(
         content=(
@@ -182,7 +184,9 @@ def build_code_gen_invoke_args(
         "user_request": user_request,
         "portfolio_df_schema": EquityHoldingSchema.get_holdings_schema(),
         "symbols_context": build_symbols_context(symbol_names),
-        "current_date_time": datetime.now(ZoneInfo("Asia/Kolkata")).strftime("%Y-%m-%d %H:%M:%S"),
+        "current_date_time": datetime.now(ZoneInfo("Asia/Kolkata")).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        ),
         "risk_functions_with_doc_string": get_function_with_doc_string(
             [download_prices, portfolio_volatility, max_drawdown, max_drawdown_asset]
         ),
@@ -234,5 +238,7 @@ def build_code_gen_invoke_args(
                 calculate_all_metrics,
             ]
         ),
-        "ticker_info_function_with_doc_string": get_function_with_doc_string([get_ticker_info]),
+        "ticker_info_function_with_doc_string": get_function_with_doc_string(
+            [get_ticker_info]
+        ),
     }

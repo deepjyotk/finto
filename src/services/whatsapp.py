@@ -126,7 +126,9 @@ class WhatsAppService:
         async with httpx.AsyncClient(timeout=15) as client:
             response = await client.post(
                 url,
-                headers={"Authorization": f"Bearer {whatsapp_settings.wa_user_or_system_token}"},
+                headers={
+                    "Authorization": f"Bearer {whatsapp_settings.wa_user_or_system_token}"
+                },
                 json=payload,
             )
             response.raise_for_status()
@@ -170,13 +172,17 @@ class WhatsAppService:
         async with httpx.AsyncClient(timeout=15) as client:
             response = await client.post(
                 url,
-                headers={"Authorization": f"Bearer {whatsapp_settings.wa_user_or_system_token}"},
+                headers={
+                    "Authorization": f"Bearer {whatsapp_settings.wa_user_or_system_token}"
+                },
                 json=payload,
             )
             response.raise_for_status()
             return response.json()
 
-    async def get_whatsapp_data_by_user_id(self, user_id: UUID) -> dict[str, Any] | None:
+    async def get_whatsapp_data_by_user_id(
+        self, user_id: UUID
+    ) -> dict[str, Any] | None:
         """
         Get WhatsApp metadata for a user.
 
@@ -226,7 +232,9 @@ class WhatsAppService:
     ) -> None:
         """Handle incoming messages for registered users."""
         if not message_text.strip():
-            logger.debug("Skipping empty or non-text message for user %s", metadata.user_id)
+            logger.debug(
+                "Skipping empty or non-text message for user %s", metadata.user_id
+            )
             await self.send_text(
                 to=message_from_e164,
                 text="I can currently process text messages only. Please send a new message.",
@@ -239,7 +247,9 @@ class WhatsAppService:
         session = await self.repo.get_active_session_by_user_id(user_id)
         if session:
             session_id = str(session.session_id)
-            logger.debug("Found active chat session %s for user %s", session_id, user_id)
+            logger.debug(
+                "Found active chat session %s for user %s", session_id, user_id
+            )
         else:
             session = await self.repo.create_chat_session(user_id)
             await self.repo.session.commit()
@@ -261,10 +271,14 @@ class WhatsAppService:
                 response_text = str(response)
         except Exception as e:
             logger.error(f"Error processing chat session: {e}")
-            response_text = "Sorry, I wasn't able to generate a response. Please try again."
+            response_text = (
+                "Sorry, I wasn't able to generate a response. Please try again."
+            )
 
         if not response_text:
-            response_text = "Sorry, I wasn't able to generate a response. Please try again."
+            response_text = (
+                "Sorry, I wasn't able to generate a response. Please try again."
+            )
 
         await self.send_text(
             to=message_from_e164,
@@ -380,7 +394,9 @@ class WhatsAppService:
                             )
 
                             # Check if user is already registered in whatsapp_metadata
-                            metadata = await self.repo.get_metadata_by_e164(message_from_e164)
+                            metadata = await self.repo.get_metadata_by_e164(
+                                message_from_e164
+                            )
 
                             if metadata:
                                 logger.debug(

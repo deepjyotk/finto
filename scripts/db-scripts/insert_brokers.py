@@ -60,7 +60,9 @@ async def insert_brokers():
 
         # Display all brokers in the table
         print("\n📊 Current brokers in database:\n")
-        all_brokers = await conn.fetch("SELECT * FROM brokers ORDER BY broker_name, broker_type")
+        all_brokers = await conn.fetch(
+            "SELECT * FROM brokers ORDER BY broker_name, broker_type"
+        )
 
         if all_brokers:
             print(f"{'Broker Name':<12} {'Type':<8} {'Country':<8} {'ID'}")

@@ -73,7 +73,7 @@ Example usage for getting net income from income statement:
 
     # Extract Net Income series
     net_income_series = df["NetIncome"]
-
+    
 ## Price & Returns:
 {yf_price_and_returns_function_with_doc_string}
 
@@ -142,10 +142,16 @@ When generating Python code:
     value = float(value)
     df[col] = df[col].astype(float)
 
+# DESCRIPTIVE OUTPUT
+When generating Python code, make printed output informative and easy to read:
+- Enhance print() output: use clear labels, short section headers, symbol names, metric names, and units where helpful—avoid dumping bare numbers without context.
+- Include relevant dates when the user question or the analysis calls for it: e.g. "as of" / reporting period / comparison window. Use the IST date/time from RUNTIME ENVIRONMENT when "now" or "today" matters; otherwise use dates from the data (e.g. price index dates, statement periods).
+- When something cannot be provided (missing data, unavailable field, out-of-scope request, or disallowed operation), print an explicit line stating what is not available and briefly why—do not fail silently or leave ambiguous gaps.
+
 # OUTPUT FORMAT
 Call the `execute_python_code` tool with your generated Python code as the single argument.
 - The code must begin with the mandatory import + df-check block.
-- The code must print the final result using print(...).
+- The code must print the final result using print(...), following DESCRIPTIVE OUTPUT above.
 - No markdown, no comments, no explanations inside the code.
 
 
@@ -185,7 +191,8 @@ SYMBOL_EXTRACTION_PROMPT = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            "Extract stock symbols from the user query. " "Return only the symbols as a list.",
+            "Extract stock symbols from the user query. "
+            "Return only the symbols as a list.",
         ),
         ("user", "{user_query}"),
     ]
@@ -218,7 +225,10 @@ SYMBOL_CLASSIFIER_PROMPT_GRAPH = ChatPromptTemplate.from_messages(
         ("ai", "specific_stocks_scope"),
         ("human", "Which are my top 5 holdings by value?"),
         ("ai", "entire_portfolio_scope"),
-        ("human", "Between INFY and TCS, which one is performing better in my portfolio?"),
+        (
+            "human",
+            "Between INFY and TCS, which one is performing better in my portfolio?",
+        ),
         ("ai", "specific_stocks_scope"),
         ("human", "{user_query}"),
     ]

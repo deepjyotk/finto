@@ -42,7 +42,9 @@ def build_execute_code_tool(
         try:
             with contextlib.redirect_stdout(stdout_capture):
                 exec(code, execution_env, execution_env)
-            stdout_text = stdout_capture.getvalue().strip() or "<no output printed to stdout>"
+            stdout_text = (
+                stdout_capture.getvalue().strip() or "<no output printed to stdout>"
+            )
             sections = [
                 "STATUS: success",
                 f"STDOUT:\n{stdout_text}",

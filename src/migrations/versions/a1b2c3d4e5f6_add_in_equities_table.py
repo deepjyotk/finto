@@ -52,7 +52,9 @@ def upgrade() -> None:
         sa.UniqueConstraint("symbol", name=op.f("uq_in_equities_symbol")),
         sa.UniqueConstraint("isin_number", name=op.f("uq_in_equities_isin_number")),
     )
-    op.create_index(op.f("ix_in_equities_symbol"), "in_equities", ["symbol"], unique=False)
+    op.create_index(
+        op.f("ix_in_equities_symbol"), "in_equities", ["symbol"], unique=False
+    )
 
 
 def downgrade() -> None:

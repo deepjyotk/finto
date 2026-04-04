@@ -31,7 +31,9 @@ logging.basicConfig(level=logging.INFO)
 # Load keys from environment where possible. Default API key set to the one
 # provided in the request. IMPORTANT: do NOT commit your API secret to source.
 KITE_API_KEY = os.getenv("KITE_API_KEY")
-KITE_API_SECRET = os.getenv("KITE_API_SECRET")  # TODO: set this in your .env or secure vault
+KITE_API_SECRET = os.getenv(
+    "KITE_API_SECRET"
+)  # TODO: set this in your .env or secure vault
 
 # Frontend base to redirect the user back to after successful/failed auth.
 FRONTEND_BASE = os.getenv("FRONTEND_BASE", "http://localhost:3000")
@@ -79,7 +81,10 @@ async def kite_login(user: dict = Depends(require_auth)):
 
     # KiteConnect.login_url constructs the standard login url with api_key and v=3
     login_url = kite.login_url()
-    logger.info("kite_login_redirect", extra={"username": user.get("username"), "url": login_url})
+    logger.info(
+        "kite_login_redirect",
+        extra={"username": user.get("username"), "url": login_url},
+    )
 
     # Redirect the user's browser to Zerodha's login page
     return RedirectResponse(login_url)
@@ -100,7 +105,9 @@ async def kite_callback(
 
     if not KITE_API_SECRET:
         logger.error("kite_callback_no_api_secret")
-        return RedirectResponse(f"{FRONTEND_BASE}/kite-connected?status=missing_api_secret")
+        return RedirectResponse(
+            f"{FRONTEND_BASE}/kite-connected?status=missing_api_secret"
+        )
 
     kite = KiteConnect(api_key=KITE_API_KEY)
 
@@ -152,7 +159,9 @@ async def kite_token_info(current_user: dict = Depends(require_auth)):
 
 
 @router.get("/status")
-async def kite_status(current_user: Optional[dict] = Depends(get_current_user_optional)):
+async def kite_status(
+    current_user: Optional[dict] = Depends(get_current_user_optional),
+):
     """Public status endpoint for debugging.
 
     Returns whether the current user is connected and some non-sensitive metadata.
@@ -463,15 +472,20 @@ async def sync_holdings(
                     qty_long_term=0.0,
                     qty_pledged_margin=0.0,
                     qty_pledged_loan=0.0,
-                    avg_price=float(holding.get("average_price", holding.get("avg_price", 0))),
-                    prev_close_price=float(holding.get("last_price", holding.get("ltp", 0))),
+                    avg_price=float(
+                        holding.get("average_price", holding.get("avg_price", 0))
+                    ),
+                    prev_close_price=float(
+                        holding.get("last_price", holding.get("ltp", 0))
+                    ),
                     unrealized_pnl=float(holding.get("pnl", 0)),
                     unrealized_pnl_pct=0.0,
                 )
                 holdings_schemas.append(schema)
             except (ValueError, KeyError) as e:
                 logger.warning(
-                    "sync_holdings_invalid_holding", extra={"error": str(e), "holding": holding}
+                    "sync_holdings_invalid_holding",
+                    extra={"error": str(e), "holding": holding},
                 )
                 continue
 
@@ -484,7 +498,9 @@ async def sync_holdings(
         # Save all holdings to database
         count = await holdings_service.save_user_holdings(holdings_schemas, user_id)
 
-        logger.info("sync_holdings_success", extra={"user_id": user_id, "holdings_count": count})
+        logger.info(
+            "sync_holdings_success", extra={"user_id": user_id, "holdings_count": count}
+        )
 
         return {
             "status": "success",

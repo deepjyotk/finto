@@ -22,7 +22,9 @@ class WhatsAppMessage(BaseModel):
     from_: str = Field(alias="from")
     id: str
     timestamp: str
-    type: Literal["text", "image", "video", "audio", "document", "sticker", "location", "contacts"]
+    type: Literal[
+        "text", "image", "video", "audio", "document", "sticker", "location", "contacts"
+    ]
     text: Optional[WhatsAppTextMessage] = None
 
 

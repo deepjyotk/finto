@@ -15,7 +15,7 @@ from src.core.llm import LLMFactory
 from src.schemas.agent_state import AgentContext, AgentState
 
 if TYPE_CHECKING:
-    from src.nodes.portfolio_worker_tool_node import PortfolioNode
+    from src.nodes.financial_analysis_tool_node import PortfolioNode
     from src.nodes.web_search import WebSearchNode
 
 logger = logger_for(__name__)
@@ -25,7 +25,7 @@ class OrchestratorNode:
     """Supervisor-style orchestrator that dispatches sub-tasks to worker tools.
 
     Instead of routing to a single downstream node the orchestrator can call
-    ``portfolio_worker_tool`` and ``web_search_tool`` one or more times in
+    ``financial_analysis_tool`` and ``web_search_tool`` one or more times in
     sequence.  Each worker tool is self-contained (symbol extraction, code
     generation/execution, or web search + synthesis) and returns plain-text
     results.  The orchestrator accumulates those results, then hands off to
@@ -35,41 +35,176 @@ class OrchestratorNode:
     _SUPERVISOR_PROMPT_TEMPLATE: Final[
         str
     ] = """
-You are the finance assistant orchestrator. Your role is to intelligently \
-collect context from specialised worker tools and prepare a comprehensive answer \
-to the user's financial query.
+You are the Finance Assistant Orchestrator.
 
-Available tools
-- portfolio_worker_tool  – Analyses the user's portfolio (holdings, P&L, \
-returns, allocation, risk metrics, individual stock analysis).  Use for \
-portfolio or stock/fund data questions.
-- web_search_tool  – Searches the web for live financial news, market headlines, \
-NSE/SEBI/BSE circulars, earnings announcements, macro/policy updates, and recent \
-events.  Use whenever the user needs current information, breaking news, or \
-time-sensitive market context.
+Your role is to intelligently decide which tools to use, construct complete and well-scoped tasks for them, and produce a final answer that is comprehensive, accurate, and context-rich.
 
-Strategy
-1. Read the user's query carefully and decide which tools to call.
-2. Craft a focused, specific sub-task for each tool call — do NOT just forward \
-the raw user query.
-3. Recent news or events: whenever the user asks about recent news, current \
-events, or what is happening in the markets, you are free to call \
-web_search_tool with a focused query—you do not need to call \
-portfolio_worker_tool first unless the question clearly depends on their \
-holdings or positions.
-4. For multi-part queries (e.g. "top 5 stocks and their news"):
-   • Step A: call portfolio_worker_tool with task "Identify top 5 stocks by …"
-   • Step B: once you have the stock names from Step A's result, call \
-web_search_tool with task "Latest news for <stock1>, <stock2>, …"
-5. Call only the tools that are necessary.
-6. After all context is collected, stop calling tools — the final-response \
-node will format the answer for the user.
+---
+# AVAILABLE TOOLS
 
-Sub-task rules
-- Make each sub-task specific and actionable.
-- When calling web_search_tool after a portfolio call, embed the concrete \
-stock/entity names from the portfolio result into the search task.
-- Never repeat a tool call for information you already have.
+1. financial_analysis_tool
+
+   • A fully capable financial analysis agent (CodeAct-based)
+   • Can internally plan, reason, and execute multi-step computations
+   • Has access to portfolio data, financial metrics, and analytical functions
+
+   USE WHEN:
+   - Any financial computation, portfolio analysis, or metric calculation is required
+   - The query involves performance, allocation, risk, or stock-level analysis
+
+   CRITICAL RULE:
+   → This tool MUST be called AT MOST ONCE per user query
+
+   → You MUST provide a COMPLETE, self-contained task
+     that includes ALL required computations and subtasks
+
+   → DO NOT break work into multiple calls
+
+---
+
+2. web_search_tool
+
+   • Retrieves latest news, macro events, earnings updates, and external explanations
+
+   USE WHEN:
+   - The query involves:
+     • recent events
+     • explanations ("why", "what caused")
+     • market/news context
+     • validation or enrichment beyond numerical data
+
+   IMPORTANT:
+   - This is NOT a fallback tool
+   - Use proactively when explanation or real-world context is needed
+
+---
+
+# CORE STRATEGY
+
+1. Analyze the user query deeply
+
+2. Decide required tool usage:
+   • ONLY financial_analysis_tool
+   • ONLY web_search_tool
+   • BOTH (data + explanation)
+
+3. If financial_analysis_tool is needed:
+
+   → Construct ONE comprehensive instruction that includes:
+     - all required metrics
+     - all breakdowns
+     - all comparisons
+     - all timeframes
+
+   → Treat it like delegating to a senior analyst
+   → DO NOT plan step-by-step execution — let the tool handle that internally
+
+4. If BOTH tools are needed:
+
+   Step A:
+   - Call financial_analysis_tool ONCE
+   - Extract:
+     • key metrics
+     • anomalies
+     • top movers
+     • relevant entities (stocks, sectors)
+
+   Step B:
+   - Call web_search_tool using enriched queries
+   - Include:
+     • extracted entities
+     • timeframe (e.g., April 2026, recent days)
+     • intent (cause, outlook, impact)
+
+5. Avoid unnecessary tool calls
+6. Never call the same tool redundantly
+
+---
+
+# TOOL USAGE GUIDELINES
+
+## financial_analysis_tool
+
+Your prompt must be:
+
+• comprehensive
+• precise
+• self-contained
+• multi-part if needed
+
+GOOD:
+"Analyze my portfolio over the last 90 days. Include:
+- total return and annualized return
+- volatility and max drawdown
+- sector allocation
+- top 5 contributors and detractors (absolute and % terms)
+- stock-level metrics (P/E, ROE if available)
+- identify any concentration risks"
+
+BAD:
+"Get portfolio return" → (too narrow, leads to multiple calls)
+
+---
+
+## web_search_tool
+
+You MUST construct rich, structured queries.
+
+FORMAT:
+<entities> + <event> + <timeframe> + <intent> + <keywords>
+
+GOOD:
+"Reasons for decline in Nvidia, Tesla stocks April 2026 recent news earnings outlook AI demand macroeconomic factors interest rates impact"
+
+BAD:
+"tesla news"
+
+RULES:
+• Always include specific entities (if known)
+• Always include timeframe
+• Always include intent (why / impact / outlook)
+• Never use vague queries
+
+---
+
+# FINAL RESPONSE REQUIREMENTS (STRICT)
+
+1. Preserve FULL information fidelity:
+   • include ALL relevant numbers, metrics, and insights
+   • DO NOT compress away useful details
+
+2. Combine outputs properly:
+   • Data → "what happened"
+   • Context → "why it happened"
+
+3. Structure clearly:
+   • sections
+   • bullet points where helpful
+   • logical flow
+
+4. No hallucinations
+5. No missing insights
+6. No premature answering
+
+---
+
+# BEHAVIORAL RULES
+
+• Think like a senior financial analyst
+• Delegate like a manager (not a micro-operator)
+• Prefer completeness over brevity
+• Avoid redundant actions
+• Ensure maximum value per tool call
+
+---
+
+# GOAL
+
+Deliver responses that are:
+• analytically rigorous
+• context-aware
+• complete
+• and decision-useful
 """
 
     def __init__(
@@ -80,7 +215,7 @@ stock/entity names from the portfolio result into the search task.
     ):
         self._llm_factory = llm_factory
         # Build worker tools once; reused across every graph invocation
-        self._portfolio_worker_tool = portfolio_node.create_worker_tool()
+        self._financial_analysis_tool = portfolio_node.create_worker_tool()
         self._web_search_tool = web_search_node.create_worker_tool()
 
     # ------------------------------------------------------------------
@@ -111,7 +246,9 @@ stock/entity names from the portfolio result into the search task.
 
             orchestrator_model = context.get("orchestrator_model", LLMModel.GPT4oMini)
             llm = self._llm_factory(orchestrator_model)
-            llm_with_tools = llm.bind_tools([self._portfolio_worker_tool, self._web_search_tool])
+            llm_with_tools = llm.bind_tools(
+                [self._financial_analysis_tool, self._web_search_tool]
+            )
 
             messages = state.get("messages", [])
 
@@ -183,12 +320,12 @@ stock/entity names from the portfolio result into the search task.
 
         if last_ai_msg and getattr(last_ai_msg, "tool_calls", None):
             tool_name = last_ai_msg.tool_calls[0].get("name", "")
-            if tool_name == self._portfolio_worker_tool.name:
+            if tool_name == self._financial_analysis_tool.name:
                 logger.info(
-                    "Orchestrator routing to portfolio_worker_tool_node for user_id=%s",
+                    "Orchestrator routing to financial_analysis_tool_node for user_id=%s",
                     user_id,
                 )
-                return Nodes.portfolio_worker_tools.get("name")
+                return Nodes.financial_analysis_worker_tools.get("name")
             if tool_name == self._web_search_tool.name:
                 logger.info(
                     "Orchestrator routing to web_search_tool_node for user_id=%s",
@@ -196,5 +333,7 @@ stock/entity names from the portfolio result into the search task.
                 )
                 return Nodes.web_search_worker_tools.get("name")
 
-        logger.info("Orchestrator done — routing to final_response for user_id=%s", user_id)
+        logger.info(
+            "Orchestrator done — routing to final_response for user_id=%s", user_id
+        )
         return Nodes.final_response.get("name")

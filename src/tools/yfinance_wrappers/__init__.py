@@ -11,7 +11,9 @@ import yfinance as yf
 from src.tools.common_utils import normalize_symbol
 
 
-def get_balance_sheet(symbol_name: str, freq: str = "yearly", pretty: bool = False) -> dict:
+def get_balance_sheet(
+    symbol_name: str, freq: str = "yearly", pretty: bool = False
+) -> dict:
     """Fetch balance sheet (yearly or quarterly) with important fields only.
 
     Args:
@@ -63,7 +65,9 @@ def get_balance_sheet(symbol_name: str, freq: str = "yearly", pretty: bool = Fal
             balance_sheet = {}
             for date_key, fields in data.items():
                 filtered_fields = {
-                    field: value for field, value in fields.items() if field in important_fields
+                    field: value
+                    for field, value in fields.items()
+                    if field in important_fields
                 }
                 balance_sheet[str(date_key)] = filtered_fields
         else:
@@ -75,7 +79,9 @@ def get_balance_sheet(symbol_name: str, freq: str = "yearly", pretty: bool = Fal
         return {"symbol": symbol_name, "balance_sheet": {}, "error": str(e)}
 
 
-def get_income_statement(symbol_name: str, freq: str = "yearly", pretty: bool = False) -> dict:
+def get_income_statement(
+    symbol_name: str, freq: str = "yearly", pretty: bool = False
+) -> dict:
     """Fetch income statement (yearly or quarterly) with important fields only.
 
     Args:
@@ -93,7 +99,9 @@ def get_income_statement(symbol_name: str, freq: str = "yearly", pretty: bool = 
             print(f"ERROR: Symbol {symbol_name} is empty or None")
             raise ValueError("Symbol name is required.")
         normalized_symbol = normalize_symbol(symbol_name.strip().upper())
-        data = yf.Ticker(normalized_symbol).get_income_stmt(as_dict=True, pretty=pretty, freq=freq)
+        data = yf.Ticker(normalized_symbol).get_income_stmt(
+            as_dict=True, pretty=pretty, freq=freq
+        )
 
         # Important fields to keep
         important_fields = {
@@ -115,7 +123,9 @@ def get_income_statement(symbol_name: str, freq: str = "yearly", pretty: bool = 
             income_statement = {}
             for date_key, fields in data.items():
                 filtered_fields = {
-                    field: value for field, value in fields.items() if field in important_fields
+                    field: value
+                    for field, value in fields.items()
+                    if field in important_fields
                 }
                 income_statement[str(date_key)] = filtered_fields
         else:
@@ -123,7 +133,9 @@ def get_income_statement(symbol_name: str, freq: str = "yearly", pretty: bool = 
 
         return {"symbol": symbol_name, "income_statement": income_statement}
     except Exception as e:
-        print(f"ERROR: Failed to fetch income statement for symbol: {symbol_name} - {e}")
+        print(
+            f"ERROR: Failed to fetch income statement for symbol: {symbol_name} - {e}"
+        )
         return {"symbol": symbol_name, "income_statement": {}, "error": str(e)}
 
 
@@ -149,7 +161,9 @@ def get_cash_flow(symbol_name: str, freq: str = "yearly", pretty: bool = False) 
             raise ValueError("Symbol name is required.")
 
         normalized_symbol = normalize_symbol(symbol_name.strip().upper())
-        data = yf.Ticker(normalized_symbol).get_cashflow(as_dict=True, pretty=pretty, freq=freq)
+        data = yf.Ticker(normalized_symbol).get_cashflow(
+            as_dict=True, pretty=pretty, freq=freq
+        )
 
         # Important fields to keep
         important_fields = {
@@ -187,7 +201,9 @@ def get_cash_flow(symbol_name: str, freq: str = "yearly", pretty: bool = False) 
             cash_flow = {}
             for date_key, fields in data.items():
                 filtered_fields = {
-                    field: value for field, value in fields.items() if field in important_fields
+                    field: value
+                    for field, value in fields.items()
+                    if field in important_fields
                 }
                 cash_flow[str(date_key)] = filtered_fields
         else:
@@ -284,9 +300,14 @@ def get_earnings_estimate(symbol_name: str) -> dict:
             raise ValueError("Symbol name is required.")
         normalized_symbol = normalize_symbol(symbol_name.strip().upper())
         data = yf.Ticker(normalized_symbol).get_earnings_estimate(as_dict=True)
-        return {"symbol": symbol_name, "earnings_estimate": data if data is not None else {}}
+        return {
+            "symbol": symbol_name,
+            "earnings_estimate": data if data is not None else {},
+        }
     except Exception as e:
-        print(f"ERROR: Failed to fetch earnings estimate for symbol: {symbol_name} - {e}")
+        print(
+            f"ERROR: Failed to fetch earnings estimate for symbol: {symbol_name} - {e}"
+        )
         return {"symbol": symbol_name, "earnings_estimate": {}, "error": str(e)}
 
 
@@ -305,9 +326,14 @@ def get_revenue_estimate(symbol_name: str) -> dict:
             raise ValueError("Symbol name is required.")
         normalized_symbol = normalize_symbol(symbol_name.strip().upper())
         data = yf.Ticker(normalized_symbol).get_revenue_estimate()
-        return {"symbol": symbol_name, "revenue_estimate": data if data is not None else {}}
+        return {
+            "symbol": symbol_name,
+            "revenue_estimate": data if data is not None else {},
+        }
     except Exception as e:
-        print(f"ERROR: Failed to fetch revenue estimate for symbol: {symbol_name} - {e}")
+        print(
+            f"ERROR: Failed to fetch revenue estimate for symbol: {symbol_name} - {e}"
+        )
         return {"symbol": symbol_name, "revenue_estimate": {}, "error": str(e)}
 
 
@@ -341,7 +367,9 @@ def get_earnings_history(symbol_name: str) -> dict:
 
         return {"symbol": symbol_name, "earnings_history": history_dict}
     except Exception as e:
-        print(f"ERROR: Failed to fetch earnings history for symbol: {symbol_name} - {e}")
+        print(
+            f"ERROR: Failed to fetch earnings history for symbol: {symbol_name} - {e}"
+        )
         return {"symbol": symbol_name, "earnings_history": {}, "error": str(e)}
 
 
@@ -388,7 +416,10 @@ def get_eps_revisions(symbol_name: str) -> dict:
             raise ValueError("Symbol name is required.")
         normalized_symbol = normalize_symbol(symbol_name.strip().upper())
         data = yf.Ticker(normalized_symbol).get_eps_revisions(as_dict=True)
-        return {"symbol": symbol_name, "eps_revisions": data if data is not None else {}}
+        return {
+            "symbol": symbol_name,
+            "eps_revisions": data if data is not None else {},
+        }
     except Exception as e:
         print(f"ERROR: Failed to fetch EPS revisions for symbol: {symbol_name} - {e}")
         return {"symbol": symbol_name, "eps_revisions": {}, "error": str(e)}
@@ -426,7 +457,9 @@ def get_growth_estimates(symbol_name: str) -> dict:
 
         return {"symbol": symbol_name, "growth_estimates": growth_dict}
     except Exception as e:
-        print(f"ERROR: Failed to fetch growth estimates for symbol: {symbol_name} - {e}")
+        print(
+            f"ERROR: Failed to fetch growth estimates for symbol: {symbol_name} - {e}"
+        )
         return {"symbol": symbol_name, "growth_estimates": {}, "error": str(e)}
 
 
@@ -445,7 +478,10 @@ def get_major_holders(symbol_name: str) -> dict:
             raise ValueError("Symbol name is required.")
         normalized_symbol = normalize_symbol(symbol_name.strip().upper())
         data = yf.Ticker(normalized_symbol).get_major_holders(as_dict=True)
-        return {"symbol": symbol_name, "major_holders": data if data is not None else {}}
+        return {
+            "symbol": symbol_name,
+            "major_holders": data if data is not None else {},
+        }
     except Exception as e:
         print(f"ERROR: Failed to fetch major holders for symbol: {symbol_name} - {e}")
         return {"symbol": symbol_name, "major_holders": {}, "error": str(e)}
@@ -466,9 +502,14 @@ def get_institutional_holders(symbol_name: str) -> dict:
             raise ValueError("Symbol name is required.")
         normalized_symbol = normalize_symbol(symbol_name.strip().upper())
         data = yf.Ticker(normalized_symbol).get_institutional_holders(as_dict=True)
-        return {"symbol": symbol_name, "institutional_holders": data if data is not None else {}}
+        return {
+            "symbol": symbol_name,
+            "institutional_holders": data if data is not None else {},
+        }
     except Exception as e:
-        print(f"ERROR: Failed to fetch institutional holders for symbol: {symbol_name} - {e}")
+        print(
+            f"ERROR: Failed to fetch institutional holders for symbol: {symbol_name} - {e}"
+        )
         return {"symbol": symbol_name, "institutional_holders": {}, "error": str(e)}
 
 
@@ -487,9 +528,14 @@ def get_mutualfund_holders(symbol_name: str) -> dict:
             raise ValueError("Symbol name is required.")
         normalized_symbol = normalize_symbol(symbol_name.strip().upper())
         data = yf.Ticker(normalized_symbol).get_mutualfund_holders(as_dict=True)
-        return {"symbol": symbol_name, "mutualfund_holders": data if data is not None else {}}
+        return {
+            "symbol": symbol_name,
+            "mutualfund_holders": data if data is not None else {},
+        }
     except Exception as e:
-        print(f"ERROR: Failed to fetch mutual fund holders for symbol: {symbol_name} - {e}")
+        print(
+            f"ERROR: Failed to fetch mutual fund holders for symbol: {symbol_name} - {e}"
+        )
         return {"symbol": symbol_name, "mutualfund_holders": {}, "error": str(e)}
 
 
@@ -508,9 +554,14 @@ def get_insider_purchases(symbol_name: str) -> dict:
             raise ValueError("Symbol name is required.")
         normalized_symbol = normalize_symbol(symbol_name.strip().upper())
         data = yf.Ticker(normalized_symbol).get_insider_purchases(as_dict=True)
-        return {"symbol": symbol_name, "insider_purchases": data if data is not None else {}}
+        return {
+            "symbol": symbol_name,
+            "insider_purchases": data if data is not None else {},
+        }
     except Exception as e:
-        print(f"ERROR: Failed to fetch insider purchases for symbol: {symbol_name} - {e}")
+        print(
+            f"ERROR: Failed to fetch insider purchases for symbol: {symbol_name} - {e}"
+        )
         return {"symbol": symbol_name, "insider_purchases": {}, "error": str(e)}
 
 
@@ -529,9 +580,14 @@ def get_insider_transactions(symbol_name: str) -> dict:
             raise ValueError("Symbol name is required.")
         normalized_symbol = normalize_symbol(symbol_name.strip().upper())
         data = yf.Ticker(normalized_symbol).get_insider_transactions(as_dict=True)
-        return {"symbol": symbol_name, "insider_transactions": data if data is not None else {}}
+        return {
+            "symbol": symbol_name,
+            "insider_transactions": data if data is not None else {},
+        }
     except Exception as e:
-        print(f"ERROR: Failed to fetch insider transactions for symbol: {symbol_name} - {e}")
+        print(
+            f"ERROR: Failed to fetch insider transactions for symbol: {symbol_name} - {e}"
+        )
         return {"symbol": symbol_name, "insider_transactions": {}, "error": str(e)}
 
 
@@ -639,8 +695,15 @@ def get_last_close_price(symbol_name: str) -> dict:
 
         return {"symbol": symbol_name, "last_close_price": last_close, "date": date_str}
     except Exception as e:
-        print(f"ERROR: Failed to fetch last close price for symbol: {symbol_name} - {e}")
-        return {"symbol": symbol_name, "last_close_price": None, "date": None, "error": str(e)}
+        print(
+            f"ERROR: Failed to fetch last close price for symbol: {symbol_name} - {e}"
+        )
+        return {
+            "symbol": symbol_name,
+            "last_close_price": None,
+            "date": None,
+            "error": str(e),
+        }
 
 
 def get_ticker_info(symbol: str) -> dict:

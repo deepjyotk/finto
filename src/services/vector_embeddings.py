@@ -38,7 +38,10 @@ def init_pinecone(index_name: str | None = None, dimension: int | None = None):
 
 
 def upsert_symbols_from_iterable(
-    index, embeddings: OpenAIEmbeddings, items: Iterable[Tuple[str, str]], batch_size: int = 64
+    index,
+    embeddings: OpenAIEmbeddings,
+    items: Iterable[Tuple[str, str]],
+    batch_size: int = 64,
 ):
     """
     Upsert symbol/company pairs.
@@ -56,7 +59,8 @@ def upsert_symbols_from_iterable(
         if len(ids) >= batch_size:
             vectors = embeddings.embed_documents(texts)
             to_upsert = [
-                {"id": ids[i], "values": vectors[i], "metadata": metas[i]} for i in range(len(ids))
+                {"id": ids[i], "values": vectors[i], "metadata": metas[i]}
+                for i in range(len(ids))
             ]
             index.upsert(vectors=to_upsert)
             ids = []
@@ -66,7 +70,8 @@ def upsert_symbols_from_iterable(
     if ids:
         vectors = embeddings.embed_documents(texts)
         to_upsert = [
-            {"id": ids[i], "values": vectors[i], "metadata": metas[i]} for i in range(len(ids))
+            {"id": ids[i], "values": vectors[i], "metadata": metas[i]}
+            for i in range(len(ids))
         ]
         index.upsert(vectors=to_upsert)
 
@@ -81,8 +86,13 @@ def upsert_from_portfolio_excel(
     """Load symbols from Excel and upsert to Pinecone."""
     df = pd.read_excel(excel_path)
     if symbol_col not in df.columns or name_col not in df.columns:
-        raise ValueError(f"Expected columns {symbol_col} and {name_col} in {excel_path}")
-    items = ((str(row[symbol_col]).strip(), str(row[name_col]).strip()) for _, row in df.iterrows())
+        raise ValueError(
+            f"Expected columns {symbol_col} and {name_col} in {excel_path}"
+        )
+    items = (
+        (str(row[symbol_col]).strip(), str(row[name_col]).strip())
+        for _, row in df.iterrows()
+    )
     upsert_symbols_from_iterable(index, embeddings, items)
 
 

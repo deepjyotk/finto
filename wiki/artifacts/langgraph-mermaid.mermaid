@@ -6,7 +6,7 @@ config:
 graph TD;
 	__start__([<p>__start__</p>]):::first
 	orchestrator_node(orchestrator_node)
-	portfolio_worker_tool_node(portfolio_worker_tool_node)
+	financial_analysis_tool_node(financial_analysis_tool_node)
 	web_search_tool_node(web_search_tool_node)
 	final_response_generation_node(final_response_generation_node)
 	unknown_node(unknown_node)
@@ -15,9 +15,9 @@ graph TD;
 	web_search_tool_node --> orchestrator_node;
 	orchestrator_node -.-> final_response_generation_node;
 	orchestrator_node -.-> web_search_tool_node;
-	orchestrator_node -.-> portfolio_worker_tool_node;
+	orchestrator_node -.-> financial_analysis_tool_node;
 	orchestrator_node -.-> unknown_node;
-	portfolio_worker_tool_node --> orchestrator_node;
+	financial_analysis_tool_node --> orchestrator_node;
 	final_response_generation_node --> __end__;
 	unknown_node --> __end__;
 	classDef default fill:#f2f0ff,line-height:1.2

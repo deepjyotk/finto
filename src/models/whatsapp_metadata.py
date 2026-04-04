@@ -23,7 +23,9 @@ class WhatsAppMetadata(Base):
         nullable=False,
         index=True,
     )
-    user_e164: Mapped[str] = mapped_column(Text, nullable=False, unique=True, index=True)
+    user_e164: Mapped[str] = mapped_column(
+        Text, nullable=False, unique=True, index=True
+    )
 
     def __repr__(self) -> str:
         return (

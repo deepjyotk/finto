@@ -5,7 +5,13 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
-from src.api.schemas.auth import OTPResponse, OTPVerifyRequest, UserCreate, UserLogin, UserResponse
+from src.api.schemas.auth import (
+    OTPResponse,
+    OTPVerifyRequest,
+    UserCreate,
+    UserLogin,
+    UserResponse,
+)
 from src.core.json_logging import logger_for
 from src.core.middleware import require_auth
 from src.core.settings import settings
@@ -46,18 +52,24 @@ async def register(
 
     Returns success message when OTP is sent.
     """
-    logger.info("register_attempt", extra={"username": user.username, "email": user.email})
+    logger.info(
+        "register_attempt", extra={"username": user.username, "email": user.email}
+    )
 
     success, message, _ = await svc.initiate_registration(user)
 
     if not success:
-        logger.error("register_failed", extra={"username": user.username, "reason": message})
+        logger.error(
+            "register_failed", extra={"username": user.username, "reason": message}
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=message,
         )
 
-    logger.info("register_otp_sent", extra={"username": user.username, "email": user.email})
+    logger.info(
+        "register_otp_sent", extra={"username": user.username, "email": user.email}
+    )
 
     return OTPResponse(message=message)
 
@@ -96,7 +108,9 @@ async def verify_otp(
     )
 
     if not success or not created_user:
-        logger.error("verify_otp_failed", extra={"email": otp_data.email, "reason": message})
+        logger.error(
+            "verify_otp_failed", extra={"email": otp_data.email, "reason": message}
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=message,

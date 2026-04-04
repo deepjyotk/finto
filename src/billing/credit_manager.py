@@ -40,14 +40,22 @@ MODEL_PRICING = {
     "gpt-5": ModelPricing(input_cost_per_1m=1.25, output_cost_per_1m=10.00),
     "gpt-3.5-turbo": ModelPricing(input_cost_per_1m=0.50, output_cost_per_1m=1.50),
     # Anthropic Models
-    "claude-3-5-sonnet-20241022": ModelPricing(input_cost_per_1m=3.00, output_cost_per_1m=15.00),
-    "claude-3-5-haiku-20241022": ModelPricing(input_cost_per_1m=0.80, output_cost_per_1m=4.00),
-    "claude-3-opus-20240229": ModelPricing(input_cost_per_1m=15.00, output_cost_per_1m=75.00),
+    "claude-3-5-sonnet-20241022": ModelPricing(
+        input_cost_per_1m=3.00, output_cost_per_1m=15.00
+    ),
+    "claude-3-5-haiku-20241022": ModelPricing(
+        input_cost_per_1m=0.80, output_cost_per_1m=4.00
+    ),
+    "claude-3-opus-20240229": ModelPricing(
+        input_cost_per_1m=15.00, output_cost_per_1m=75.00
+    ),
     # Google Models
     "gemini-1.5-pro": ModelPricing(input_cost_per_1m=1.25, output_cost_per_1m=5.00),
     "gemini-1.5-flash": ModelPricing(input_cost_per_1m=0.075, output_cost_per_1m=0.30),
     # Thesys/C1 wrapped models (use base model pricing)
-    "c1-exp/openai/gpt-4.1": ModelPricing(input_cost_per_1m=10.00, output_cost_per_1m=30.00),
+    "c1-exp/openai/gpt-4.1": ModelPricing(
+        input_cost_per_1m=10.00, output_cost_per_1m=30.00
+    ),
 }
 
 # Conversion rate: 1 USD = 1000 credits
@@ -104,7 +112,9 @@ class CreditManager:
 
             await self._db.commit()
             await self._db.refresh(self._user_credits)
-            logger.info(f"Created credits record for user {self.user_id} with 5000 initial credits")
+            logger.info(
+                f"Created credits record for user {self.user_id} with 5000 initial credits"
+            )
 
         self._loaded = True
         return self._user_credits
@@ -166,7 +176,9 @@ class CreditManager:
                     break
 
         if not pricing:
-            logger.warning(f"Unknown model pricing for {model_name}, using gpt-4o-mini as fallback")
+            logger.warning(
+                f"Unknown model pricing for {model_name}, using gpt-4o-mini as fallback"
+            )
             pricing = MODEL_PRICING["gpt-4o-mini"]
 
         # Calculate cost in USD
@@ -195,7 +207,9 @@ class CreditManager:
             tuple[bool, int, str]: (success, credits_deducted, message)
         """
         user_credits = await self._ensure_loaded()
-        usd_cost, credit_cost = self.calculate_cost(model_name, input_tokens, output_tokens)
+        usd_cost, credit_cost = self.calculate_cost(
+            model_name, input_tokens, output_tokens
+        )
 
         current_balance = await self.get_balance()
 
@@ -323,12 +337,18 @@ class CreditManager:
         """
         from sqlalchemy import desc
 
-        stmt = select(CreditTransaction).where(CreditTransaction.user_id == self.user_id)
+        stmt = select(CreditTransaction).where(
+            CreditTransaction.user_id == self.user_id
+        )
 
         if transaction_type:
             stmt = stmt.where(CreditTransaction.transaction_type == transaction_type)
 
-        stmt = stmt.order_by(desc(CreditTransaction.created_at)).limit(limit).offset(offset)
+        stmt = (
+            stmt.order_by(desc(CreditTransaction.created_at))
+            .limit(limit)
+            .offset(offset)
+        )
 
         result = await self._db.execute(stmt)
         transactions = result.scalars().all()

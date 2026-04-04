@@ -8,9 +8,7 @@ from src.core.enums import LLMModel
 
 
 class ChatRequest(BaseModel):
-    message: str = Field(
-        ..., description="User message to send", examples=["Hello, how are you?"]
-    )
+    message: str = Field(..., description="User message to send", examples=["Hello, how are you?"])
     file: Optional[str] = Field(
         None, description="Optional file path or identifier", examples=[None]
     )
@@ -43,7 +41,5 @@ class ChatResponse(BaseModel):
     )
 
     model_config = {
-        "json_schema_extra": {
-            "example": {"response": "Hello! How can I help you today?"}
-        }
+        "json_schema_extra": {"example": {"response": "Hello! How can I help you today?"}}
     }

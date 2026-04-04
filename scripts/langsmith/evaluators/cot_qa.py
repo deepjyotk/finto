@@ -49,9 +49,7 @@ def _message_content_to_str(message: Any) -> str:
         normalized_chunks: list[str] = []
         for chunk in content:
             if isinstance(chunk, dict):
-                normalized_chunks.append(
-                    str(chunk.get("text") or chunk.get("content") or "")
-                )
+                normalized_chunks.append(str(chunk.get("text") or chunk.get("content") or ""))
             else:
                 normalized_chunks.append(str(chunk))
         return "\n".join(normalized_chunks).strip()
@@ -86,13 +84,9 @@ def predict_agent_answer(
     inputs: Mapping[str, Any], config: RunnableConfig | None = None, **_: Any
 ) -> Dict[str, str]:
     """Invoke the LangGraph agent on a dataset row."""
-    question = inputs.get("input") or inputs.get(
-        "question"
-    )  # Support both 'input' and 'question'
+    question = inputs.get("input") or inputs.get("question")  # Support both 'input' and 'question'
     if not isinstance(question, str) or not question.strip():
-        raise ValueError(
-            "Each dataset example must include a non-empty 'input' or 'question'."
-        )
+        raise ValueError("Each dataset example must include a non-empty 'input' or 'question'.")
 
     graph = _get_compiled_graph()
 
@@ -118,9 +112,7 @@ def predict_agent_answer(
 class CotQAGrade(BaseModel):
     """Structured result returned by the grading LLM."""
 
-    score: float = Field(
-        description="1.0 for correct answers, 0.0 for incorrect", ge=0.0, le=1.0
-    )
+    score: float = Field(description="1.0 for correct answers, 0.0 for incorrect", ge=0.0, le=1.0)
     reasoning: str = Field(description="Brief rationale explaining the score.")
 
 
@@ -156,12 +148,10 @@ def cot_qa_evaluator(run: Run, example: Example, **_: Any) -> Dict[str, Any]:
     """Grade the agent answer using the CoT QA evaluator chain."""
     outputs = run.outputs or {}
     prediction = outputs.get("answer", "")
-    reference = (example.outputs or {}).get("output", "") or (
-        example.outputs or {}
-    ).get("answer", "")
-    question = (example.inputs or {}).get("input", "") or (example.inputs or {}).get(
-        "question", ""
+    reference = (example.outputs or {}).get("output", "") or (example.outputs or {}).get(
+        "answer", ""
     )
+    question = (example.inputs or {}).get("input", "") or (example.inputs or {}).get("question", "")
 
     if not isinstance(prediction, str):
         prediction = str(prediction)

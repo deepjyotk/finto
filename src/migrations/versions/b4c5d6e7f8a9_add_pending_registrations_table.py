@@ -41,18 +41,12 @@ def upgrade() -> None:
     )
 
     # Create indexes
-    op.create_index(
-        "idx_pending_registrations_email", "pending_registrations", ["email"]
-    )
-    op.create_index(
-        "idx_pending_registrations_expires_at", "pending_registrations", ["expires_at"]
-    )
+    op.create_index("idx_pending_registrations_email", "pending_registrations", ["email"])
+    op.create_index("idx_pending_registrations_expires_at", "pending_registrations", ["expires_at"])
 
 
 def downgrade() -> None:
     """Drop pending_registrations table and its indexes."""
-    op.drop_index(
-        "idx_pending_registrations_expires_at", table_name="pending_registrations"
-    )
+    op.drop_index("idx_pending_registrations_expires_at", table_name="pending_registrations")
     op.drop_index("idx_pending_registrations_email", table_name="pending_registrations")
     op.drop_table("pending_registrations")

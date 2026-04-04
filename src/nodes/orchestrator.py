@@ -246,9 +246,7 @@ Deliver responses that are:
 
             orchestrator_model = context.get("orchestrator_model", LLMModel.GPT4oMini)
             llm = self._llm_factory(orchestrator_model)
-            llm_with_tools = llm.bind_tools(
-                [self._financial_analysis_tool, self._web_search_tool]
-            )
+            llm_with_tools = llm.bind_tools([self._financial_analysis_tool, self._web_search_tool])
 
             messages = state.get("messages", [])
 
@@ -333,7 +331,5 @@ Deliver responses that are:
                 )
                 return Nodes.web_search_worker_tools.get("name")
 
-        logger.info(
-            "Orchestrator done — routing to final_response for user_id=%s", user_id
-        )
+        logger.info("Orchestrator done — routing to final_response for user_id=%s", user_id)
         return Nodes.final_response.get("name")

@@ -15,8 +15,8 @@ from src.core.llm import LLMFactory
 from src.core.settings import llm_settings, sendgrid_settings, settings
 from src.graph import Graph
 from src.nodes.final_response_generation import FinalResponseGenerationNode
-from src.nodes.orchestrator import OrchestratorNode
 from src.nodes.financial_analysis_tool_node import PortfolioNode
+from src.nodes.orchestrator import OrchestratorNode
 from src.nodes.web_search import WebSearchNode
 from src.repositories.broker_repo import BrokerRepository
 from src.repositories.chat_repo import ChatRepository
@@ -43,9 +43,7 @@ def get_llm_factory() -> LLMFactory:
             if resolved.provider == "anthropic":
                 return ChatAnthropic(model=resolved.model_name, **resolved.llm_kwargs)
             if resolved.provider == "google":
-                return ChatGoogleGenerativeAI(
-                    model=resolved.model_name, **resolved.llm_kwargs
-                )
+                return ChatGoogleGenerativeAI(model=resolved.model_name, **resolved.llm_kwargs)
             return ChatOpenAI(
                 model=resolved.model_name,
                 api_key=llm_settings.openai_api_key,
@@ -130,9 +128,7 @@ def build_agent_graph(session: AsyncSession | None = None) -> Graph:
     session_to_use = session or SessionLocal()
     holdings_repo = HoldingsRepository(session_to_use)
     holdings_service = HoldingsService(repo=holdings_repo)
-    portfolio_node = PortfolioNode(
-        llm_factory=llm_factory, holding_service=holdings_service
-    )
+    portfolio_node = PortfolioNode(llm_factory=llm_factory, holding_service=holdings_service)
 
     orchestrator_node = OrchestratorNode(
         llm_factory=llm_factory,
@@ -147,9 +143,7 @@ def build_agent_graph(session: AsyncSession | None = None) -> Graph:
 
 
 def get_graph(
-    final_response_node: Annotated[
-        FinalResponseGenerationNode, Depends(_get_final_response_node)
-    ],
+    final_response_node: Annotated[FinalResponseGenerationNode, Depends(_get_final_response_node)],
     orchestrator_node: Annotated[OrchestratorNode, Depends(_get_orchestrator_node)],
 ) -> Graph:
     """Provide Graph instance with all node dependencies injected."""

@@ -17,7 +17,6 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
-
 # ---------------------------------------------------------------------------
 # Event type discriminant
 # ---------------------------------------------------------------------------
@@ -41,9 +40,7 @@ class A2UIEventType(str, Enum):
 class StepStartPayload(BaseModel):
     step_name: str = Field(description="Internal node identifier (sanitised)")
     title: str = Field(description="Short user-facing label for this step")
-    description: Optional[str] = Field(
-        default=None, description="Optional detail sentence"
-    )
+    description: Optional[str] = Field(default=None, description="Optional detail sentence")
 
 
 class StepCompletePayload(BaseModel):
@@ -167,13 +164,9 @@ A2UIEvent = Annotated[
 # ---------------------------------------------------------------------------
 
 
-def make_step_start(
-    step_name: str, title: str, description: str | None = None
-) -> StepStartEvent:
+def make_step_start(step_name: str, title: str, description: str | None = None) -> StepStartEvent:
     return StepStartEvent(
-        payload=StepStartPayload(
-            step_name=step_name, title=title, description=description
-        )
+        payload=StepStartPayload(step_name=step_name, title=title, description=description)
     )
 
 

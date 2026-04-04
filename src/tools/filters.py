@@ -83,18 +83,10 @@ def value_filter(symbol_names):
             price_to_sales = info.get("priceToSalesTrailing12Months")
 
             print(f"\n{sym}:")
+            print(f"  Trailing PE: {trailing_pe:.2f}" if trailing_pe else "  Trailing PE: N/A")
+            print(f"  Forward PE: {forward_pe:.2f}" if forward_pe else "  Forward PE: N/A")
             print(
-                f"  Trailing PE: {trailing_pe:.2f}"
-                if trailing_pe
-                else "  Trailing PE: N/A"
-            )
-            print(
-                f"  Forward PE: {forward_pe:.2f}" if forward_pe else "  Forward PE: N/A"
-            )
-            print(
-                f"  Price to Book: {price_to_book:.2f}"
-                if price_to_book
-                else "  Price to Book: N/A"
+                f"  Price to Book: {price_to_book:.2f}" if price_to_book else "  Price to Book: N/A"
             )
             print(
                 f"  Price to Sales: {price_to_sales:.2f}"
@@ -114,11 +106,7 @@ def value_filter(symbol_names):
             deep_book_value = price_to_book is not None and price_to_book < 2.5
             attractive_forward_pe = forward_pe is not None and forward_pe < 15
 
-            if (
-                reasonable_pe_with_low_multiple
-                or deep_book_value
-                or attractive_forward_pe
-            ):
+            if reasonable_pe_with_low_multiple or deep_book_value or attractive_forward_pe:
                 value_stocks.append(sym)
                 print("  ✓ PASSED")
                 if reasonable_pe_with_low_multiple:

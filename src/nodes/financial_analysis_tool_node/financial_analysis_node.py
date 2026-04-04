@@ -126,10 +126,7 @@ class PortfolioNode:
             messages_ctx: List[BaseMessage] = [scope_msg, ai_response]
             attempts = 0
 
-            while (
-                getattr(ai_response, "tool_calls", None)
-                and attempts < node.max_attempts
-            ):
+            while getattr(ai_response, "tool_calls", None) and attempts < node.max_attempts:
                 tool_call = ai_response.tool_calls[0]
                 code = tool_call["args"].get("code", "")
                 tool_call_id = tool_call.get("id", f"call_{attempts}")
@@ -167,9 +164,7 @@ class PortfolioNode:
                 return state
 
             messages = state.get("messages", [])
-            user_request = state.get(
-                "user_request"
-            ) or self._latest_user_message_content(messages)
+            user_request = state.get("user_request") or self._latest_user_message_content(messages)
             user_request = (user_request or "").strip()
 
             runtime = get_runtime(AgentContext)
@@ -188,9 +183,7 @@ class PortfolioNode:
 
                 if is_success or attempts >= self.max_attempts:
                     status_note = (
-                        "successfully"
-                        if is_success
-                        else f"after {attempts} attempt(s) with errors"
+                        "successfully" if is_success else f"after {attempts} attempt(s) with errors"
                     )
                     done_msg = AIMessage(
                         content=f"Code execution complete ({status_note}).",
@@ -232,9 +225,8 @@ class PortfolioNode:
                 }
 
             extracted_symbols: List[str] = []
-            classifier_chain = (
-                SYMBOL_CLASSIFIER_PROMPT_GRAPH
-                | llm.with_structured_output(QueryTypeResult)
+            classifier_chain = SYMBOL_CLASSIFIER_PROMPT_GRAPH | llm.with_structured_output(
+                QueryTypeResult
             )
             try:
                 query_type = classifier_chain.invoke({"user_query": user_request})
@@ -257,9 +249,7 @@ class PortfolioNode:
             else:
                 summary = "User is asking about the entire portfolio"
 
-            symbol_message = AIMessage(
-                content=summary, name="portfolio_symbol_extractor"
-            )
+            symbol_message = AIMessage(content=summary, name="portfolio_symbol_extractor")
 
             invoke_args = build_code_gen_invoke_args(
                 messages=messages + [symbol_message],

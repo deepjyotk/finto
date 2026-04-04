@@ -74,9 +74,7 @@ class A2UIChatService:
         }
 
         snapshot = await graph_runner.aget_state(config)
-        history_message_length = (
-            len(snapshot.values.get("messages", [])) if snapshot else 0
-        )
+        history_message_length = len(snapshot.values.get("messages", [])) if snapshot else 0
         logger.info(
             f"[A2UI] History message length for thread {thread_id}: {history_message_length}"
         )
@@ -177,9 +175,7 @@ class A2UIChatService:
             yield make_message_complete(final_content)
 
             # Persist the AI message
-            await self.chat_repo.create_ai_message(
-                session_id=session_id, content=final_content
-            )
+            await self.chat_repo.create_ai_message(session_id=session_id, content=final_content)
             await self.chat_repo.session.commit()
 
             logger.info(f"[A2UI] Stream complete for session {thread_id}")

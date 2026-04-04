@@ -86,9 +86,7 @@ async def test_transaction_history():
 
         # Test 5: Get only deduction transactions
         print("Test 5: Get only deduction transactions")
-        deductions = await manager.get_transaction_history(
-            limit=10, transaction_type="deduction"
-        )
+        deductions = await manager.get_transaction_history(limit=10, transaction_type="deduction")
         print(f"  Found {len(deductions)} deduction transactions:")
         for i, txn in enumerate(deductions[:3], 1):  # Show first 3
             print(
@@ -98,16 +96,12 @@ async def test_transaction_history():
                 if txn["usd_cost"]
                 else f"USD: N/A"
             )
-            print(
-                f"     Tokens: {txn['input_tokens']:,} in / {txn['output_tokens']:,} out"
-            )
+            print(f"     Tokens: {txn['input_tokens']:,} in / {txn['output_tokens']:,} out")
         print()
 
         # Test 6: Get only addition transactions
         print("Test 6: Get only addition transactions")
-        additions = await manager.get_transaction_history(
-            limit=10, transaction_type="addition"
-        )
+        additions = await manager.get_transaction_history(limit=10, transaction_type="addition")
         print(f"  Found {len(additions)} addition transactions:")
         for i, txn in enumerate(additions[:3], 1):  # Show first 3
             print(
@@ -124,9 +118,7 @@ async def test_transaction_history():
         print(f"  Page 1 (first 2): {len(page1)} transactions")
         print(f"  Page 2 (next 2): {len(page2)} transactions")
         if page1 and page2:
-            print(
-                f"  ✓ Pagination working (different IDs: {page1[0]['id'] != page2[0]['id']})"
-            )
+            print(f"  ✓ Pagination working (different IDs: {page1[0]['id'] != page2[0]['id']})")
         print()
 
         print("=" * 80)

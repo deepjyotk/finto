@@ -73,9 +73,7 @@ def upgrade() -> None:
         ),
         sa.Column(
             "broker_type",
-            postgresql.ENUM(
-                "Equity", "Crypto", name="broker_type_enum", create_type=False
-            ),
+            postgresql.ENUM("Equity", "Crypto", name="broker_type_enum", create_type=False),
             nullable=False,
         ),
         sa.Column(

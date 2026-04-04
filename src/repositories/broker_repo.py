@@ -18,9 +18,7 @@ class BrokerRepository:
 
     async def get_broker_name_by_id(self, broker_id: UUID) -> str | None:
         result = await self.session.execute(
-            select(cast(Broker.broker_name, String)).where(
-                Broker.broker_id == broker_id
-            )
+            select(cast(Broker.broker_name, String)).where(Broker.broker_id == broker_id)
         )
         return result.scalar_one_or_none()
 
@@ -33,18 +31,14 @@ class BrokerRepository:
 
     async def get_company_names_by_symbols(self, symbols: list[str]) -> dict[str, str]:
         result = await self.session.execute(
-            text(
-                "SELECT symbol, company_name FROM in_equities WHERE symbol = ANY(:symbols)"
-            ),
+            text("SELECT symbol, company_name FROM in_equities WHERE symbol = ANY(:symbols)"),
             {"symbols": symbols},
         )
         return {row[0]: row[1] for row in result}
 
     async def get_symbols_by_isins(self, isins: list[str]) -> dict[str, str]:
         result = await self.session.execute(
-            text(
-                "SELECT isin_number, symbol FROM in_equities WHERE isin_number = ANY(:isins)"
-            ),
+            text("SELECT isin_number, symbol FROM in_equities WHERE isin_number = ANY(:isins)"),
             {"isins": isins},
         )
         return {row[0]: row[1] for row in result}

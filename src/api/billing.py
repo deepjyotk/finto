@@ -16,9 +16,7 @@ router = APIRouter(prefix="/billing", tags=["billing"])
 
 
 class AddCreditsRequest(BaseModel):
-    amount: int = Field(
-        ..., gt=0, description="Amount of credits to add (must be positive)"
-    )
+    amount: int = Field(..., gt=0, description="Amount of credits to add (must be positive)")
 
 
 class CreditBalanceResponse(BaseModel):
@@ -94,9 +92,7 @@ async def get_usage_summary(
         total_credits_spent=summary["total_credits_spent"],
         total_usd_spent=summary["total_usd_spent"],
         request_count=summary["request_count"],
-        recent_requests=[
-            UsageRecord(**record) for record in summary["recent_requests"]
-        ],
+        recent_requests=[UsageRecord(**record) for record in summary["recent_requests"]],
     )
 
 
@@ -120,9 +116,7 @@ async def get_transaction_history(
         limit = 200
 
     manager = CreditManager(current_user.user_id, db)
-    transactions = await manager.get_transaction_history(
-        limit, offset, transaction_type
-    )
+    transactions = await manager.get_transaction_history(limit, offset, transaction_type)
     total_count = await manager.get_transaction_count(transaction_type)
 
     return {

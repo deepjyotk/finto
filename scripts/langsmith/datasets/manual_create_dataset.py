@@ -30,9 +30,7 @@ def _zip_examples(examples: list[dict[str, str]]) -> tuple[list[dict], list[dict
     return example_inputs, example_outputs
 
 
-def _get_or_create_dataset(
-    client: Client, dataset_name: str, description: str
-) -> Dataset:
+def _get_or_create_dataset(client: Client, dataset_name: str, description: str) -> Dataset:
     """Get existing dataset or create a new one. If dataset exists, delete it first and create a new one."""
     try:
         existing_dataset = client.read_dataset(dataset_name=dataset_name)
@@ -79,9 +77,7 @@ def main() -> None:
 
     # Get dataset name and description from JSON
     dataset_name = dataset_config.get("dataset_name", "unknown-dataset")
-    dataset_description = dataset_config.get(
-        "dataset_description", "QA pairs about finto chatbot."
-    )
+    dataset_description = dataset_config.get("dataset_description", "QA pairs about finto chatbot.")
     examples = dataset_config.get("examples", [])
 
     if not examples:

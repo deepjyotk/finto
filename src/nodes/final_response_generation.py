@@ -77,10 +77,7 @@ class FinalResponseGenerationNode:
                 continue
             if (
                 isinstance(msg, ToolMessage)
-                or (
-                    isinstance(msg, AIMessage)
-                    and (hasattr(msg, "tool_calls") and msg.tool_calls)
-                )
+                or (isinstance(msg, AIMessage) and (hasattr(msg, "tool_calls") and msg.tool_calls))
                 or (isinstance(msg, AIMessage) and not hasattr(msg, "tool_calls"))
                 or isinstance(msg, SystemMessage)
             ):
@@ -207,9 +204,7 @@ Output ONLY the JSON object:"""
                 llm = self._llm_factory(model)
                 prompt_template = self._PROMPT_TEMPLATE_A2UI
 
-            user_request = (
-                state.get("user_request") or ""
-            ).strip() or "No user request provided."
+            user_request = (state.get("user_request") or "").strip() or "No user request provided."
             execution_result = (state.get("last_output") or "").strip()
             messages = state.get("messages", [])
 
@@ -232,13 +227,9 @@ Output ONLY the JSON object:"""
                 }
             )
             final_rendered_ui_answer = (
-                ai_response.content
-                if hasattr(ai_response, "content")
-                else str(ai_response)
+                ai_response.content if hasattr(ai_response, "content") else str(ai_response)
             )
-            ai_msg = AIMessage(
-                content=final_rendered_ui_answer, name="final_response_generation"
-            )
+            ai_msg = AIMessage(content=final_rendered_ui_answer, name="final_response_generation")
 
             pruned_messages = self._prune_iteration_messages(
                 context.get("history_message_length"), messages

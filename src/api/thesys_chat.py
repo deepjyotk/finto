@@ -4,10 +4,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from thesys_genui_sdk.context import write_content, write_custom_markdown
 from thesys_genui_sdk.fast_api import with_c1_response
 
-# with_c1_response() returns HTTP 200 + SSE immediately and runs the handler in a
-# background task. Raising HTTPException does not change the status code on the wire
-# (the client already got 200). Surface failures by streaming an error via C1.
-
 from src.api.schemas.thesys_chat import (
     C1ChatRequest,
     ChatMetadataResponse,
@@ -26,6 +22,11 @@ from src.core.middleware import require_auth
 from src.dependencies import get_holdings_service, get_thesys_chat_service
 from src.services.chat_thesys_service import ThesysChatService
 from src.services.holdings import HoldingsService
+
+# with_c1_response() returns HTTP 200 + SSE immediately and runs the handler in a
+# background task. Raising HTTPException does not change the status code on the wire
+# (the client already got 200). Surface failures by streaming an error via C1.
+
 
 logger = logger_for("api.thesys_chat")
 router = APIRouter(prefix="/thesys", tags=["thesys-chat"])
@@ -111,9 +112,7 @@ async def get_sessions(
     )
 
     # Calculate pagination metadata
-    total_pages = (
-        (total_sessions + page_limit - 1) // page_limit if total_sessions > 0 else 0
-    )
+    total_pages = (total_sessions + page_limit - 1) // page_limit if total_sessions > 0 else 0
     has_next_page = page < total_pages
 
     return SessionsListResponse(
@@ -265,8 +264,7 @@ async def get_chat_metadata(
 
     return ChatMetadataResponse(
         brokers=[
-            UserBrokerItem(broker_id=b["broker_id"], broker_name=b["broker_name"])
-            for b in brokers
+            UserBrokerItem(broker_id=b["broker_id"], broker_name=b["broker_name"]) for b in brokers
         ],
         chat_modes=chat_modes,
         llm_models=llm_models,

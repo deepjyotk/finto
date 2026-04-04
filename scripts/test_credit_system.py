@@ -44,21 +44,15 @@ async def test_credit_system():
         # Test 1: Check initial balance (should auto-create with 5000 credits)
         print("Test 1: Check initial balance")
         balance = await manager.get_balance()
-        print(
-            f"  ✓ Initial balance: {balance} credits (${balance / CREDITS_PER_DOLLAR:.2f})"
-        )
+        print(f"  ✓ Initial balance: {balance} credits (${balance / CREDITS_PER_DOLLAR:.2f})")
         print()
 
         # Test 2: Add credits
         print("Test 2: Add credits")
         add_amount = 2500  # Add $2.50 worth
         new_balance = await manager.add_credits(add_amount)
-        print(
-            f"  ✓ Added {add_amount} credits (${add_amount / CREDITS_PER_DOLLAR:.2f})"
-        )
-        print(
-            f"  ✓ New balance: {new_balance} credits (${new_balance / CREDITS_PER_DOLLAR:.2f})"
-        )
+        print(f"  ✓ Added {add_amount} credits (${add_amount / CREDITS_PER_DOLLAR:.2f})")
+        print(f"  ✓ New balance: {new_balance} credits (${new_balance / CREDITS_PER_DOLLAR:.2f})")
         print()
 
         # Test 3: Calculate cost for GPT-4o usage
@@ -66,9 +60,7 @@ async def test_credit_system():
         model = "gpt-4o"
         input_tokens = 1000
         output_tokens = 500
-        usd_cost, credit_cost = manager.calculate_cost(
-            model, input_tokens, output_tokens
-        )
+        usd_cost, credit_cost = manager.calculate_cost(model, input_tokens, output_tokens)
         print(f"  Model: {model}")
         print(f"  Input tokens: {input_tokens:,}, Output tokens: {output_tokens:,}")
         print(f"  ✓ Cost: ${usd_cost:.4f} = {credit_cost} credits")

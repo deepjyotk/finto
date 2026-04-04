@@ -71,14 +71,12 @@ class WhatsappChatSession(Base):
     whatsapp_closed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    whatsapp_closed_reason: Mapped[WhatsappChatSessionClosedReason | None] = (
-        mapped_column(
-            SQLEnum(
-                WhatsappChatSessionClosedReason,
-                name="whatsapp_chat_session_closed_reason",
-            ),
-            nullable=True,
-        )
+    whatsapp_closed_reason: Mapped[WhatsappChatSessionClosedReason | None] = mapped_column(
+        SQLEnum(
+            WhatsappChatSessionClosedReason,
+            name="whatsapp_chat_session_closed_reason",
+        ),
+        nullable=True,
     )
     whatsapp_metadata: Mapped[dict[str, Any]] = mapped_column(
         "whatsapp_metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")

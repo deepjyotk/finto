@@ -71,9 +71,7 @@ async def chat(
             "message_text": request.message,
             "has_file": bool(request.file),
             "conversation_history_length": len(request.conversation_history),
-            "response_length": (
-                len(response_text) if isinstance(response_text, str) else None
-            ),
+            "response_length": (len(response_text) if isinstance(response_text, str) else None),
         },
     )
 

@@ -25,9 +25,7 @@ class UserRepository:
         Returns:
             User object if found, None otherwise
         """
-        result = await self.session.execute(
-            select(User).where(User.username == username)
-        )
+        result = await self.session.execute(select(User).where(User.username == username))
         return result.scalar_one_or_none()
 
     async def by_email(self, email: str) -> Optional[User]:

@@ -116,9 +116,7 @@ class Graph:
         self,
         orchestrator_node: OrchestratorNode,
         final_response_node: FinalResponseGenerationNode,
-        checkpointer_factory: Callable[
-            [], Awaitable[AsyncPostgresSaver]
-        ] = _create_checkpointer,
+        checkpointer_factory: Callable[[], Awaitable[AsyncPostgresSaver]] = _create_checkpointer,
     ):
         self.orchestrator_node = orchestrator_node
         self.final_response_node = final_response_node
@@ -166,9 +164,7 @@ class Graph:
             Nodes.financial_analysis_worker_tools.get("name"),
             financial_analysis_tool_node,
         )
-        builder.add_node(
-            Nodes.web_search_worker_tools.get("name"), web_search_tool_node
-        )
+        builder.add_node(Nodes.web_search_worker_tools.get("name"), web_search_tool_node)
         builder.add_node(Nodes.final_response.get("name"), final_response_node)
         builder.add_node(Nodes.unknown.get("name"), Graph._handle_unknown_node)
 
@@ -177,9 +173,7 @@ class Graph:
             Nodes.financial_analysis_worker_tools.get("name"),
             Nodes.orchestrator.get("name"),
         )
-        builder.add_edge(
-            Nodes.web_search_worker_tools.get("name"), Nodes.orchestrator.get("name")
-        )
+        builder.add_edge(Nodes.web_search_worker_tools.get("name"), Nodes.orchestrator.get("name"))
 
         # Orchestrator routes to workers (if it still has tool calls to make) or
         # to final_response when context collection is complete
@@ -190,9 +184,9 @@ class Graph:
                 Nodes.financial_analysis_worker_tools.get(
                     "name"
                 ): Nodes.financial_analysis_worker_tools.get("name"),
-                Nodes.web_search_worker_tools.get(
+                Nodes.web_search_worker_tools.get("name"): Nodes.web_search_worker_tools.get(
                     "name"
-                ): Nodes.web_search_worker_tools.get("name"),
+                ),
                 Nodes.final_response.get("name"): Nodes.final_response.get("name"),
                 Nodes.unknown.get("name"): Nodes.unknown.get("name"),
             },

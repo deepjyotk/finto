@@ -42,9 +42,7 @@ def upgrade() -> None:
     )
 
     # Create indexes
-    op.create_index(
-        "ix_whatsapp_cache_temporary_code", "whatsapp_cache", ["temporary_code"]
-    )
+    op.create_index("ix_whatsapp_cache_temporary_code", "whatsapp_cache", ["temporary_code"])
     op.create_index("ix_whatsapp_cache_created_at", "whatsapp_cache", ["created_at"])
 
 

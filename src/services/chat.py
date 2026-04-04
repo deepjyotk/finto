@@ -87,9 +87,7 @@ class ChatService:
                 }
 
                 try:
-                    out = await graph_runner.ainvoke(
-                        initial_state, config=config, context=context
-                    )
+                    out = await graph_runner.ainvoke(initial_state, config=config, context=context)
                 except Exception as e:
                     # If the error looks like a DB connection problem, try rebuilding the graph once and retry
                     msg = str(e).lower()

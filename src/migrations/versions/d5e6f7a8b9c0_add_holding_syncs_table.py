@@ -41,9 +41,7 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["user_id"], ["f_users.user_id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(
-        op.f("ix_holding_syncs_user_id"), "holding_syncs", ["user_id"], unique=False
-    )
+    op.create_index(op.f("ix_holding_syncs_user_id"), "holding_syncs", ["user_id"], unique=False)
     op.create_index(
         op.f("ix_holding_syncs_synced_at"), "holding_syncs", ["synced_at"], unique=False
     )

@@ -128,18 +128,11 @@ class HoldingsRepository:
             .where(EquityHoldingMetadata.user_id == user_id)
         )
 
-        return [
-            {"broker_id": row.broker_id, "broker_name": row.broker_name}
-            for row in result
-        ]
+        return [{"broker_id": row.broker_id, "broker_name": row.broker_name} for row in result]
 
-    async def get_metadata_by_user_id(
-        self, user_id: UUID
-    ) -> list[EquityHoldingMetadata]:
+    async def get_metadata_by_user_id(self, user_id: UUID) -> list[EquityHoldingMetadata]:
         result = await self.session.execute(
-            select(EquityHoldingMetadata).where(
-                EquityHoldingMetadata.user_id == user_id
-            )
+            select(EquityHoldingMetadata).where(EquityHoldingMetadata.user_id == user_id)
         )
         return list(result.scalars().all())
 
@@ -255,15 +248,11 @@ class HoldingsRepository:
         user_broker_ids = [m.user_broker_id for m in metadata_list]
 
         result = await self.session.execute(
-            select(EquityHolding).where(
-                EquityHolding.user_broker_id.in_(user_broker_ids)
-            )
+            select(EquityHolding).where(EquityHolding.user_broker_id.in_(user_broker_ids))
         )
         return list(result.scalars().all())
 
-    async def by_user_and_broker(
-        self, user_id: UUID, broker_id: UUID
-    ) -> list[EquityHolding]:
+    async def by_user_and_broker(self, user_id: UUID, broker_id: UUID) -> list[EquityHolding]:
         """
         Find all holdings for a user with a specific broker.
 
@@ -280,9 +269,7 @@ class HoldingsRepository:
             return []
 
         result = await self.session.execute(
-            select(EquityHolding).where(
-                EquityHolding.user_broker_id == metadata.user_broker_id
-            )
+            select(EquityHolding).where(EquityHolding.user_broker_id == metadata.user_broker_id)
         )
         return list(result.scalars().all())
 
@@ -334,9 +321,7 @@ class HoldingsRepository:
             return 0
 
         result = await self.session.execute(
-            delete(EquityHolding).where(
-                EquityHolding.user_broker_id == metadata.user_broker_id
-            )
+            delete(EquityHolding).where(EquityHolding.user_broker_id == metadata.user_broker_id)
         )
         return result.rowcount
 
@@ -357,9 +342,7 @@ class HoldingsRepository:
         )
         return result.rowcount
 
-    async def delete_metadata_by_user_and_broker(
-        self, user_id: UUID, broker_id: UUID
-    ) -> bool:
+    async def delete_metadata_by_user_and_broker(self, user_id: UUID, broker_id: UUID) -> bool:
         """
         Delete metadata record for a user-broker pair.
 
@@ -588,9 +571,7 @@ class HoldingsRepository:
         Returns:
             The created HoldingSync object
         """
-        sync = HoldingSync(
-            user_id=user_id, synced_count=synced_count, updated_count=updated_count
-        )
+        sync = HoldingSync(user_id=user_id, synced_count=synced_count, updated_count=updated_count)
         self.session.add(sync)
         await self.session.flush()
         return sync

@@ -30,11 +30,7 @@ DATABASE_URL = os.getenv("DATABASE_URL", "")
 
 # Debug: Print connection info (hide password)
 if DATABASE_URL:
-    safe_url = (
-        DATABASE_URL[:30] + "***" + DATABASE_URL[-20:]
-        if len(DATABASE_URL) > 50
-        else "***"
-    )
+    safe_url = DATABASE_URL[:30] + "***" + DATABASE_URL[-20:] if len(DATABASE_URL) > 50 else "***"
     print(f"🔗 Connecting to: {safe_url}")
 else:
     print("⚠️  WARNING: DATABASE_URL not set!")

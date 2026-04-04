@@ -13,9 +13,7 @@ from src.core.json_logging import logger_for
 from src.core.settings import tavily_settings
 
 # Add project root to path (go up from tools -> src -> finto)
-sys.path.insert(
-    0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-)
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 
 # Set API key in environment for LangChain to pick up

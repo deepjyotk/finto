@@ -14,9 +14,7 @@ class Settings(BaseSettings):
     # Pool size for SQLAlchemy connections to the connection pooler
     # With a pooler (40 pool size, 200 max clients), we can use more connections
     # since the pooler multiplexes them. Keep below 200 total client connections.
-    db_pool_size: int = (
-        30  # Can be higher with connection pooler (up to ~200 max clients)
-    )
+    db_pool_size: int = 30  # Can be higher with connection pooler (up to ~200 max clients)
     db_max_overflow: int = (
         10  # Additional connections beyond pool_size (total = pool_size + max_overflow)
     )
@@ -137,9 +135,7 @@ class PineconeSettings(BaseSettings):
         default="text-embedding-3-small",
         description="OpenAI embedding model name",
     )
-    api_key: str = Field(
-        ..., description="Pinecone API key", validation_alias="PINECONE_API_KEY"
-    )
+    api_key: str = Field(..., description="Pinecone API key", validation_alias="PINECONE_API_KEY")
 
     model_config = SettingsConfigDict(
         env_file=".env",

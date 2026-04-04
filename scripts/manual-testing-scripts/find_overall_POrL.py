@@ -17,7 +17,9 @@ import gspread
 import pandas as pd
 from google.oauth2.service_account import Credentials
 
-DEFAULT_SHEET_URL = "https://docs.google.com/spreadsheets/d/1c6CS1Qp9hswt0MsHSyq7mny17eVXfsi2gvphgrDGPlg/edit"
+DEFAULT_SHEET_URL = (
+    "https://docs.google.com/spreadsheets/d/1c6CS1Qp9hswt0MsHSyq7mny17eVXfsi2gvphgrDGPlg/edit"
+)
 DEFAULT_WORKSHEET = "Sheet1"
 DEFAULT_QUANTITY_COLUMN = "Quantity Available"
 DEFAULT_AVG_PRICE_COLUMN = "Average Price"
@@ -34,14 +36,10 @@ def extract_sheet_id(sheet_url: str) -> str:
     return match.group(1)
 
 
-def build_client(
-    credentials_file: str | None, credentials_json: str | None
-) -> gspread.Client:
+def build_client(credentials_file: str | None, credentials_json: str | None) -> gspread.Client:
     if credentials_json:
         credentials_info: dict[str, Any] = json.loads(credentials_json)
-        credentials = Credentials.from_service_account_info(
-            credentials_info, scopes=SHEETS_SCOPE
-        )
+        credentials = Credentials.from_service_account_info(credentials_info, scopes=SHEETS_SCOPE)
         return gspread.authorize(credentials)
     if credentials_file:
         credentials_path = Path(credentials_file).expanduser()
@@ -51,9 +49,7 @@ def build_client(
                 "Provide a valid path via --credentials-file or GOOGLE_APPLICATION_CREDENTIALS."
             )
             raise FileNotFoundError(msg)
-        credentials = Credentials.from_service_account_file(
-            credentials_path, scopes=SHEETS_SCOPE
-        )
+        credentials = Credentials.from_service_account_file(credentials_path, scopes=SHEETS_SCOPE)
         return gspread.authorize(credentials)
     if DEFAULT_CREDENTIALS_PATH.exists():
         return gspread.service_account()
@@ -134,9 +130,7 @@ def calculate_overall_pl(
     if not valid_mask.any():
         return 0.0, 0.0
 
-    quantities = (
-        pd.to_numeric(df[quantity_col], errors="coerce").where(valid_mask).fillna(0)
-    )
+    quantities = pd.to_numeric(df[quantity_col], errors="coerce").where(valid_mask).fillna(0)
     avg_prices = pd.to_numeric(df[avg_col], errors="coerce").where(valid_mask).fillna(0)
     current_prices = raw_current_prices.where(valid_mask).fillna(0)
 

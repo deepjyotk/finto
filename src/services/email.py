@@ -13,9 +13,7 @@ logger = logger_for(__name__)
 class EmailService:
     """Service layer for email operations using SendGrid"""
 
-    def __init__(
-        self, api_key: Optional[str], from_email: Optional[str], from_name: str
-    ):
+    def __init__(self, api_key: Optional[str], from_email: Optional[str], from_name: str):
         """
         Initialize EmailService.
 
@@ -134,9 +132,7 @@ class EmailService:
             from functools import partial
 
             loop = asyncio.get_running_loop()
-            response = await loop.run_in_executor(
-                None, partial(self.client.send, message)
-            )
+            response = await loop.run_in_executor(None, partial(self.client.send, message))
 
             if response.status_code in [200, 201, 202]:
                 logger.info(
@@ -168,7 +164,9 @@ class EmailService:
                     "Please verify your sender email in SendGrid Dashboard → Settings → Sender Authentication"
                 )
             elif "401" in error_msg or "Unauthorized" in error_msg:
-                detailed_error = "SendGrid API key is invalid or expired. Please check your SENDGRID_API_KEY."
+                detailed_error = (
+                    "SendGrid API key is invalid or expired. Please check your SENDGRID_API_KEY."
+                )
             else:
                 detailed_error = error_msg
 

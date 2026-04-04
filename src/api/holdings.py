@@ -109,9 +109,7 @@ async def get_holdings_metadata(
 )
 async def upload_holdings_file(
     broker_id: Annotated[UUID, Form(..., description="Broker ID")],
-    file: Annotated[
-        UploadFile, File(..., description="Excel or CSV file with holdings data")
-    ],
+    file: Annotated[UploadFile, File(..., description="Excel or CSV file with holdings data")],
     svc: Annotated[HoldingsService, Depends(get_holdings_service)],
     broker_svc: Annotated[BrokerService, Depends(get_broker_service)],
     user: dict = Depends(require_auth),
@@ -255,9 +253,7 @@ async def upload_holdings_file(
 )
 async def update_holdings_file(
     user_broker_id: UUID,
-    file: Annotated[
-        UploadFile, File(..., description="Excel or CSV file with holdings data")
-    ],
+    file: Annotated[UploadFile, File(..., description="Excel or CSV file with holdings data")],
     svc: Annotated[HoldingsService, Depends(get_holdings_service)],
     broker_svc: Annotated[BrokerService, Depends(get_broker_service)],
     user: dict = Depends(require_auth),
@@ -419,11 +415,7 @@ async def sync_holdings(
         # Get broker_id by name from database
         brokers = await broker_svc.get_all_brokers()
         matched_broker = next(
-            (
-                b
-                for b in brokers
-                if b.get("broker_name", "").lower() == request.broker_name.lower()
-            ),
+            (b for b in brokers if b.get("broker_name", "").lower() == request.broker_name.lower()),
             None,
         )
         if matched_broker is None:
@@ -453,9 +445,7 @@ async def sync_holdings(
             },
         )
 
-        message = (
-            f"Successfully synced {synced_count} holdings, updated {updated_count}"
-        )
+        message = f"Successfully synced {synced_count} holdings, updated {updated_count}"
         return SyncHoldingsResponse(
             synced_count=synced_count,
             updated_count=updated_count,
@@ -594,9 +584,7 @@ async def delete_broker_holdings(
 
     try:
         # Verify metadata exists and belongs to user
-        metadata = await svc.repo.get_metadata_by_user_broker_id(
-            user_broker_id, user_id
-        )
+        metadata = await svc.repo.get_metadata_by_user_broker_id(user_broker_id, user_id)
         if metadata is None:
             logger.info(
                 "delete_broker_holdings_not_found",

@@ -1,6 +1,4 @@
-def calculate_profit_or_loss(
-    quantity: float, average_price: float, current_price: float
-) -> dict:
+def calculate_profit_or_loss(quantity: float, average_price: float, current_price: float) -> dict:
     """Calculate profit or loss using quantity, purchase price, and current price.
 
     Args:

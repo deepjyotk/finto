@@ -63,15 +63,9 @@ def upgrade() -> None:
             ["session_id"], ["chat_sessions.chat_session_id"], ondelete="CASCADE"
         ),
         sa.ForeignKeyConstraint(["user_id"], ["f_users.user_id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(
-            ["reply_to_id"], ["chat_messages.id"], ondelete="SET NULL"
-        ),
-        sa.ForeignKeyConstraint(
-            ["thread_root_id"], ["chat_messages.id"], ondelete="SET NULL"
-        ),
-        sa.UniqueConstraint(
-            "session_id", "seq_no", name="uq_chat_messages_session_seq"
-        ),
+        sa.ForeignKeyConstraint(["reply_to_id"], ["chat_messages.id"], ondelete="SET NULL"),
+        sa.ForeignKeyConstraint(["thread_root_id"], ["chat_messages.id"], ondelete="SET NULL"),
+        sa.UniqueConstraint("session_id", "seq_no", name="uq_chat_messages_session_seq"),
     )
 
     # Create indexes

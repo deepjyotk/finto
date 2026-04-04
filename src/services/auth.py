@@ -81,9 +81,7 @@ class AuthService:
         """Verify a plain OTP against a hashed OTP."""
         return pwd_context.verify(plain_otp, hashed_otp)
 
-    def create_access_token(
-        self, data: dict, expires_delta: Optional[timedelta] = None
-    ) -> str:
+    def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None) -> str:
         """
         Create a JWT access token.
 
@@ -124,9 +122,7 @@ class AuthService:
         except jwt.PyJWTError:
             return None
 
-    async def initiate_registration(
-        self, user_data: UserCreate
-    ) -> tuple[bool, str, Optional[str]]:
+    async def initiate_registration(self, user_data: UserCreate) -> tuple[bool, str, Optional[str]]:
         """
         Initiate registration by creating pending registration and sending OTP.
 
@@ -213,9 +209,7 @@ class AuthService:
             )
         else:
             # Fallback for testing without email service
-            logger.warning(
-                "email_service_not_configured", extra={"email": user_data.email}
-            )
+            logger.warning("email_service_not_configured", extra={"email": user_data.email})
             await asyncio.sleep(1)  # Minimal delay for testing
 
         # Return success (OTP not returned in production)

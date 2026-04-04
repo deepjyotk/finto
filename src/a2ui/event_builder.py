@@ -38,8 +38,8 @@ _NODE_LABELS: dict[str, dict[str, str]] = {
         "description": "Planning how to best answer your question",
     },
     "financial_analysis_tool_node": {
-        "title": "Checking portfolio",
-        "description": "Fetching your portfolio data and running analysis",
+        "title": "Calling Arthik Agent",
+        "description": "Running financial analysis with your portfolio context",
     },
     "web_search_tool_node": {
         "title": "Searching the web",
@@ -59,7 +59,7 @@ _TRACKED_NODES: frozenset[str] = frozenset(_NODE_LABELS)
 # ---------------------------------------------------------------------------
 
 _TOOL_LABELS: dict[str, str] = {
-    "financial_analysis_tool": "Portfolio analysis",
+    "financial_analysis_tool": "Financial Analysis",
     "web_search_worker": "Web search",
     "get_portfolio_metrics": "Portfolio metrics",
     "get_holdings": "Holdings lookup",

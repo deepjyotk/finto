@@ -76,7 +76,6 @@ def _tool_display_name(tool_name: str) -> str:
 
 def _extract_parent_node(event: dict[str, Any]) -> str:
     """Best-effort extraction of the parent node name from event tags/metadata."""
-    tags: list[str] = event.get("tags", []) or []
     # LangGraph injects the parent node name as a tag in the form 'seq:step:N'
     # The metadata dict also carries langgraph_node for recent versions.
     meta: dict[str, Any] = event.get("metadata", {}) or {}

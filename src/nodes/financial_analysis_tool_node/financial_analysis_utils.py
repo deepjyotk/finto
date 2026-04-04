@@ -90,7 +90,7 @@ def get_function_with_doc_string(fns: list[Callable]) -> str:
     for fn in fns:
         sig = inspect.signature(fn)
         doc = (fn.__doc__ or "").strip().replace("\n", " ")
-        chunks.append(f"def {fn.__name__}{sig}:\n" f'    """{doc}"""\n' f"    ...")
+        chunks.append(f'def {fn.__name__}{sig}:\n    """{doc}"""\n    ...')
     return "\n\n".join(chunks)
 
 

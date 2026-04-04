@@ -9,7 +9,6 @@ The service is used exclusively when ``THESYS_ENABLED=false``.
 
 from __future__ import annotations
 
-import asyncio
 from typing import Any, AsyncIterator, List, Optional
 from uuid import UUID
 

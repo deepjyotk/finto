@@ -73,7 +73,7 @@ Example usage for getting net income from income statement:
 
     # Extract Net Income series
     net_income_series = df["NetIncome"]
-    
+
 ## Price & Returns:
 {yf_price_and_returns_function_with_doc_string}
 
@@ -191,8 +191,7 @@ SYMBOL_EXTRACTION_PROMPT = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            "Extract stock symbols from the user query. "
-            "Return only the symbols as a list.",
+            "Extract stock symbols from the user query. Return only the symbols as a list.",
         ),
         ("user", "{user_query}"),
     ]

@@ -3,7 +3,6 @@
 import asyncio
 from typing import Awaitable, Callable
 
-import psycopg
 from langchain_core.messages import AIMessage
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.graph import END, StateGraph

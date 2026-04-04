@@ -7,17 +7,17 @@ from dotenv import load_dotenv
 _env_file = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(_env_file, override=True)
 
-import uvicorn
-from fastapi import FastAPI, HTTPException, Request, status
-from fastapi.exceptions import RequestValidationError
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+import uvicorn  # noqa: E402
+from fastapi import FastAPI, HTTPException, Request, status  # noqa: E402
+from fastapi.exceptions import RequestValidationError  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from fastapi.responses import JSONResponse  # noqa: E402
 
-import os
+import os  # noqa: E402
 
-from src.api.routes import api_router
-from src.core.json_logging import logger_for, setup_json_logging
-from src.core.settings import llm_settings
+from src.api.routes import api_router  # noqa: E402
+from src.core.json_logging import logger_for, setup_json_logging  # noqa: E402
+from src.core.settings import llm_settings  # noqa: E402
 
 setup_json_logging()
 logger = logger_for(__name__)

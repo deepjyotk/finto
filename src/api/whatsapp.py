@@ -137,8 +137,7 @@ async def receive(request: Request):
             age = datetime.now(timezone.utc) - event_ts
             if age > MAX_EVENT_AGE:
                 logger.info(
-                    "Ignoring stale WhatsApp webhook "
-                    f"(age={age}, event_ts={event_ts.isoformat()})"
+                    f"Ignoring stale WhatsApp webhook (age={age}, event_ts={event_ts.isoformat()})"
                 )
                 return Response(status_code=200, content="Ignored stale webhook")
 

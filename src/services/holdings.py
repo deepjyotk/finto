@@ -137,11 +137,13 @@ class HoldingsService:
         ]
 
         # Upsert holdings
-        updated_count, inserted_count, deleted_count = (
-            await self.repo.upsert_holdings_by_user_broker_id(
-                user_broker_id=user_broker_id,
-                holdings=holdings,
-            )
+        (
+            updated_count,
+            inserted_count,
+            deleted_count,
+        ) = await self.repo.upsert_holdings_by_user_broker_id(
+            user_broker_id=user_broker_id,
+            holdings=holdings,
         )
 
         # Update metadata timestamp

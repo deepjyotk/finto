@@ -28,7 +28,4 @@ class WhatsAppMetadata(Base):
     )
 
     def __repr__(self) -> str:
-        return (
-            f"<WhatsAppMetadata(id={self.id}, user_id={self.user_id}, "
-            f"user_e164={self.user_e164})>"
-        )
+        return f"<WhatsAppMetadata(id={self.id}, user_id={self.user_id}, user_e164={self.user_e164})>"

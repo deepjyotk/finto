@@ -1,9 +1,7 @@
 """Test script for all YFinance wrapper functions."""
 
-from typing import Optional
 import pandas as pd
 
-import yfinance as yf
 import json
 from src.tools.yfinance_wrappers import (
     get_balance_sheet,
@@ -29,15 +27,15 @@ from src.tools.yfinance_wrappers import (
 
 def print_result(function_name: str, result: dict):
     """Print test result in a formatted way."""
-    print(f"\n{'='*80}")
+    print(f"\n{'=' * 80}")
     print(f"Testing: {function_name}")
-    print(f"{'='*80}")
+    print(f"{'=' * 80}")
 
     # Check if there's an error
     if "error" in result or "message" in result:
         print(f"❌ Error: {result.get('error') or result.get('message')}")
     else:
-        print(f"✅ Success")
+        print("✅ Success")
 
     # Print result preview (truncated for large data)
     result_str = json.dumps(result, indent=2, default=str)
@@ -49,9 +47,9 @@ def print_result(function_name: str, result: dict):
 
 def test_financial_statements(symbol: str):
     """Test financial statement functions."""
-    print(f"\n\n{'#'*80}")
+    print(f"\n\n{'#' * 80}")
     print(f"# TESTING FINANCIAL STATEMENTS - {symbol}")
-    print(f"{'#'*80}")
+    print(f"{'#' * 80}")
 
     # Balance Sheet
     try:
@@ -83,9 +81,9 @@ def test_financial_statements(symbol: str):
 
 def test_price_and_returns(symbol: str):
     """Test price and returns functions."""
-    print(f"\n\n{'#'*80}")
+    print(f"\n\n{'#' * 80}")
     print(f"# TESTING PRICE & RETURNS - {symbol}")
-    print(f"{'#'*80}")
+    print(f"{'#' * 80}")
 
     # Last Close Price
     try:
@@ -118,9 +116,9 @@ def test_price_and_returns(symbol: str):
 
 def test_earnings_and_estimates(symbol: str):
     """Test earnings and estimates functions."""
-    print(f"\n\n{'#'*80}")
+    print(f"\n\n{'#' * 80}")
     print(f"# TESTING EARNINGS & ESTIMATES - {symbol}")
-    print(f"{'#'*80}")
+    print(f"{'#' * 80}")
 
     # Earnings Estimate
     try:
@@ -167,9 +165,9 @@ def test_earnings_and_estimates(symbol: str):
 
 def test_ownership_and_insider(symbol: str):
     """Test ownership and insider data functions."""
-    print(f"\n\n{'#'*80}")
+    print(f"\n\n{'#' * 80}")
     print(f"# TESTING OWNERSHIP & INSIDER DATA - {symbol}")
-    print(f"{'#'*80}")
+    print(f"{'#' * 80}")
 
     # Major Holders
     try:
@@ -210,9 +208,9 @@ def test_ownership_and_insider(symbol: str):
 if __name__ == "__main__":
     # Test with US stock
     us_symbol = "AAPL"
-    print(f"\n\n{'*'*80}")
+    print(f"\n\n{'*' * 80}")
     print(f"* STARTING TESTS FOR US STOCK: {us_symbol}")
-    print(f"{'*'*80}")
+    print(f"{'*' * 80}")
 
     # test_financial_statements(us_symbol)
     # test_price_and_returns(us_symbol)
@@ -221,9 +219,9 @@ if __name__ == "__main__":
 
     # Test with Indian stock
     indian_symbol = "RELIANCE.NS"
-    print(f"\n\n{'*'*80}")
+    print(f"\n\n{'*' * 80}")
     print(f"* STARTING TESTS FOR INDIAN STOCK: {indian_symbol}")
-    print(f"{'*'*80}")
+    print(f"{'*' * 80}")
 
     # test_financial_statements(indian_symbol)
     # test_price_and_returns(indian_symbol)
@@ -257,6 +255,6 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"Warning: Failed to fetch or process NetIncome for {symbol}: {e}")
     print(f"\nNet Income Results:\n{results}")
-    print(f"\n\n{'*'*80}")
-    print(f"* ALL TESTS COMPLETED")
-    print(f"{'*'*80}\n")
+    print(f"\n\n{'*' * 80}")
+    print("* ALL TESTS COMPLETED")
+    print(f"{'*' * 80}\n")

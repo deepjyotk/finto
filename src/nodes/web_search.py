@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any, Final, Literal
 
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableLambda, RunnableSequence
 from langchain_core.tools import tool
@@ -49,7 +49,6 @@ def _format_tavily_for_llm(search_result: Any, max_chars: int = 4000) -> str:
 
 
 class WebSearchNode:
-
     _SYSTEM_PROMPT_TEMPLATE: Final[
         str
     ] = """You are the Web Search Agent for a finance assistant.
@@ -105,7 +104,6 @@ Boundaries
         source citations.  The orchestrator passes a focused task string; this tool
         returns the synthesised answer as plain text.
         """
-        node = self
 
         @tool
         async def web_search_tool(

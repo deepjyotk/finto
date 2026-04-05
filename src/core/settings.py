@@ -120,6 +120,41 @@ class WhatsAppSettings(BaseSettings):
     )
 
 
+class SmallcaseGatewaySettings(BaseSettings):
+    """smallcase Gateway (broker connect + holdings import) — keys from smallcase onboarding."""
+
+    gateway_name: Optional[str] = Field(
+        default=None,
+        description="Gateway name from smallcase (used in SDK and API paths)",
+        validation_alias="SMALLCASE_GATEWAY_NAME",
+    )
+    api_secret: Optional[str] = Field(
+        default=None,
+        description="API secret for x-gateway-secret header",
+        validation_alias="SMALLCASE_GATEWAY_API_SECRET",
+    )
+    jwt_secret: Optional[str] = Field(
+        default=None,
+        description="Shared JWT secret to sign guest / connected tokens for Gateway",
+        validation_alias="SMALLCASE_GATEWAY_JWT_SECRET",
+    )
+    guest_token_ttl_seconds: int = Field(
+        default=3600,
+        ge=300,
+        le=86400,
+        description="TTL for guest JWT used in Create Transaction + SDK init",
+        validation_alias="SMALLCASE_GATEWAY_GUEST_TTL_SECONDS",
+    )
+
+    @property
+    def is_configured(self) -> bool:
+        return bool(self.gateway_name and self.api_secret and self.jwt_secret)
+
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
+    )
+
+
 class PineconeSettings(BaseSettings):
     """Pinecone vector database settings loaded from environment variables"""
 
@@ -198,3 +233,4 @@ whatsapp_settings = WhatsAppSettings()
 pinecone_settings = PineconeSettings()
 thesys_settings = ThesysSettings()
 sendgrid_settings = SendGridSettings()
+smallcase_gateway_settings = SmallcaseGatewaySettings()

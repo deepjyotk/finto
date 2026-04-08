@@ -122,9 +122,8 @@ class A2UIChatService:
         Yields:
             A2UIEvent subclass instances (never raw CoT or prompt text).
         """
-        from src.core.llm import _strip_thesys_wrapping
 
-        question = _strip_thesys_wrapping(request.message_payload.content)
+        question = request.message_payload.content
         if not isinstance(question, str) or not question.strip():
             yield make_error("message_payload.content must be a non-empty string")
             return

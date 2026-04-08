@@ -1,10 +1,10 @@
 """User model for SQLAlchemy"""
 
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 from uuid import UUID
 
-from sqlalchemy import DateTime, Text, func
+from sqlalchemy import DateTime, Text, func, text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -25,7 +25,11 @@ class User(Base):
     username: Mapped[str] = mapped_column(Text, unique=True, nullable=False, index=True)
     email: Mapped[str] = mapped_column(Text, unique=True, nullable=False, index=True)
     full_name: Mapped[str] = mapped_column(Text, nullable=False)
-    password_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    password_hash: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    google_id: Mapped[Optional[str]] = mapped_column(Text, unique=True, nullable=True, index=True)
+    auth_provider: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default=text("'local'")
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

@@ -1,12 +1,16 @@
 """Authentication service - pure class for business logic, no FastAPI imports"""
 
 import asyncio
+import random
+import re
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from uuid import uuid4
 
 import jwt
+from google.auth.transport import requests as google_auth_requests
+from google.oauth2 import id_token as google_id_token
 from passlib.context import CryptContext
 
 from src.api.schemas.auth import TokenData, UserCreate, UserResponse
@@ -313,9 +317,90 @@ class AuthService:
         user = await self.repo.by_username(username)
         if not user:
             return None
+        if user.password_hash is None:
+            return None
         if not self.verify_password(password, user.password_hash):
             return None
         return user
+
+    @staticmethod
+    def derive_base_username_from_email(email: str) -> str:
+        """Build a username base from the local part of an email (alphanumeric only)."""
+        local = email.split("@", 1)[0].lower()
+        base = re.sub(r"[^a-z0-9]", "", local)
+        if not base:
+            base = "user"
+        return base[:50]
+
+    async def _allocate_unique_username(self, base: str) -> str:
+        """Pick a username: try `base`, then `base_NNNN` until unique."""
+        candidate = base
+        for _ in range(200):
+            existing = await self.repo.by_username(candidate)
+            if not existing:
+                return candidate
+            candidate = f"{base}_{random.randint(1000, 9999)}"
+        return f"{base}_{uuid4().hex[:8]}"
+
+    async def google_oauth_login(
+        self, credential: str, google_client_id: str
+    ) -> tuple[bool, str, Optional[User]]:
+        """
+        Verify a Google ID token, then find or create a user in f_users.
+
+        Returns:
+            (success, message, user) — user is set only when success is True.
+        """
+        if not google_client_id or not str(google_client_id).strip():
+            return False, "Google Sign-In is not configured", None
+
+        try:
+            idinfo = google_id_token.verify_oauth2_token(
+                credential,
+                google_auth_requests.Request(),
+                google_client_id,
+            )
+        except ValueError:
+            logger.warning("google_oauth_token_invalid")
+            return False, "Invalid Google credential", None
+
+        if not idinfo.get("email_verified", False):
+            return False, "Google email is not verified", None
+
+        google_sub = idinfo.get("sub")
+        email = idinfo.get("email")
+        name = idinfo.get("name") or (email.split("@")[0] if email else "User")
+
+        if not google_sub or not email:
+            return False, "Google token missing required claims", None
+
+        user = await self.repo.by_google_id(google_sub)
+        if user:
+            return True, "ok", user
+
+        existing = await self.repo.by_email(email)
+        if existing:
+            if existing.google_id is not None and existing.google_id != google_sub:
+                return False, "This email is linked to another Google account", None
+            existing.google_id = google_sub
+            existing.auth_provider = "google"
+            await self.repo.session.flush()
+            await self.repo.session.commit()
+            return True, "ok", existing
+
+        base_username = self.derive_base_username_from_email(email)
+        username = await self._allocate_unique_username(base_username)
+        user = await self.repo.add(
+            user_id=uuid4(),
+            username=username,
+            email=email,
+            full_name=name,
+            password_hash=None,
+            google_id=google_sub,
+            auth_provider="google",
+        )
+        await self.repo.session.commit()
+        return True, "ok", user
 
     async def get_user_by_username(self, username: str) -> Optional[User]:
         """

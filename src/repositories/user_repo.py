@@ -41,6 +41,19 @@ class UserRepository:
         result = await self.session.execute(select(User).where(User.email == email))
         return result.scalar_one_or_none()
 
+    async def by_google_id(self, google_id: str) -> Optional[User]:
+        """
+        Find user by Google subject (sub) identifier.
+
+        Args:
+            google_id: The Google `sub` claim
+
+        Returns:
+            User object if found, None otherwise
+        """
+        result = await self.session.execute(select(User).where(User.google_id == google_id))
+        return result.scalar_one_or_none()
+
     async def by_id(self, user_id: UUID) -> Optional[User]:
         """
         Find user by ID.
@@ -60,7 +73,9 @@ class UserRepository:
         username: str,
         email: str,
         full_name: str,
-        password_hash: str,
+        password_hash: Optional[str] = None,
+        google_id: Optional[str] = None,
+        auth_provider: str = "local",
     ) -> User:
         """
         Add a new user to the database.
@@ -70,7 +85,9 @@ class UserRepository:
             username: Username
             email: Email address
             full_name: User's full name
-            password_hash: Hashed password
+            password_hash: Hashed password (omit for OAuth-only users)
+            google_id: Google `sub` when auth_provider is google
+            auth_provider: 'local' or 'google'
 
         Returns:
             The created User object
@@ -81,6 +98,8 @@ class UserRepository:
             email=email,
             full_name=full_name,
             password_hash=password_hash,
+            google_id=google_id,
+            auth_provider=auth_provider,
         )
         self.session.add(user)
         await self.session.flush()  # Get the user with auto-generated fields

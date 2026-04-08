@@ -6,6 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from src.api.schemas.auth import (
+    GoogleLoginRequest,
     OTPResponse,
     OTPVerifyRequest,
     UserCreate,
@@ -192,6 +193,64 @@ async def login(
     logger.info(
         "login_success",
         extra={"username": credentials.username, "user_id": str(user.user_id)},
+    )
+
+    return UserResponse.model_validate(user)
+
+
+@router.post(
+    "/google",
+    response_model=UserResponse,
+    summary="Sign in with Google",
+    description="Verify a Google ID token, create or link the user in f_users, and set the JWT cookie.",
+    responses={
+        200: {"description": "Signed in; JWT cookie set"},
+        400: {"description": "Invalid token or account conflict"},
+        503: {"description": "Google Sign-In not configured on server"},
+    },
+)
+async def login_google(
+    body: GoogleLoginRequest,
+    response: Response,
+    svc: Annotated[AuthService, Depends(get_auth_service)],
+):
+    """Exchange a Google ID token for the same JWT session as email/password login."""
+    if not settings.google_client_id:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Google Sign-In is not configured",
+        )
+
+    success, message, user = await svc.google_oauth_login(
+        credential=body.credential,
+        google_client_id=settings.google_client_id,
+    )
+
+    if not success or not user:
+        logger.warning("google_login_failed", extra={"reason": message})
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=message,
+        )
+
+    access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
+    access_token = svc.create_access_token(
+        data={"sub": user.username, "user_id": str(user.user_id)},
+        expires_delta=access_token_expires,
+    )
+
+    response.set_cookie(
+        key=settings.cookie_name,
+        value=access_token,
+        httponly=settings.cookie_httponly,
+        secure=settings.cookie_secure,
+        samesite=settings.cookie_samesite,
+        max_age=settings.access_token_expire_minutes * 60,
+    )
+
+    logger.info(
+        "google_login_success",
+        extra={"username": user.username, "user_id": str(user.user_id)},
     )
 
     return UserResponse.model_validate(user)

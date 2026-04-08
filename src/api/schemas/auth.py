@@ -30,6 +30,12 @@ class UserCreate(UserBase):
     }
 
 
+class GoogleLoginRequest(BaseModel):
+    """Google Identity Services credential (JWT) from the client."""
+
+    credential: str = Field(..., min_length=1, description="Google ID token (JWT) from GIS")
+
+
 class UserLogin(BaseModel):
     username: str = Field(..., description="Username for login", example="johndoe")
     password: str = Field(..., description="User password", example="SecurePass123!")

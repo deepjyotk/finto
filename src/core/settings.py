@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 120
 
+    # Google Sign-In (OAuth 2.0 ID token verification). Optional until Google login is enabled.
+    google_client_id: Optional[str] = Field(
+        default=None,
+        description="Google OAuth client ID for verifying ID tokens from the frontend",
+    )
+
     # Cookie Settings
     cookie_name: str = "access_token"
     cookie_secure: bool = Field(

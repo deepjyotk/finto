@@ -1,5 +1,6 @@
 """Holdings request and response schemas"""
 
+from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
@@ -187,3 +188,54 @@ class DeleteBrokerHoldingsResponse(BaseModel):
             }
         }
     }
+
+
+# ---------------------------------------------------------------------------
+# Portfolio view schemas
+# ---------------------------------------------------------------------------
+
+
+class PortfolioHoldingItem(BaseModel):
+    """A single holding row enriched with computed portfolio fields."""
+
+    id: UUID = Field(..., description="Unique holding identifier")
+    symbol: str = Field(..., description="Trading symbol")
+    company_name: str = Field(..., description="Company name")
+    sector: str | None = Field(None, description="Sector")
+
+    qty_available: int = Field(..., description="Available quantity")
+    qty_long_term: int = Field(..., description="Long-term quantity")
+    qty_pledged_margin: int = Field(..., description="Pledged-margin quantity")
+
+    avg_price: Decimal = Field(..., description="Average purchase price")
+    ltp: Decimal = Field(..., description="Last traded price (prev close as proxy)")
+
+    investment_value: Decimal = Field(..., description="qty_available × avg_price")
+    current_value: Decimal = Field(..., description="qty_available × ltp")
+    pnl_absolute: Decimal = Field(..., description="current_value − investment_value")
+    pnl_percent: Decimal = Field(..., description="pnl_absolute / investment_value × 100")
+    weight_percent: Decimal = Field(
+        ..., description="current_value / total_portfolio_value × 100"
+    )
+
+
+class PortfolioSummary(BaseModel):
+    """Aggregate portfolio-level metrics."""
+
+    total_current_value: Decimal
+    total_investment_value: Decimal
+    total_pnl_absolute: Decimal
+    total_pnl_percent: Decimal
+
+
+class PortfolioResponse(BaseModel):
+    """Full portfolio view for one user–broker pair."""
+
+    user_broker_id: UUID
+    broker_id: UUID
+    broker_name: str
+    last_updated_at: datetime
+    uploaded_via: str
+
+    summary: PortfolioSummary
+    holdings: list[PortfolioHoldingItem]

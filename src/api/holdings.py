@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, s
 from src.api.schemas.holdings import (
     BulkHoldingsUploadResponse,
     DeleteBrokerHoldingsResponse,
+    PortfolioResponse,
     SyncHoldingsRequest,
     SyncHoldingsResponse,
     SyncStatusResponse,
@@ -533,6 +534,74 @@ async def get_sync_status(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get sync status: {str(e)}",
         )
+
+
+@router.get(
+    "/portfolio",
+    response_model=PortfolioResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get portfolio view for a user–broker pair",
+    description=(
+        "Return all stored holdings for the given user_broker_id enriched with "
+        "computed fields: investment value, current value, P&L (absolute and %), "
+        "and portfolio weight. Also returns aggregate summary metrics."
+    ),
+    responses={
+        200: {"description": "Portfolio data retrieved successfully"},
+        401: {"description": "Not authenticated"},
+        404: {"description": "Holdings metadata not found or access denied"},
+    },
+)
+async def get_portfolio(
+    user_broker_id: UUID,
+    svc: Annotated[HoldingsService, Depends(get_holdings_service)],
+    user: dict = Depends(require_auth),
+) -> PortfolioResponse:
+    """
+    Fetch portfolio view for one user–broker pair.
+
+    Pass the ``user_broker_id`` (primary key of ``equity_holdings_in_metadata``)
+    as a query parameter.  The caller can discover available ``user_broker_id``
+    values via ``GET /api/v1/holdings/metadata`` (field: ``portfolio_updates[].broker_user_id``).
+
+    **Authentication required**: Yes (JWT token in cookie)
+    """
+    user_id = UUID(user["user_id"])
+
+    logger.info(
+        "get_portfolio_attempt",
+        extra={"user_id": str(user_id), "user_broker_id": str(user_broker_id)},
+    )
+
+    try:
+        portfolio = await svc.get_portfolio_view(user_id=user_id, user_broker_id=user_broker_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except Exception as exc:
+        logger.error(
+            "get_portfolio_error",
+            extra={
+                "user_id": str(user_id),
+                "user_broker_id": str(user_broker_id),
+                "error": str(exc),
+                "error_type": type(exc).__name__,
+            },
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch portfolio: {exc}",
+        )
+
+    logger.info(
+        "get_portfolio_success",
+        extra={
+            "user_id": str(user_id),
+            "user_broker_id": str(user_broker_id),
+            "holdings_count": len(portfolio["holdings"]),
+        },
+    )
+
+    return PortfolioResponse(**portfolio)
 
 
 @router.delete(

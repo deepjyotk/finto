@@ -309,6 +309,96 @@ class HoldingsService:
             "updated_count": sync_record.updated_count,
         }
 
+    async def get_portfolio_view(self, user_id: UUID, user_broker_id: UUID) -> dict:
+        """
+        Build a portfolio view for one user–broker pair, including per-holding
+        computed fields and aggregate summary metrics.
+
+        Args:
+            user_id: UUID of the authenticated user
+            user_broker_id: PK of equity_holdings_in_metadata (user–broker pair)
+
+        Returns:
+            Dict matching PortfolioResponse schema, or raises ValueError on
+            access-denied / not-found.
+        """
+        # Verify ownership and fetch broker metadata
+        metadata_rows = await self.repo.get_metadata_with_broker_name(user_id)
+        metadata = next(
+            (m for m in metadata_rows if m["user_broker_id"] == user_broker_id), None
+        )
+        if metadata is None:
+            raise ValueError("Holdings metadata not found or access denied")
+
+        holdings = await self.repo.by_user_broker_id(user_broker_id)
+
+        # Compute aggregate totals first so we can derive weight_percent per row
+        total_current_value = Decimal("0")
+        total_investment_value = Decimal("0")
+        for h in holdings:
+            qty = Decimal(str(h.qty_available))
+            total_current_value += qty * h.prev_close_price
+            total_investment_value += qty * h.avg_price
+
+        total_pnl_absolute = total_current_value - total_investment_value
+        total_pnl_percent = (
+            (total_pnl_absolute / total_investment_value * Decimal("100"))
+            if total_investment_value > 0
+            else Decimal("0")
+        )
+
+        # Build per-holding items
+        holding_items = []
+        for h in holdings:
+            qty = Decimal(str(h.qty_available))
+            ltp = h.prev_close_price
+            investment_value = qty * h.avg_price
+            current_value = qty * ltp
+            pnl_absolute = current_value - investment_value
+            pnl_percent = (
+                (pnl_absolute / investment_value * Decimal("100"))
+                if investment_value > 0
+                else Decimal("0")
+            )
+            weight_percent = (
+                (current_value / total_current_value * Decimal("100"))
+                if total_current_value > 0
+                else Decimal("0")
+            )
+            holding_items.append(
+                {
+                    "id": h.id,
+                    "symbol": h.symbol,
+                    "company_name": h.company_name,
+                    "sector": h.sector,
+                    "qty_available": h.qty_available,
+                    "qty_long_term": h.qty_long_term,
+                    "qty_pledged_margin": h.qty_pledged_margin,
+                    "avg_price": h.avg_price,
+                    "ltp": ltp,
+                    "investment_value": investment_value,
+                    "current_value": current_value,
+                    "pnl_absolute": pnl_absolute,
+                    "pnl_percent": pnl_percent.quantize(Decimal("0.01")),
+                    "weight_percent": weight_percent.quantize(Decimal("0.01")),
+                }
+            )
+
+        return {
+            "user_broker_id": metadata["user_broker_id"],
+            "broker_id": metadata["broker_id"],
+            "broker_name": metadata["broker_name"],
+            "last_updated_at": metadata["updated_at"],
+            "uploaded_via": metadata["uploaded_via"],
+            "summary": {
+                "total_current_value": total_current_value,
+                "total_investment_value": total_investment_value,
+                "total_pnl_absolute": total_pnl_absolute,
+                "total_pnl_percent": total_pnl_percent.quantize(Decimal("0.01")),
+            },
+            "holdings": holding_items,
+        }
+
     async def delete_broker_holdings(self, user_id: UUID, broker_id: UUID) -> tuple[int, bool]:
         """
         Delete all holdings and metadata for a user-broker pair.

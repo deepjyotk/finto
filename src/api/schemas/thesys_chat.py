@@ -1,9 +1,9 @@
 """Schemas for the Thesys C1 streaming chat endpoint."""
 
-from typing import Any
+from typing import Any, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from src.core.enums import ChatMessageType, LLMModel
 
@@ -15,8 +15,24 @@ class C1Message(BaseModel):
 class C1ChatRequest(BaseModel):
     message_payload: C1Message
     session_id: str
-    broker_id: str
+    broker_id: Optional[str] = Field(
+        default=None,
+        description=(
+            "When omitted or empty, portfolio tools aggregate all brokers "
+            "(same as HoldingsService.get_portfolio_df with broker_id=None)."
+        ),
+    )
     model_payload: LLMModel
+
+    @field_validator("broker_id", mode="before")
+    @classmethod
+    def empty_broker_to_none(cls, v: Any) -> str | None:
+        if v is None:
+            return None
+        if isinstance(v, str):
+            s = v.strip()
+            return s if s else None
+        return str(v).strip() or None
 
     @field_validator("model_payload", mode="before")
     @classmethod

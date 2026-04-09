@@ -64,7 +64,7 @@ class A2UIChatService:
         thread_id: str,
         question: str,
         user_id: UUID,
-        broker_id: UUID,
+        broker_id: UUID | None,
         callbacks: Optional[List[BaseCallbackHandler]],
         chat_model: LLMModel,
     ) -> tuple[RunnableConfig, dict[str, Any], dict[str, Any]]:
@@ -130,7 +130,8 @@ class A2UIChatService:
 
         thread_id = request.session_id
         session_id = UUID(thread_id)
-        broker_id = UUID(request.broker_id)
+        raw_broker = request.broker_id
+        broker_id: UUID | None = UUID(raw_broker) if raw_broker else None
 
         await self.chat_repo.create_user_message(
             session_id=session_id,

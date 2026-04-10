@@ -21,7 +21,9 @@ from src.nodes.financial_analysis_tool_node.financial_analysis_utils import (
     SymbolExtractionResult,
     build_code_gen_invoke_args,
     build_execution_env,
+    build_partial_price_retry_user_message,
     build_portfolio_scope_message,
+    parse_portfolio_price_meta_from_tool_output,
 )
 from src.schemas.agent_state import AgentContext, AgentState
 from src.services.holdings import HoldingsService
@@ -125,6 +127,7 @@ class PortfolioNode:
 
             messages_ctx: List[BaseMessage] = [scope_msg, ai_response]
             attempts = 0
+            partial_price_retries = 0
 
             while getattr(ai_response, "tool_calls", None) and attempts < node.max_attempts:
                 tool_call = ai_response.tool_calls[0]
@@ -135,7 +138,37 @@ class PortfolioNode:
                 attempts += 1
                 is_success = "STATUS: success" in tool_result
 
-                if is_success or attempts >= node.max_attempts:
+                if is_success:
+                    price_meta = parse_portfolio_price_meta_from_tool_output(tool_result)
+                    failed_n = price_meta.get("failed")
+                    if (
+                        partial_price_retries < 1
+                        and failed_n is not None
+                        and failed_n > 0
+                    ):
+                        partial_price_retries += 1
+                        logger.info(
+                            "financial_analysis_tool retrying after partial price fetch "
+                            "(META_PRICE_FETCH_FAILED=%s)",
+                            failed_n,
+                        )
+                        tool_msg = ToolMessage(content=tool_result, tool_call_id=tool_call_id)
+                        relax_msg = HumanMessage(
+                            content=build_partial_price_retry_user_message(price_meta, task)
+                        )
+                        messages_ctx = messages_ctx + [tool_msg, relax_msg]
+                        invoke_args = build_code_gen_invoke_args(
+                            messages=messages_ctx,
+                            user_request=task,
+                            symbol_names=extracted_symbols,
+                        )
+                        ai_response = _invoke_code_generation_llm(llm_with_tools, invoke_args)
+                        messages_ctx = messages_ctx + [ai_response]
+                        continue
+
+                    return tool_result
+
+                if attempts >= node.max_attempts:
                     return tool_result
 
                 logger.info(

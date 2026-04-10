@@ -25,8 +25,9 @@ BOTH:
   get_ticker_price, get_last_close_price, get_ticker_info
 """
 
-from typing import Optional
+from typing import List, Optional
 
+import pandas as pd
 import yfinance as yf
 
 from src.tools.common_utils import normalize_symbol
@@ -727,6 +728,171 @@ def get_last_close_price(symbol_name: str) -> dict:
             "date": None,
             "error": str(e),
         }
+
+
+def get_last_close_prices_batch(symbol_names: List[str], period: str = "5d") -> dict:
+    """Batch-fetch last close prices for many symbols in minimal Yahoo Finance round-trips.
+
+    yfinance supports multi-ticker download: one ``yf.download`` call retrieves OHLC for all
+    symbols (``threads=True`` uses parallel HTTP). Prefer this for **whole-portfolio** current
+    price tasks instead of calling ``get_last_close_price`` in a loop — sequential per-ticker
+    requests often trigger empty responses or throttling from Yahoo.
+
+    Args:
+        symbol_names: Symbols as stored in the portfolio (e.g. ``TCS``, ``RELIANCE.NS``).
+        period: History window passed to yfinance (default ``5d`` for recent sessions).
+
+    Returns:
+        {
+          "results": [{"symbol": str, "last_close_price": float | None, "date": str | None,
+                       "error": str | None}],
+          "ok_count": int,
+          "fail_count": int,
+          "failed_symbols": [str],
+          "note": str,
+        }
+    """
+    cleaned: List[str] = [str(s).strip() for s in symbol_names if s is not None and str(s).strip()]
+    empty_out = {
+        "results": [],
+        "ok_count": 0,
+        "fail_count": 0,
+        "failed_symbols": [],
+        "note": "No symbols provided.",
+    }
+    if not cleaned:
+        return empty_out
+
+    uniq_norm: List[str] = []
+    seen: set[str] = set()
+    raw_for_norm: dict[str, str] = {}
+    for raw in cleaned:
+        norm = normalize_symbol(raw.upper())
+        raw_for_norm[norm] = raw
+        if norm not in seen:
+            seen.add(norm)
+            uniq_norm.append(norm)
+
+    note_extra = ""
+    try:
+        data = yf.download(
+            uniq_norm,
+            period=period,
+            interval="1d",
+            group_by="ticker",
+            auto_adjust=False,
+            threads=True,
+            progress=False,
+            prepost=False,
+        )
+    except Exception as e:
+        return {
+            "results": [
+                {
+                    "symbol": raw_for_norm.get(n, n),
+                    "last_close_price": None,
+                    "date": None,
+                    "error": str(e),
+                }
+                for n in uniq_norm
+            ],
+            "ok_count": 0,
+            "fail_count": len(uniq_norm),
+            "failed_symbols": [raw_for_norm.get(n, n) for n in uniq_norm],
+            "note": f"Batch download raised an exception: {e}",
+        }
+
+    if data is None or (hasattr(data, "empty") and data.empty):
+        return {
+            "results": [
+                {
+                    "symbol": raw_for_norm.get(n, n),
+                    "last_close_price": None,
+                    "date": None,
+                    "error": "Empty batch response",
+                }
+                for n in uniq_norm
+            ],
+            "ok_count": 0,
+            "fail_count": len(uniq_norm),
+            "failed_symbols": [raw_for_norm.get(n, n) for n in uniq_norm],
+            "note": "Yahoo returned no rows for the batch price request.",
+        }
+
+    def _last_close_for_ticker(norm_key: str) -> tuple[Optional[float], Optional[str], Optional[str]]:
+        try:
+            s = None
+            if isinstance(data.columns, pd.MultiIndex):
+                close_key = (norm_key, "Close")
+                if close_key in data.columns:
+                    s = data[close_key].dropna()
+                else:
+                    for lv0 in data.columns.get_level_values(0).unique():
+                        cand = (lv0, "Close")
+                        if cand in data.columns and str(lv0).upper() == norm_key.upper():
+                            s = data[cand].dropna()
+                            break
+                    if s is None:
+                        return None, None, "Close column missing in batch frame"
+            else:
+                if "Close" in data.columns:
+                    s = data["Close"].dropna()
+                else:
+                    return None, None, "Close column missing (single-ticker frame)"
+
+            if s is None or s.empty:
+                return None, None, "No close data"
+            last_date = s.index[-1]
+            val = float(s.iloc[-1])
+            try:
+                date_str = last_date.strftime("%Y-%m-%d")  # type: ignore[attr-defined]
+            except AttributeError:
+                date_str = str(last_date)
+            return val, date_str, None
+        except Exception as ex:
+            return None, None, str(ex)
+
+    close_by_norm: dict[str, tuple[Optional[float], Optional[str], Optional[str]]] = {}
+    for n in uniq_norm:
+        close_by_norm[n] = _last_close_for_ticker(n)
+
+    results: List[dict] = []
+    ok_count = 0
+    fail_count = 0
+    failed_symbols: List[str] = []
+
+    for raw in cleaned:
+        norm = normalize_symbol(raw.upper())
+        price, dt, err = close_by_norm.get(norm, (None, None, "missing batch key"))
+        row = {
+            "symbol": raw,
+            "last_close_price": price,
+            "date": dt,
+            "error": err,
+        }
+        results.append(row)
+        if price is not None:
+            ok_count += 1
+        else:
+            fail_count += 1
+            failed_symbols.append(raw)
+
+    uniq_failed = list(dict.fromkeys(failed_symbols))
+    if fail_count > ok_count and ok_count > 0:
+        note_extra = (
+            "Many symbols failed while some succeeded — often sequential throttling or sparse "
+            "Yahoo data; use this batch function instead of per-symbol get_last_close_price loops."
+        )
+    elif fail_count == len(results) and results:
+        note_extra = "All symbols failed in batch — check exchange suffix (.NS/.BO) or ticker validity."
+
+    return {
+        "results": results,
+        "ok_count": ok_count,
+        "fail_count": fail_count,
+        "failed_symbols": uniq_failed,
+        "note": note_extra.strip(),
+    }
 
 
 def get_ticker_info(symbol: str) -> dict:

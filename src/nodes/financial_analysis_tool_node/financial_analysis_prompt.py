@@ -77,6 +77,21 @@ Example usage for getting net income from income statement:
 ## Price & Returns:
 {yf_price_and_returns_function_with_doc_string}
 
+# BATCH CURRENT PRICES (WHOLE PORTFOLIO) — CRITICAL
+- **Yahoo Finance / yfinance supports batching:** use ``get_last_close_prices_batch([...])`` (preferred)
+  or a **single** ``yf.download`` over the full symbol list for current/last closes. That uses one
+  batched request (or parallel threads) instead of dozens of sequential calls.
+- **Do NOT** call ``get_last_close_price`` inside a ``for`` loop over every holding for portfolio-wide
+  tasks — Yahoo often returns empty series or throttles, so most rows look "missing".
+- After you resolve prices (batch or otherwise), print these **exact** lines to stdout so downstream
+  logic can detect partial coverage (one line each, no extra text on the line):
+    META_PRICE_FETCH_OK: <int>
+    META_PRICE_FETCH_FAILED: <int>
+    META_PRICE_FETCH_FAILED_SYMBOLS: <comma-separated symbols or none>
+    THROTTLE_OR_SPARSE_DATA_SUSPECTED: true|false
+  Set THROTTLE_OR_SPARSE_DATA_SUSPECTED to **true** if META_PRICE_FETCH_FAILED is large compared to
+  OK, or you used a per-symbol price loop and saw many failures.
+
 ## Earnings & Estimates:
 {yf_earnings_and_estimates_function_with_doc_string}
 
@@ -118,7 +133,7 @@ Example usage for getting net income from income statement:
 
 # STRICT RULES:
 - Always respect all argument types and argument descriptions when calling any function.
-- Prefer batch functions whenever working with multiple items.
+- Prefer batch functions whenever working with multiple items (especially current prices — see BATCH CURRENT PRICES above).
 - You may use pandas operations (groupby, agg, sort_values, filters, etc.), but ensure the code is correct for financial data. If you drop any row for a valid reason, you must print a warning with print(...). Never drop a row without a clearly justified reason.
 - IMPORTANT: You are only allowed to call functions from 'AVAILABLE PORTFOLIO ANALYSIS FUNCTIONS' and 'AVAILABLE YFINANCE DATA FUNCTIONS'. No other functions may be called.
 - Always use the DataFrame variable named df.

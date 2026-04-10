@@ -1,6 +1,7 @@
 """Helpers and small models for portfolio symbol scope, execution env, and code-gen context."""
 
 import inspect
+import re
 from datetime import datetime
 from typing import Callable, Dict, List, Literal
 from zoneinfo import ZoneInfo
@@ -54,6 +55,7 @@ from src.tools.yfinance_wrappers import (
     get_insider_transactions,
     get_institutional_holders,
     get_last_close_price,
+    get_last_close_prices_batch,
     get_major_holders,
     get_mutualfund_holders,
     get_revenue_estimate,
@@ -61,6 +63,65 @@ from src.tools.yfinance_wrappers import (
 )
 
 logger = logger_for(__name__)
+
+# Parsed from generated code stdout (embedded in execute_python_code tool output).
+META_PRICE_OK_RE = re.compile(r"^META_PRICE_FETCH_OK:\s*(\d+)\s*$", re.MULTILINE)
+META_PRICE_FAIL_RE = re.compile(r"^META_PRICE_FETCH_FAILED:\s*(\d+)\s*$", re.MULTILINE)
+META_PRICE_FAILED_SYMS_RE = re.compile(
+    r"^META_PRICE_FETCH_FAILED_SYMBOLS:\s*(.+)\s*$", re.MULTILINE
+)
+THROTTLE_SUSPECTED_RE = re.compile(
+    r"^THROTTLE_OR_SPARSE_DATA_SUSPECTED:\s*(true|false)\s*$", re.MULTILINE
+)
+
+
+def parse_portfolio_price_meta_from_tool_output(tool_result: str) -> dict:
+    """Extract price-fetch summary lines from tool output for partial-retry logic."""
+    out: dict = {
+        "ok": None,
+        "failed": None,
+        "failed_symbols": [],
+        "throttle_suspected": None,
+    }
+    m = META_PRICE_OK_RE.search(tool_result)
+    if m:
+        out["ok"] = int(m.group(1))
+    m = META_PRICE_FAIL_RE.search(tool_result)
+    if m:
+        out["failed"] = int(m.group(1))
+    m = META_PRICE_FAILED_SYMS_RE.search(tool_result)
+    if m:
+        raw = m.group(1).strip()
+        if raw and raw.lower() != "none":
+            out["failed_symbols"] = [x.strip() for x in raw.split(",") if x.strip()]
+    m = THROTTLE_SUSPECTED_RE.search(tool_result)
+    if m:
+        out["throttle_suspected"] = m.group(1).lower() == "true"
+    return out
+
+
+def build_partial_price_retry_user_message(meta: dict, task: str) -> str:
+    """Follow-up when prices were partial so the model regenerates using batch APIs."""
+    failed = meta.get("failed") or 0
+    syms = meta.get("failed_symbols") or []
+    throttle = meta.get("throttle_suspected")
+    sym_part = ", ".join(syms[:80]) if syms else "(see prior STDOUT)"
+    throttle_note = (
+        " Prior output flagged THROTTLE_OR_SPARSE_DATA_SUSPECTED=true — Yahoo often does this "
+        "when using many sequential get_last_close_price calls."
+        if throttle
+        else " Use batch price helpers instead of per-symbol loops."
+    )
+    return (
+        f"PRICE_FETCH_PARTIAL: The last successful run still missed prices for {failed} holding(s). "
+        f"Failed symbols (sample/list): {sym_part}.{throttle_note} "
+        "Regenerate Python that (1) uses get_last_close_prices_batch(symbol_list) OR a single "
+        "yf.download on the full normalized symbol list for current prices — NOT a loop of "
+        "get_last_close_price; (2) reprints META_PRICE_FETCH_OK / META_PRICE_FETCH_FAILED / "
+        "META_PRICE_FETCH_FAILED_SYMBOLS / THROTTLE_OR_SPARSE_DATA_SUSPECTED lines; "
+        f"(3) completes the same user task: {task!r}."
+    )
+
 
 YF_FUNCTION_NAMES = [
     "get_balance_sheet",
@@ -81,6 +142,7 @@ YF_FUNCTION_NAMES = [
     "get_insider_transactions",
     "get_ticker_price",
     "get_last_close_price",
+    "get_last_close_prices_batch",
     "get_ticker_info",
 ]
 
@@ -190,7 +252,13 @@ def build_code_gen_invoke_args(
             [get_balance_sheet, get_income_statement, get_cash_flow]
         ),
         "yf_price_and_returns_function_with_doc_string": get_function_with_doc_string(
-            [get_last_close_price, download_prices, get_dividends, get_capital_gains]
+            [
+                get_last_close_prices_batch,
+                get_last_close_price,
+                download_prices,
+                get_dividends,
+                get_capital_gains,
+            ]
         ),
         "yf_earnings_and_estimates_function_with_doc_string": get_function_with_doc_string(
             [

@@ -8,6 +8,7 @@ import inspect
 import re
 from datetime import datetime
 from typing import Callable, Dict, List
+from zoneinfo import ZoneInfo
 
 # Minimum ranked names before the node stops asking for relaxed thresholds.
 MIN_RANKED_STOCKS_TARGET: int = 5
@@ -42,7 +43,7 @@ def build_relaxation_user_message(screened: int, relaxation_round: int) -> str:
         "a single line exactly: META_SCREENED_COUNT: <N> where N equals the number of rows "
         "in the ranked table."
     )
-from zoneinfo import ZoneInfo
+
 
 from src.tools import yfinance_wrappers
 from src.tools.filters import growth_filter, value_filter
@@ -61,6 +62,7 @@ from src.tools.yfinance_wrappers import (
     get_insider_transactions,
     get_institutional_holders,
     get_last_close_price,
+    get_last_close_prices_batch,
     get_major_holders,
     get_mutualfund_holders,
     get_revenue_estimate,
@@ -78,6 +80,7 @@ SCREENER_YF_FUNCTION_NAMES: List[str] = [
     "get_cash_flow",
     "get_ticker_price",
     "get_last_close_price",
+    "get_last_close_prices_batch",
     "get_ticker_info",
     # PORTFOLIO: income streams — included for yield-based screeners
     "get_dividends",
@@ -139,7 +142,13 @@ def build_screener_code_gen_invoke_args(
             [get_balance_sheet, get_income_statement, get_cash_flow]
         ),
         "yf_price_and_returns_function_with_doc_string": get_function_with_doc_string(
-            [get_last_close_price, get_ticker_price, get_dividends, get_capital_gains]
+            [
+                get_last_close_prices_batch,
+                get_last_close_price,
+                get_ticker_price,
+                get_dividends,
+                get_capital_gains,
+            ]
         ),
         "yf_earnings_and_estimates_function_with_doc_string": get_function_with_doc_string(
             [

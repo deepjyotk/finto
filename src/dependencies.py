@@ -17,6 +17,7 @@ from src.graph import Graph
 from src.nodes.final_response_generation import FinalResponseGenerationNode
 from src.nodes.financial_analysis_tool_node import PortfolioNode
 from src.nodes.orchestrator import OrchestratorNode
+from src.nodes.screener_analysis_tool_node import ScreenerNode
 from src.nodes.web_search import WebSearchNode
 from src.repositories.broker_repo import BrokerRepository
 from src.repositories.chat_repo import ChatRepository
@@ -90,15 +91,24 @@ def _get_portfolio_node(
     return PortfolioNode(llm_factory=llm_factory, holding_service=holdings_service)
 
 
+def _get_screener_node(
+    llm_factory: Annotated[LLMFactory, Depends(get_llm_factory)],
+) -> ScreenerNode:
+    """Provide ScreenerNode with injected LLM factory."""
+    return ScreenerNode(llm_factory=llm_factory)
+
+
 def _get_orchestrator_node(
     llm_factory: Annotated[LLMFactory, Depends(get_llm_factory)],
     portfolio_node: Annotated[PortfolioNode, Depends(_get_portfolio_node)],
+    screener_node: Annotated[ScreenerNode, Depends(_get_screener_node)],
     web_search_node: Annotated[WebSearchNode, Depends(_get_web_search_node)],
 ) -> OrchestratorNode:
     """Provide OrchestratorNode with injected LLM factory and worker nodes."""
     return OrchestratorNode(
         llm_factory=llm_factory,
         portfolio_node=portfolio_node,
+        screener_node=screener_node,
         web_search_node=web_search_node,
     )
 
@@ -124,6 +134,7 @@ def build_agent_graph(session: AsyncSession | None = None) -> Graph:
 
     web_search_node = WebSearchNode(llm_factory=llm_factory)
     final_response_node = FinalResponseGenerationNode(llm_factory=llm_factory)
+    screener_node = ScreenerNode(llm_factory=llm_factory)
 
     session_to_use = session or SessionLocal()
     holdings_repo = HoldingsRepository(session_to_use)
@@ -133,6 +144,7 @@ def build_agent_graph(session: AsyncSession | None = None) -> Graph:
     orchestrator_node = OrchestratorNode(
         llm_factory=llm_factory,
         portfolio_node=portfolio_node,
+        screener_node=screener_node,
         web_search_node=web_search_node,
     )
 

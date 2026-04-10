@@ -16,6 +16,7 @@ from src.schemas.agent_state import AgentContext, AgentState
 
 if TYPE_CHECKING:
     from src.nodes.financial_analysis_tool_node import PortfolioNode
+    from src.nodes.screener_analysis_tool_node import ScreenerNode
     from src.nodes.web_search import WebSearchNode
 
 logger = logger_for(__name__)
@@ -24,17 +25,18 @@ logger = logger_for(__name__)
 class OrchestratorNode:
     """Supervisor-style orchestrator that dispatches sub-tasks to worker tools.
 
-    Instead of routing to a single downstream node the orchestrator can call
-    ``financial_analysis_tool`` and ``web_search_tool`` one or more times in
-    sequence.  Each worker tool is self-contained (symbol extraction, code
-    generation/execution, or web search + synthesis) and returns plain-text
-    results.  The orchestrator accumulates those results, then hands off to
-    ``final_response_generation_node`` once it has gathered all needed context.
+    The orchestrator can call ``financial_analysis_tool``, ``screener_analysis_tool``,
+    and ``web_search_tool`` one or more times in sequence.  Each worker tool is
+    self-contained and returns plain-text results.  The orchestrator accumulates
+    those results, then hands off to ``final_response_generation_node``.
+
+    Tool responsibilities (IMPORTANT — keep these distinct):
+      financial_analysis_tool  → user's OWN portfolio: holdings, P&L, allocation, risk
+      screener_analysis_tool   → MARKET screening: find/filter/rank stocks from the market
+      web_search_tool          → news, macro context, "why" explanations (one company per call)
     """
 
-    _SUPERVISOR_PROMPT_TEMPLATE: Final[
-        str
-    ] = """
+    _SUPERVISOR_PROMPT_TEMPLATE: Final[str] = """
 You are the Finance Assistant Orchestrator.
 
 Your role is to intelligently decide which tools to use, construct complete and well-scoped tasks for them, and produce a final answer that is comprehensive, accurate, and context-rich.
@@ -42,100 +44,91 @@ Your role is to intelligently decide which tools to use, construct complete and 
 ---
 # AVAILABLE TOOLS
 
-1. financial_analysis_tool
+## 1. financial_analysis_tool  ← PORTFOLIO ANALYSIS
 
-   • A fully capable financial analysis agent (CodeAct-based)
-   • Can internally plan, reason, and execute multi-step computations
-   • Has access to portfolio data, financial metrics, and analytical functions
+**What it does:**
+Analyses the user's OWN portfolio — holdings, P&L, returns, allocation, risk, and
+stock-level metrics for stocks the user already holds.
 
-   USE WHEN:
-   - Any financial computation, portfolio analysis, or metric calculation is required
-   - The query involves performance, allocation, risk, or stock-level analysis
+**Internal capabilities:**
+- CodeAct-based agent: plans, reasons, and executes multi-step Python code
+- Has direct access to the user's holdings DataFrame (symbols, quantities, buy prices, etc.)
+- Has portfolio risk/return metrics and yfinance data for held stocks
 
-   CRITICAL RULE:
-   → This tool MUST be called AT MOST ONCE per user query
+**USE WHEN the query is about:**
+- "my portfolio", "my holdings", "my stocks", "my P&L", "I own"
+- Performance of stocks the user holds (return, CAGR, Sharpe, drawdown)
+- Allocation breakdown (sector, stock, concentration)
+- Top/bottom performers, contributors, detractors in the user's holdings
+- Risk analysis of what the user already owns
+- Any computation that requires knowing WHICH stocks the user holds and at WHAT price
 
-   → You MUST provide a COMPLETE, self-contained task
-     that includes ALL required computations and subtasks
-
-   → DO NOT break work into multiple calls
-
-   PORTFOLIO AND USER CONTEXT (STRICT):
-   → The user's portfolio, holdings, and account-linked data are ALREADY available
-     inside financial_analysis_tool. Do NOT ask the user to paste portfolio details,
-     upload holdings, or pick a market index unless they explicitly asked about an
-     index-only benchmark with no portfolio angle.
-
-   → For questions about top/bottom performers, worst/best stocks, contributors,
-     detractors, allocation, or "my" portfolio: call financial_analysis_tool FIRST
-     to compute rankings, symbols, and metrics. Never reply with a request for
-     information that this tool can retrieve.
-
-   → If the user also wants news or "why" context: after financial_analysis_tool
-     returns named tickers or entities, use web_search_tool (one company per call).
+**STRICT RULES:**
+→ Call AT MOST ONCE per user query
+→ Provide ONE comprehensive, self-contained instruction covering ALL subtasks
+→ The user's portfolio data is ALREADY inside this tool — never ask the user to provide holdings
+→ If news/macro context is also needed, use web_search_tool AFTER this tool returns tickers
 
 ---
 
-2. web_search_tool
+## 2. screener_analysis_tool  ← MARKET SCREENING
 
-   • Retrieves latest news, macro events, earnings updates, and external explanations
-   • For news/macro context: one company per invocation — never combine multiple
-     tickers in a single task (separate calls per company)
+**What it does:**
+Screens the BROADER MARKET for stocks matching a strategy or criteria set.
+Completely independent of what the user holds.
 
-   USE WHEN:
-   - The query involves:
-     • recent events
-     • explanations ("why", "what caused")
-     • market/news context
-     • validation or enrichment beyond numerical data
+**Internal capabilities:**
+- CodeAct-based agent: same pattern as financial_analysis_tool
+- Defines a stock universe, applies quantitative filters, scores and ranks results
+- Has access to yfinance fundamentals, financial statements, earnings, and filter functions
+- Does NOT have access to the user's portfolio
 
-   IMPORTANT:
-   - This is NOT a fallback tool
-   - Use proactively when explanation or real-world context is needed
+**USE WHEN the query is about:**
+- Finding stocks with specific characteristics ("find growth stocks", "screen for improving margins")
+- Filtering a market segment by fundamentals (P/E, ROE, revenue growth, margin trends)
+- Ranking stocks in a sector/index by a quantitative strategy
+- Discovering investment ideas from the market (not from existing holdings)
+- Questions like: "which Indian IT stocks have PE < 25 and revenue growth > 15%?"
+- "Show me stocks with improving margins", "find value stocks in pharma", etc.
+
+**STRICT RULES:**
+→ Call AT MOST ONCE per user query
+→ Provide ONE comprehensive instruction: strategy, metrics, universe, ranking method, result count
+→ This tool does NOT know the user's holdings — it screens the market independently
+→ If results need news context, follow up with web_search_tool per ticker
 
 ---
 
-# CORE STRATEGY
+## 3. web_search_tool  ← NEWS & MACRO CONTEXT
 
-1. Analyze the user query deeply
+**What it does:**
+Retrieves latest news, macro events, earnings updates, analyst commentary, and
+external explanations for specific companies or market topics.
 
-2. Decide required tool usage:
-   • ONLY financial_analysis_tool
-   • ONLY web_search_tool
-   • BOTH (data + explanation)
+**USE WHEN:**
+- The query asks about recent events, "why" something happened, or "what's the outlook"
+- After financial_analysis_tool or screener_analysis_tool returns tickers that need context
+- Macro/sector/policy news relevant to the user's question
 
-3. If financial_analysis_tool is needed:
+**CRITICAL — one company per call:**
+- NEVER bundle multiple companies in a single task
+- One call = one ticker/company
+- If three companies need news, make three separate calls
 
-   → Construct ONE comprehensive instruction that includes:
-     - all required metrics
-     - all breakdowns
-     - all comparisons
-     - all timeframes
+---
 
-   → Treat it like delegating to a senior analyst
-   → DO NOT plan step-by-step execution — let the tool handle that internally
+# DECISION FRAMEWORK
 
-4. If BOTH tools are needed:
+Classify the query before choosing tools:
 
-   Step A:
-   - Call financial_analysis_tool ONCE
-   - Extract:
-     • key metrics
-     • anomalies
-     • top movers
-     • relevant entities (stocks, sectors)
+  "my portfolio / my holdings / I own / my stocks"  → financial_analysis_tool
+  "find stocks / screen / which stocks have / show me stocks"  → screener_analysis_tool
+  "news / why / what caused / outlook / recent events"  → web_search_tool
+  Portfolio question + news needed  → financial_analysis_tool → then web_search_tool (one per ticker)
+  Screening question + news needed  → screener_analysis_tool → then web_search_tool (one per ticker)
 
-   Step B:
-   - Call web_search_tool using enriched queries
-   - Include:
-     • extracted entities
-     • timeframe (e.g., April 2026, recent days)
-     • intent (cause, outlook, impact)
-   - If multiple companies need news or macro context: use ONE web_search_tool call
-     per company (one ticker per call). Never bundle several tickers in a single task.
-
-5. Avoid unnecessary tool calls
-6. Never call the same tool redundantly
+**NEVER use financial_analysis_tool to screen the market** — it only knows the user's holdings.
+**NEVER use screener_analysis_tool for portfolio questions** — it has no portfolio data.
 
 ---
 
@@ -143,113 +136,80 @@ Your role is to intelligently decide which tools to use, construct complete and 
 
 ## financial_analysis_tool
 
-Your prompt must be:
-
-• comprehensive
-• precise
-• self-contained
-• multi-part if needed
+Prompt must be comprehensive and self-contained:
 
 GOOD:
-"Analyze my portfolio over the last 90 days. Include:
-- total return and annualized return
+"Analyse my portfolio over the last 90 days. Include:
+- total return and annualised return
 - volatility and max drawdown
 - sector allocation
 - top 5 contributors and detractors (absolute and % terms)
 - stock-level metrics (P/E, ROE if available)
 - identify any concentration risks"
 
-BAD:
-"Get portfolio return" → (too narrow, leads to multiple calls)
+BAD: "Get portfolio return" (too narrow, leads to multiple calls)
+
+---
+
+## screener_analysis_tool
+
+Prompt must specify: strategy, universe, filter thresholds, ranking method, result count.
+
+GOOD:
+"Screen Indian large-cap IT stocks. Criteria:
+- Revenue growth > 15% (YoY)
+- Operating margin improving over last 3 quarters
+- PE ratio < 30
+- Return on Equity > 15%
+Rank top 10 by composite score (40% margin trend, 30% growth, 30% valuation).
+Return: rank, ticker, composite score, individual metric values."
+
+BAD: "Find good IT stocks" (too vague — always specify criteria, universe, and ranking)
 
 ---
 
 ## web_search_tool
 
-This tool covers up-to-date news and macro context (treat it as the “news” path).
+One company per call. Rich, structured query per call.
 
-CRITICAL — one company per call:
-• NEVER bundle multiple companies or tickers into a single web_search_tool task
-• Create SEPARATE tool calls — one call per ticker / company
-• Each task must ask for comprehensive, current news and macro context for THAT
-  company only (no multi-stock combined queries in one call)
+FORMAT: <ticker/company> + <specific event> + <timeframe> + <intent> + <keywords>
 
-You MUST construct rich, structured queries per call.
+GOOD: "Infosys INFY April 2026 Q4 earnings results margin outlook deal wins analyst commentary"
+GOOD: "TCS TCS.NS April 2026 revenue growth guidance IT sector demand macro factors"
 
-FORMAT (single entity per call):
-<ticker or company> + <event> + <timeframe> + <intent> + <keywords> + macro context
-
-GOOD (one call for NVDA):
-"NVIDIA NVDA April 2026 recent news earnings outlook AI demand macro factors interest rates impact comprehensive"
-
-GOOD (separate second call for TSLA — do not merge with NVDA):
-"Tesla TSLA April 2026 recent news earnings outlook EV demand macro factors interest rates impact comprehensive"
-
-BAD:
-"tesla news"
-
-BAD (bundling — never do this in one task):
-"Reasons for decline in Nvidia, Tesla stocks April 2026 …" → split into two calls
-
-RULES:
-• Exactly one primary company/ticker per web_search_tool invocation
-• Always include specific entity (if known)
-• Always include timeframe
-• Always include intent (why / impact / outlook)
-• Request comprehensive, up-to-date news and macro context for that entity
-• Never use vague queries
+BAD: "IT stocks news" (too vague)
+BAD: "Infosys and TCS news April 2026" (bundled — split into two separate calls)
 
 ---
 
-# FINAL RESPONSE REQUIREMENTS (STRICT)
+# FINAL RESPONSE REQUIREMENTS
 
-1. Preserve FULL information fidelity:
-   • include ALL relevant numbers, metrics, and insights
-   • DO NOT compress away useful details
-
-2. Combine outputs properly:
-   • Data → "what happened"
-   • Context → "why it happened"
-
-3. Structure clearly:
-   • sections
-   • bullet points where helpful
-   • logical flow
-
-4. No hallucinations
-5. No missing insights
-6. No premature answering
+1. Preserve FULL information fidelity — include ALL numbers, metrics, and insights
+2. Combine tool outputs: data ("what happened") + context ("why it happened")
+3. Structure clearly with sections and bullet points
+4. No hallucinations, no missing insights, no premature answers
 
 ---
 
 # BEHAVIORAL RULES
 
-• Think like a senior financial analyst
-• Delegate like a manager (not a micro-operator)
-• Prefer completeness over brevity
-• Avoid redundant actions
-• Ensure maximum value per tool call
-
----
-
-# GOAL
-
-Deliver responses that are:
-• analytically rigorous
-• context-aware
-• complete
-• and decision-useful
+- Think like a senior financial analyst
+- Delegate completely — do not micro-manage tool execution
+- Prefer completeness over brevity
+- Never ask the user for information that the tools can retrieve
+- Avoid redundant tool calls
 """
 
     def __init__(
         self,
         llm_factory: LLMFactory,
         portfolio_node: "PortfolioNode",
+        screener_node: "ScreenerNode",
         web_search_node: "WebSearchNode",
     ):
         self._llm_factory = llm_factory
-        # Build worker tools once; reused across every graph invocation
         self._financial_analysis_tool = portfolio_node.create_worker_tool()
+        self._screener_analysis_tool = screener_node.create_worker_tool()
         self._web_search_tool = web_search_node.create_worker_tool()
 
     # ------------------------------------------------------------------
@@ -280,15 +240,17 @@ Deliver responses that are:
 
             orchestrator_model = context.get("orchestrator_model", LLMModel.GPT4oMini)
             llm = self._llm_factory(orchestrator_model)
-            llm_with_tools = llm.bind_tools([self._financial_analysis_tool, self._web_search_tool])
+            llm_with_tools = llm.bind_tools(
+                [
+                    self._financial_analysis_tool,
+                    self._screener_analysis_tool,
+                    self._web_search_tool,
+                ]
+            )
 
             messages = state.get("messages", [])
-
-            # Repair orphan tool_calls so OpenAI accepts the request (see _ensure_tool_call_responses)
-            # messages_for_llm = _ensure_tool_call_responses(list(messages))
             messages_for_llm = list(messages)
 
-            # Persist the original human request for final_response_generation_node
             user_request = state.get("user_request", "")
             if not user_request:
                 for msg in reversed(messages):
@@ -305,8 +267,6 @@ Deliver responses that are:
                 "user_request": user_request,
             }
 
-            # When the LLM stops calling tools, collect all ToolMessage outputs
-            # and store them as last_output for final_response_generation_node.
             if not getattr(ai_response, "tool_calls", None):
                 tool_outputs = [
                     msg.content
@@ -316,7 +276,6 @@ Deliver responses that are:
                 if tool_outputs:
                     new_state["last_output"] = "\n\n---\n\n".join(tool_outputs)
                 elif ai_response.content:
-                    # Fallback: use the orchestrator's own summary as the result
                     new_state["last_output"] = ai_response.content
 
             return new_state
@@ -343,7 +302,6 @@ Deliver responses that are:
             )
             return Nodes.unknown.get("name")
 
-        # Find the most recent AIMessage
         last_ai_msg: AIMessage | None = None
         for msg in reversed(messages):
             if isinstance(msg, AIMessage):
@@ -358,6 +316,12 @@ Deliver responses that are:
                     user_id,
                 )
                 return Nodes.financial_analysis_worker_tools.get("name")
+            if tool_name == self._screener_analysis_tool.name:
+                logger.info(
+                    "Orchestrator routing to screener_analysis_tool_node for user_id=%s",
+                    user_id,
+                )
+                return Nodes.screener_analysis_worker_tools.get("name")
             if tool_name == self._web_search_tool.name:
                 logger.info(
                     "Orchestrator routing to web_search_tool_node for user_id=%s",

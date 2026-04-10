@@ -42,7 +42,7 @@ async def _get_checkpointer() -> AsyncPostgresSaver:
     The checkpointer is used by LangGraph to save state between graph node executions.
     Each graph execution (e.g., a chat request) uses the checkpointer multiple times:
     - After orchestrator node
-    - After portfolio/web_search worker tool nodes
+    - After portfolio/screener/web_search worker tool nodes
     - After final response node
 
     With concurrent graph executions (multiple users chatting), we need enough
@@ -101,14 +101,14 @@ class Graph:
 
         orchestrator_node
             ├─► financial_analysis_tool_node ──┐
-            ├─► web_search_tool_node ────────┤
-            │   (both loop back to ──────────┘
+            ├─► screener_analysis_tool_node ───┤
+            ├─► web_search_tool_node ──────────┤
+            │   (all loop back to ─────────────┘
             │    orchestrator_node)
             └─► final_response_generation_node ──► END
 
     The orchestrator is a supervisor agent that can call the worker tools
-    multiple times in sequence (e.g. portfolio first to identify stocks, then
-    web_search with those stock names).  Once it has all needed context it routes to
+    multiple times in sequence.  Once it has all needed context it routes to
     final_response_generation_node which formats the user-facing answer.
     """
 
@@ -151,6 +151,10 @@ class Graph:
             [self.orchestrator_node._financial_analysis_tool],
             name=Nodes.financial_analysis_worker_tools.get("name"),
         )
+        screener_analysis_tool_node = ToolNode(
+            [self.orchestrator_node._screener_analysis_tool],
+            name=Nodes.screener_analysis_worker_tools.get("name"),
+        )
         web_search_tool_node = ToolNode(
             [self.orchestrator_node._web_search_tool],
             name=Nodes.web_search_worker_tools.get("name"),
@@ -164,6 +168,10 @@ class Graph:
             Nodes.financial_analysis_worker_tools.get("name"),
             financial_analysis_tool_node,
         )
+        builder.add_node(
+            Nodes.screener_analysis_worker_tools.get("name"),
+            screener_analysis_tool_node,
+        )
         builder.add_node(Nodes.web_search_worker_tools.get("name"), web_search_tool_node)
         builder.add_node(Nodes.final_response.get("name"), final_response_node)
         builder.add_node(Nodes.unknown.get("name"), Graph._handle_unknown_node)
@@ -171,6 +179,10 @@ class Graph:
         # Worker tool nodes always return to the orchestrator for the next decision
         builder.add_edge(
             Nodes.financial_analysis_worker_tools.get("name"),
+            Nodes.orchestrator.get("name"),
+        )
+        builder.add_edge(
+            Nodes.screener_analysis_worker_tools.get("name"),
             Nodes.orchestrator.get("name"),
         )
         builder.add_edge(Nodes.web_search_worker_tools.get("name"), Nodes.orchestrator.get("name"))
@@ -184,6 +196,9 @@ class Graph:
                 Nodes.financial_analysis_worker_tools.get(
                     "name"
                 ): Nodes.financial_analysis_worker_tools.get("name"),
+                Nodes.screener_analysis_worker_tools.get(
+                    "name"
+                ): Nodes.screener_analysis_worker_tools.get("name"),
                 Nodes.web_search_worker_tools.get("name"): Nodes.web_search_worker_tools.get(
                     "name"
                 ),

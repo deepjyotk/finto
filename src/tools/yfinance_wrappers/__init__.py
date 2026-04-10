@@ -2,6 +2,27 @@
 
 These functions mirror the langchain tools but are plain Python functions
 that can be called directly in generated code without the langchain tool wrapper.
+
+Function Categories
+-------------------
+Each function is tagged with one of three categories:
+
+  PORTFOLIO  – best suited for portfolio analysis (user's holdings context)
+  SCREENER   – best suited for market-wide stock screening
+  BOTH       – applicable in both portfolio and screener contexts
+
+PORTFOLIO:
+  get_dividends, get_capital_gains
+
+SCREENER:
+  get_earnings_estimate, get_revenue_estimate, get_earnings_history,
+  get_eps_trend, get_eps_revisions, get_growth_estimates,
+  get_major_holders, get_institutional_holders, get_mutualfund_holders,
+  get_insider_purchases, get_insider_transactions
+
+BOTH:
+  get_balance_sheet, get_income_statement, get_cash_flow,
+  get_ticker_price, get_last_close_price, get_ticker_info
 """
 
 from typing import Optional
@@ -9,6 +30,42 @@ from typing import Optional
 import yfinance as yf
 
 from src.tools.common_utils import normalize_symbol
+
+# ── Category sets (for runtime lookup by node utils) ──────────────────────────
+
+PORTFOLIO_FUNCTIONS: frozenset[str] = frozenset(
+    {
+        "get_dividends",
+        "get_capital_gains",
+    }
+)
+
+SCREENER_FUNCTIONS: frozenset[str] = frozenset(
+    {
+        "get_earnings_estimate",
+        "get_revenue_estimate",
+        "get_earnings_history",
+        "get_eps_trend",
+        "get_eps_revisions",
+        "get_growth_estimates",
+        "get_major_holders",
+        "get_institutional_holders",
+        "get_mutualfund_holders",
+        "get_insider_purchases",
+        "get_insider_transactions",
+    }
+)
+
+BOTH_FUNCTIONS: frozenset[str] = frozenset(
+    {
+        "get_balance_sheet",
+        "get_income_statement",
+        "get_cash_flow",
+        "get_ticker_price",
+        "get_last_close_price",
+        "get_ticker_info",
+    }
+)
 
 
 def get_balance_sheet(symbol_name: str, freq: str = "yearly", pretty: bool = False) -> dict:
@@ -706,6 +763,11 @@ def get_ticker_info(symbol: str) -> dict:
         market_cap = info.get("marketCap")
         pe = info.get("trailingPE")
         revenue_growth = info.get("revenueGrowth")
+
+    Note:
+        For many Indian NSE symbols (.NS), Yahoo often omits growth/ROE/trailingPE in ``info``.
+        For screening, combine with ``get_income_statement`` / ``get_balance_sheet`` or estimates
+        when keys are missing — absent keys are not errors.
     """
     if not symbol:
         raise ValueError("Symbol is required")

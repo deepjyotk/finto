@@ -28,5 +28,6 @@ class AgentContext(TypedDict, total=False):
     broker_id: UUID | None
     orchestrator_model: LLMModel
     portfolio_model: LLMModel
+    screener_model: LLMModel
     web_search_model: LLMModel
     history_message_length: int

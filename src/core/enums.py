@@ -7,13 +7,15 @@ from typing import Any, Dict
 class ChatMode(str, Enum):
     """Supported chat interaction modes."""
 
-    AGENT = "agent"
-    ASK = "ask"
+    OVERALL = "overall"
+    PORTFOLIO = "portfolio"
+    SCREENER = "screener"
 
 
 CHAT_MODE_DESCRIPTIONS: dict["ChatMode", str] = {
-    ChatMode.AGENT: "Full AI agent with tools",
-    ChatMode.ASK: "Read-only Q&A",
+    ChatMode.OVERALL: "Broad market and general finance context",
+    ChatMode.PORTFOLIO: "Your holdings, P&L, and portfolio analysis",
+    ChatMode.SCREENER: "Find and filter stocks by criteria",
 }
 
 
@@ -306,6 +308,10 @@ class Nodes:
     financial_analysis_worker_tools = {
         "name": "financial_analysis_tool_node",
         "description": "ToolNode that executes portfolio analysis tasks dispatched by the orchestrator.",
+    }
+    screener_analysis_worker_tools = {
+        "name": "screener_analysis_tool_node",
+        "description": "ToolNode that executes market-wide stock screening tasks dispatched by the orchestrator.",
     }
     web_search_worker_tools = {
         "name": "web_search_tool_node",

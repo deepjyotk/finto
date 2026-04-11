@@ -232,11 +232,12 @@ def _handle_on_chain_start(
     if name in _SUPPRESSED_AUX_CHAIN_NAMES:
         return None
     step_name = _aux_chain_step_name(name)
-    return make_step_start(
-        step_name=step_name,
-        title="Thinking…",
-        description="Working through the next step before continuing",
-    )
+    return None
+    # return make_step_start(
+    #     step_name=step_name,
+    #     title="Thinking…",
+    #     description="Working through the next step before continuing",
+    # )
 
 
 def _handle_on_chain_end(

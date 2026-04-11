@@ -22,6 +22,19 @@ from src.repositories.chat_repo import ChatRepository
 
 logger = logger_for(__name__)
 
+_PREVIEW_MAX_LEN = 400
+
+
+def _truncate_session_preview(content: str | None, *, max_len: int = _PREVIEW_MAX_LEN) -> str | None:
+    if content is None:
+        return None
+    stripped = content.strip()
+    if not stripped:
+        return None
+    if len(stripped) <= max_len:
+        return stripped
+    return stripped[: max_len - 1] + "\u2026"
+
 
 class ThesysChatService:
     """Service layer for Thesys chat operations using the shared LangGraph."""
@@ -66,10 +79,17 @@ class ThesysChatService:
         sessions, total_sessions = await self.chat_repo.get_sessions_by_user_id_paginated(
             user_id, limit=page_limit, offset=offset
         )
+        session_ids = [s.chat_session_id for s in sessions]
+        first_user_by_session = await self.chat_repo.get_first_user_message_by_session_ids(
+            session_ids
+        )
         session_schemas = [
             ChatSessionSchema(
                 session_id=str(session.chat_session_id),
                 started_at=session.started_at.isoformat(),
+                preview=_truncate_session_preview(
+                    first_user_by_session.get(session.chat_session_id)
+                ),
             )
             for session in sessions
         ]

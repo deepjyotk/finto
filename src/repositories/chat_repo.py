@@ -91,6 +91,40 @@ class ChatRepository:
         )
         return list(result.scalars().all()), total_sessions
 
+    async def get_first_user_message_by_session_ids(self, session_ids: list[UUID]) -> dict[UUID, str]:
+        """
+        For each session, return the content of the first USER message (lowest seq_no among user messages).
+
+        Args:
+            session_ids: Chat session IDs to look up
+
+        Returns:
+            Map of session_id -> message content for sessions that have at least one user message.
+        """
+        if not session_ids:
+            return {}
+
+        min_seq_subq = (
+            select(
+                ChatMessage.session_id,
+                func.min(ChatMessage.seq_no).label("min_seq"),
+            )
+            .where(
+                ChatMessage.session_id.in_(session_ids),
+                ChatMessage.message_type == ChatMessageType.USER,
+            )
+            .group_by(ChatMessage.session_id)
+        ).subquery()
+
+        result = await self.session.execute(
+            select(ChatMessage.session_id, ChatMessage.content).join(
+                min_seq_subq,
+                (ChatMessage.session_id == min_seq_subq.c.session_id)
+                & (ChatMessage.seq_no == min_seq_subq.c.min_seq),
+            )
+        )
+        return {row[0]: row[1] for row in result.all()}
+
     async def get_next_seq_no(self, session_id: UUID) -> int:
         """
         Get the next sequence number for a chat session.

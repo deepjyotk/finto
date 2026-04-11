@@ -120,6 +120,7 @@ async def get_sessions(
             SessionItem(
                 session_id=session.session_id,
                 started_at=session.started_at,
+                preview=session.preview,
             )
             for session in sessions
         ],

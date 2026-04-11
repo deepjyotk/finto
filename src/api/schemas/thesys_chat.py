@@ -55,6 +55,10 @@ class ChatSessionSchema(BaseModel):
 
     session_id: str
     started_at: str
+    preview: Optional[str] = Field(
+        default=None,
+        description="First user message in the session (for history titles).",
+    )
 
 
 class SessionResponse(BaseModel):
@@ -65,6 +69,10 @@ class SessionResponse(BaseModel):
 class SessionItem(BaseModel):
     session_id: str
     started_at: str
+    preview: Optional[str] = Field(
+        default=None,
+        description="First user message in the session (for history titles).",
+    )
 
 
 class SessionsListResponse(BaseModel):

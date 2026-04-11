@@ -13,6 +13,12 @@ from src.core.enums import LLMModel, Nodes
 from src.core.json_logging import logger_for
 from src.core.llm import LLMFactory
 from src.schemas.agent_state import AgentContext, AgentState
+from src.nodes.financial_analysis_tool_node.financial_analysis_utils import (
+    financial_analysis_tool_sandbox_function_names,
+)
+from src.nodes.screener_analysis_tool_node.screener_utils import (
+    screener_analysis_tool_sandbox_function_names,
+)
 
 if TYPE_CHECKING:
     from src.nodes.financial_analysis_tool_node import PortfolioNode
@@ -20,6 +26,9 @@ if TYPE_CHECKING:
     from src.nodes.web_search import WebSearchNode
 
 logger = logger_for(__name__)
+
+_FINANCIAL_TOOL_FUNCTIONS_CSV = ", ".join(financial_analysis_tool_sandbox_function_names())
+_SCREENER_TOOL_FUNCTIONS_CSV = ", ".join(screener_analysis_tool_sandbox_function_names())
 
 
 class OrchestratorNode:
@@ -36,7 +45,7 @@ class OrchestratorNode:
       web_search_tool          → news, macro context, "why" explanations (one company per call)
     """
 
-    _SUPERVISOR_PROMPT_TEMPLATE: Final[str] = """
+    _SUPERVISOR_PROMPT_TEMPLATE: Final[str] = f"""
 You are the Finance Assistant Orchestrator.
 
 Your role is to intelligently decide which tools to use, construct complete and well-scoped tasks for them, and produce a final answer that is comprehensive, accurate, and context-rich.
@@ -54,6 +63,7 @@ stock-level metrics for stocks the user already holds.
 - CodeAct-based agent: plans, reasons, and executes multi-step Python code
 - Has direct access to the user's holdings DataFrame (symbols, quantities, buy prices, etc.)
 - Has portfolio risk/return metrics and yfinance data for held stocks
+- **Callable helpers inside the worker (alphabetical):** {_FINANCIAL_TOOL_FUNCTIONS_CSV}
 
 **USE WHEN the query is about:**
 - "my portfolio", "my holdings", "my stocks", "my P&L", "I own"
@@ -68,6 +78,7 @@ stock-level metrics for stocks the user already holds.
 → Provide ONE comprehensive, self-contained instruction covering ALL subtasks
 → The user's portfolio data is ALREADY inside this tool — never ask the user to provide holdings
 → If news/macro context is also needed, use web_search_tool AFTER this tool returns tickers
+→ Questions about **balance sheet, income statement, or cash flow** (line items, trends, ratios from filings) belong HERE or in screener_analysis_tool — **not** web_search_tool (statements are data API calls inside the worker, not news)
 
 ---
 
@@ -82,6 +93,7 @@ Completely independent of what the user holds.
 - Defines a stock universe, applies quantitative filters, scores and ranks results
 - Has access to yfinance fundamentals, financial statements, earnings, and filter functions
 - Does NOT have access to the user's portfolio
+- **Callable helpers inside the worker (alphabetical):** {_SCREENER_TOOL_FUNCTIONS_CSV}
 
 **USE WHEN the query is about:**
 - Finding stocks with specific characteristics ("find growth stocks", "screen for improving margins")
@@ -95,7 +107,7 @@ Completely independent of what the user holds.
 → Call AT MOST ONCE per user query
 → Provide ONE comprehensive instruction: strategy, metrics, universe, ranking method, result count
 → This tool does NOT know the user's holdings — it screens the market independently
-→ If results need news context, follow up with web_search_tool per ticker
+→ If results need **news or narrative** context, follow up with web_search_tool per ticker — **not** for raw statement/fundamental figures (those come from this tool's data helpers)
 
 ---
 
@@ -105,9 +117,13 @@ Completely independent of what the user holds.
 Retrieves latest news, macro events, earnings updates, analyst commentary, and
 external explanations for specific companies or market topics.
 
+**NEVER use web_search_tool for:**
+- **Balance sheet, income statement, or cash flow** data (including line items, YoY changes, margins computed from statements, debt/equity from filings)
+- Pulling financial statement metrics that the portfolio or screener workers can obtain via their built-in statement/price helpers — route those to **financial_analysis_tool** (holdings) or **screener_analysis_tool** (market/universe) instead
+
 **USE WHEN:**
 - The query asks about recent events, "why" something happened, or "what's the outlook"
-- After financial_analysis_tool or screener_analysis_tool returns tickers that need context
+- After financial_analysis_tool or screener_analysis_tool returns tickers that need **news or qualitative** context
 - Macro/sector/policy news relevant to the user's question
 
 **CRITICAL — one company per call:**
@@ -123,12 +139,14 @@ Classify the query before choosing tools:
 
   "my portfolio / my holdings / I own / my stocks"  → financial_analysis_tool
   "find stocks / screen / which stocks have / show me stocks"  → screener_analysis_tool
+  "balance sheet / income statement / cash flow / P&L / revenue & expenses from filings / statement-based ratios"  → financial_analysis_tool OR screener_analysis_tool — **never web_search_tool for the numbers**
   "news / why / what caused / outlook / recent events"  → web_search_tool
   Portfolio question + news needed  → financial_analysis_tool → then web_search_tool (one per ticker)
   Screening question + news needed  → screener_analysis_tool → then web_search_tool (one per ticker)
 
 **NEVER use financial_analysis_tool to screen the market** — it only knows the user's holdings.
 **NEVER use screener_analysis_tool for portfolio questions** — it has no portfolio data.
+**NEVER use web_search_tool to fetch balance sheet, income statement, or cash flow figures** — those tools do not replace statement APIs; use the analysis/screener workers.
 
 ---
 
@@ -179,6 +197,7 @@ GOOD: "TCS TCS.NS April 2026 revenue growth guidance IT sector demand macro fact
 
 BAD: "IT stocks news" (too vague)
 BAD: "Infosys and TCS news April 2026" (bundled — split into two separate calls)
+BAD: "Apple cash flow statement last quarter" or "compare balance sheets" — that is **not** a web search task; use financial_analysis_tool or screener_analysis_tool
 
 ---
 

@@ -18,7 +18,6 @@ from src.nodes.financial_analysis_tool_node.financial_analysis_prompt import (
 from src.tools import yfinance_wrappers
 from src.tools.calculate_profit_tool import calculate_profit_or_loss
 from src.tools.filters import growth_filter, value_filter
-from src.tools.get_symbol_name import get_symbol_names
 from src.tools.portfolio_metrics import (
     cagr,
     calculate_all_metrics,
@@ -181,6 +180,8 @@ def build_portfolio_scope_message(task: str, llm) -> tuple[AIMessage, List[str]]
                 SymbolExtractionResult
             )
             sym_result = symbol_chain.invoke({"user_query": task})
+            from src.tools.get_symbol_name import get_symbol_names
+
             extracted_symbols = get_symbol_names(sym_result.symbol_names)
             logger.info("financial_analysis_tool extracted symbols: %s", extracted_symbols)
     except Exception as exc:
@@ -231,6 +232,11 @@ def build_execution_env() -> Dict[str, object]:
     for func_name in YF_FUNCTION_NAMES:
         env[func_name] = getattr(yfinance_wrappers, func_name)
     return env
+
+
+def financial_analysis_tool_sandbox_function_names() -> tuple[str, ...]:
+    """Alphabetical names bound in the portfolio CodeAct sandbox (excludes ``__builtins__``)."""
+    return tuple(sorted(k for k in build_execution_env().keys() if k != "__builtins__"))
 
 
 def build_code_gen_invoke_args(

@@ -121,6 +121,11 @@ def build_screener_execution_env() -> Dict[str, object]:
     return env
 
 
+def screener_analysis_tool_sandbox_function_names() -> tuple[str, ...]:
+    """Alphabetical names bound in the screener CodeAct sandbox (excludes ``__builtins__``)."""
+    return tuple(sorted(k for k in build_screener_execution_env().keys() if k != "__builtins__"))
+
+
 def build_screener_code_gen_invoke_args(
     messages: list,
     user_request: str,

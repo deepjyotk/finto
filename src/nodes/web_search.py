@@ -78,6 +78,7 @@ Time Ranges
 
 Boundaries
 - Never infer prices from articles—state "price data requires market-data tool"
+- Do **not** treat this node as a source for **balance sheet, income statement, or cash flow** line items or filing tables—that data must come from the portfolio or screener analysis tools upstream; here you only add **news and narrative** context if the user was routed here intentionally
 - If results are thin, say so and cite best available sources"""
 
     def __init__(self, llm_factory: LLMFactory):
@@ -111,10 +112,14 @@ Boundaries
             max_results: int = 3,
         ) -> str:
             """Search for financial news, market updates, NSE/SEBI/BSE circulars,
-            earnings announcements, and macro/policy headlines.
+            earnings-related **headlines**, and macro/policy stories.
 
             Use for: news, headlines, market updates, circulars, announcements,
-            regulatory filings, macro events, earnings results.
+            macro events, and qualitative earnings **coverage** (not raw statement tables).
+
+            Do **not** use for: balance sheet, income statement, or cash flow figures,
+            filing line items, or statement-based ratios—those belong to financial_analysis_tool
+            or screener_analysis_tool.
 
             Args:
                 task: The specific search query, e.g.

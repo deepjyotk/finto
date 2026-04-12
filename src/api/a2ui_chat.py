@@ -17,6 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
 from src.a2ui.sse_emitter import a2ui_sse_generator
+from src.api.schemas.a2ui_resume import A2UIResumeRequest
 from src.api.schemas.thesys_chat import C1ChatRequest
 from src.billing.langsmith_tracker import CreditTrackingCallback
 from src.core.db import SessionLocal
@@ -83,6 +84,72 @@ async def a2ui_chat(
                 )
             except Exception as billing_exc:
                 logger.warning(f"[A2UI] Credit finalization failed: {billing_exc}")
+            finally:
+                await db.close()
+
+    return StreamingResponse(
+        a2ui_sse_generator(_event_stream()),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@router.post(
+    "/resume",
+    summary="Resume A2UI graph after HITL interrupt",
+    description=(
+        "SSE endpoint that resumes a paused LangGraph thread with Command(resume=form_values). "
+        "Use after receiving a hitl_form event from /a2ui/chat."
+    ),
+)
+async def a2ui_resume(
+    request: A2UIResumeRequest,
+    a2ui_service: A2UIChatService = Depends(get_a2ui_chat_service),
+    user: dict = Depends(require_auth),
+):
+    """Resume graph execution after the user submits a HITL form (e.g. screener parameters)."""
+    if thesys_settings.thesys_enabled:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "A2UI endpoint is disabled because THESYS_ENABLED=true. "
+                "Use /api/v1/thesys/chat instead."
+            ),
+        )
+
+    user_id = uuid.UUID(user["user_id"])
+
+    logger.info(
+        "a2ui_resume_request",
+        extra={
+            "session_id": request.session_id,
+            "user_id": str(user_id),
+        },
+    )
+
+    db = SessionLocal()
+    credit_callback = CreditTrackingCallback(user_id, db)
+
+    async def _event_stream():
+        try:
+            async for event in a2ui_service.resume_stream(
+                request, user_id=user_id, callbacks=[credit_callback]
+            ):
+                yield event
+        finally:
+            try:
+                await credit_callback.finalize_and_save()
+                usage = credit_callback.get_summary()
+                logger.info(
+                    f"[A2UI Resume] Completed — tokens: {usage['total_tokens']}, "
+                    f"credits: {usage['total_credits_deducted']}"
+                )
+            except Exception as billing_exc:
+                logger.warning(f"[A2UI Resume] Credit finalization failed: {billing_exc}")
             finally:
                 await db.close()
 

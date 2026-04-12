@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Annotated, Literal, Optional, Union
+from typing import Annotated, Any, Literal, Optional, Union
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -29,6 +29,7 @@ class A2UIEventType(str, Enum):
     TOOL_RESULT = "tool_result"
     MESSAGE_CHUNK = "message_chunk"
     MESSAGE_COMPLETE = "message_complete"
+    HITL_FORM = "hitl_form"
     ERROR = "error"
 
 
@@ -80,6 +81,15 @@ class MessageCompletePayload(BaseModel):
 class ErrorPayload(BaseModel):
     message: str = Field(description="User-facing error description")
     code: Optional[str] = Field(default=None)
+
+
+class HITLFormPayload(BaseModel):
+    """Payload when the graph pauses for human input (LangGraph interrupt)."""
+
+    thread_id: str = Field(description="Chat session / LangGraph thread id")
+    interrupt_value: dict[str, Any] = Field(
+        description="JSON from interrupt(); includes a2ui_form, candidate_symbols, task, defaults",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -144,6 +154,13 @@ class ErrorEvent(BaseModel):
     payload: ErrorPayload
 
 
+class HITLFormEvent(BaseModel):
+    event: Literal[A2UIEventType.HITL_FORM] = A2UIEventType.HITL_FORM
+    id: str = Field(default_factory=_new_id)
+    timestamp: str = Field(default_factory=_now_iso)
+    payload: HITLFormPayload
+
+
 # Discriminated union used as the single public type
 A2UIEvent = Annotated[
     Union[
@@ -153,6 +170,7 @@ A2UIEvent = Annotated[
         ToolResultEvent,
         MessageChunkEvent,
         MessageCompleteEvent,
+        HITLFormEvent,
         ErrorEvent,
     ],
     Field(discriminator="event"),
@@ -220,3 +238,9 @@ def make_message_complete(content: str) -> MessageCompleteEvent:
 
 def make_error(message: str, code: str | None = None) -> ErrorEvent:
     return ErrorEvent(payload=ErrorPayload(message=message, code=code))
+
+
+def make_hitl_form(interrupt_value: dict[str, Any], thread_id: str) -> HITLFormEvent:
+    return HITLFormEvent(
+        payload=HITLFormPayload(thread_id=thread_id, interrupt_value=interrupt_value)
+    )

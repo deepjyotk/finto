@@ -89,11 +89,10 @@ Screens the BROADER MARKET for stocks matching a strategy or criteria set.
 Completely independent of what the user holds.
 
 **Internal capabilities:**
-- CodeAct-based agent: same pattern as financial_analysis_tool
-- Defines a stock universe, applies quantitative filters, scores and ranks results
-- Has access to yfinance fundamentals, financial statements, earnings, and filter functions
+- Deterministic quantitative screen (no code generation): user confirms/edits screening parameters in the UI (human-in-the-loop) before execution
+- Resolves a candidate ticker universe from your task, then applies consistent valuation/growth/quality filters via Yahoo Finance data
 - Does NOT have access to the user's portfolio
-- **Callable helpers inside the worker (alphabetical):** {_SCREENER_TOOL_FUNCTIONS_CSV}
+- **Data helpers used inside the worker (alphabetical):** {_SCREENER_TOOL_FUNCTIONS_CSV}
 
 **USE WHEN the query is about:**
 - Finding stocks with specific characteristics ("find growth stocks", "screen for improving margins")

@@ -31,3 +31,4 @@ class AgentContext(TypedDict, total=False):
     screener_model: LLMModel
     web_search_model: LLMModel
     history_message_length: int
+    screener_candidate_symbols: list[str]

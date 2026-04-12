@@ -41,6 +41,10 @@ _NODE_LABELS: dict[str, dict[str, str]] = {
         "title": "Calling Arthik Agent",
         "description": "Running financial analysis with your portfolio context",
     },
+    "screener_analysis_tool_node": {
+        "title": "Screening stocks",
+        "description": "Running market screener (parameters may be confirmed in the side panel)",
+    },
     "web_search_tool_node": {
         "title": "Searching the web",
         "description": "Gathering latest market and news information",
@@ -85,6 +89,7 @@ def _aux_chain_step_name(chain_name: str) -> str:
 
 _TOOL_LABELS: dict[str, str] = {
     "financial_analysis_tool": "Financial Analysis",
+    "screener_analysis_tool": "Stock screener",
     "web_search_worker": "Web search",
     "get_portfolio_metrics": "Portfolio metrics",
     "get_holdings": "Holdings lookup",
@@ -231,7 +236,6 @@ def _handle_on_chain_start(
         return None
     if name in _SUPPRESSED_AUX_CHAIN_NAMES:
         return None
-    step_name = _aux_chain_step_name(name)
     return None
     # return make_step_start(
     #     step_name=step_name,

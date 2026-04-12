@@ -1,83 +1,176 @@
-"""Screener node: market-wide stock screening via CodeAct pattern.
+"""Screener node: deterministic screening with HITL parameter form (LangGraph interrupt)."""
 
-Mirrors the structure of PortfolioNode but operates on the broader market
-(no user portfolio df).  The screener generates and executes Python code
-that filters, scores, and ranks stocks based on a quantitative strategy.
-"""
+from __future__ import annotations
 
-from typing import List
+import asyncio
+import json
+from functools import partial
+from pathlib import Path
+from typing import Any, cast
 
-from langchain_core.messages import BaseMessage, HumanMessage, ToolMessage
+from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableLambda
-from langchain_core.tools import tool
+from langchain_core.tools import BaseTool, tool
 from langgraph.runtime import get_runtime
+from langgraph.types import interrupt
+from pydantic import BaseModel, Field
 
 from src.core.enums import LLMModel
 from src.core.json_logging import logger_for
 from src.core.llm import LLMFactory
-from src.nodes.code_execution_tool import build_execute_code_tool
-from src.nodes.screener_analysis_tool_node.screener_prompt import SCREENER_CODE_GENERATION_PROMPT
-from src.nodes.screener_analysis_tool_node.screener_utils import (
-    MIN_RANKED_STOCKS_TARGET,
-    build_relaxation_user_message,
-    build_screener_code_gen_invoke_args,
-    build_screener_execution_env,
-    parse_screened_count_from_tool_result,
-)
-from src.schemas.agent_state import AgentContext
+from src.schemas.agent_state import AgentContext, AgentState
+from src.tools.screener_tool import _MEDIUM_DEFAULTS, run_get_screened_stocks_sync
 
 logger = logger_for(__name__)
 
+_HITL_FORM_PATH = Path(__file__).resolve().parent / "screener_hitl_a2ui_form.json"
 
-def _invoke_screener_llm(llm_with_tools, invoke_args: dict) -> BaseMessage:
-    """Invoke SCREENER_CODE_GENERATION_PROMPT and return the LLM response."""
-    prompt_value = SCREENER_CODE_GENERATION_PROMPT.invoke(invoke_args)
-    llm_messages = prompt_value.to_messages()
-    logger.debug(
-        "Screener code generation LLM input (%d messages): %s",
-        len(llm_messages),
-        llm_messages,
+
+def _load_hitl_a2ui_form() -> dict[str, Any]:
+    try:
+        raw = _HITL_FORM_PATH.read_text(encoding="utf-8")
+        return cast(dict[str, Any], json.loads(raw))
+    except (OSError, json.JSONDecodeError) as e:
+        logger.error("Failed to load HITL A2UI form from %s: %s", _HITL_FORM_PATH, e)
+        return {
+            "type": "a2ui_response",
+            "root": ["note"],
+            "components": {
+                "note": {
+                    "type": "info-box",
+                    "props": {"text": "Screener form asset missing on server.", "variant": "error"},
+                }
+            },
+        }
+
+
+class _UniverseSymbols(BaseModel):
+    """LLM output: NSE tickers to pass through deterministic filters."""
+
+    symbols: list[str] = Field(
+        ...,
+        min_length=1,
+        max_length=120,
+        description=(
+            "NSE (India) tickers as Yahoo Finance symbols with .NS suffix only "
+            "(e.g. RELIANCE.NS, TCS.NS, HDFCBANK.NS). No US or other exchanges."
+        ),
     )
-    return llm_with_tools.invoke(prompt_value)
+
+
+def _normalize_to_nse_symbols(symbols: list[str]) -> list[str]:
+    """Map labels to Yahoo NSE symbols (.NS). Drops non-Indian / ambiguous tickers."""
+    out: list[str] = []
+    for raw in symbols:
+        if not isinstance(raw, str):
+            continue
+        t = raw.strip().upper()
+        if not t:
+            continue
+        if t.endswith(".NS"):
+            out.append(t)
+        elif t.endswith(".BO"):
+            out.append(t[: -len(".BO")] + ".NS")
+        elif "." in t:
+            # e.g. US tickers — skip
+            continue
+        else:
+            out.append(f"{t}.NS")
+    return list(dict.fromkeys(out))
+
+
+def _extract_candidate_symbols(llm: BaseChatModel, task: str) -> list[str]:
+    """Use a small structured LLM call to propose an NSE-only stock universe from the task text."""
+    structured = llm.with_structured_output(_UniverseSymbols)
+    messages = [
+        SystemMessage(
+            content=(
+                "You propose stock ticker symbols for the National Stock Exchange of India (NSE) only. "
+                "Every symbol MUST be a valid Yahoo Finance NSE ticker ending with .NS "
+                "(e.g. RELIANCE.NS, TCS.NS, INFY.NS, HDFCBANK.NS). "
+                "Do not use US symbols (e.g. AAPL), .BO (BSE), or other exchanges. "
+                "Include 25–60 liquid NSE names relevant to the user's sector/theme when the task is broad; "
+                "if the user names specific Indian stocks, output those as .NS. Do not include duplicates."
+            )
+        ),
+        HumanMessage(content=task),
+    ]
+    try:
+        raw = structured.invoke(messages)
+        if not isinstance(raw, _UniverseSymbols):
+            return []
+        out = raw
+        cleaned = [s.strip().upper() for s in out.symbols if isinstance(s, str) and s.strip()]
+        deduped = list(dict.fromkeys(cleaned))
+        return _normalize_to_nse_symbols(deduped)
+    except Exception as e:
+        logger.warning("Structured universe extraction failed, falling back to []: %s", e)
+        return []
+
+
+def _parse_form_values_to_kwargs(values: dict[str, Any]) -> dict[str, Any]:
+    """Map client form payload (from a2ui-form-submit) to run_get_screened_stocks_sync kwargs."""
+    out: dict[str, Any] = dict(_MEDIUM_DEFAULTS)
+    float_keys = (
+        "pe_min",
+        "pe_max",
+        "peg_min",
+        "peg_max",
+        "pb_max",
+        "ps_max",
+        "ev_ebitda_max",
+        "roe_min_pct",
+        "roic_min_pct",
+        "operating_margin_min_pct",
+        "revenue_growth_yoy_min_pct",
+        "eps_growth_yoy_min_pct",
+        "debt_to_equity_max",
+        "interest_coverage_min",
+        "current_ratio_min",
+        "market_cap_min_usd",
+        "beta_min",
+        "beta_max",
+        "dividend_yield_min_pct",
+        "payout_ratio_max_pct",
+    )
+    for k in float_keys:
+        if k not in values:
+            continue
+        raw = values[k]
+        if raw is None or (isinstance(raw, str) and raw.strip() == ""):
+            out[k] = None
+            continue
+        try:
+            out[k] = float(raw)
+        except (TypeError, ValueError):
+            pass
+
+    if "max_results" in values:
+        raw = values["max_results"]
+        try:
+            out["max_results"] = int(float(raw)) if raw not in (None, "") else _MEDIUM_DEFAULTS["max_results"]
+        except (TypeError, ValueError):
+            out["max_results"] = _MEDIUM_DEFAULTS["max_results"]
+
+    uh = values.get("universe_hint")
+    if uh is not None and str(uh).strip():
+        out["universe_hint"] = str(uh).strip()
+    else:
+        out["universe_hint"] = None
+
+    return out
 
 
 class ScreenerNode:
-    """Screener node: generates and executes market-wide stock screening code.
+    """Screener: resolve a candidate universe, interrupt for HITL params, run deterministic screen."""
 
-    Uses the same CodeAct pattern as PortfolioNode but:
-    - No portfolio df (operates on a user-defined or strategy-derived stock universe)
-    - Uses screener-appropriate yfinance functions + filter functions
-    - Returns a shortlisted, scored, and ranked stock list
-    - After a successful run with fewer than ``MIN_RANKED_STOCKS_TARGET`` names, may loop back
-      with a human message so the model relaxes thresholds (up to ``max_relaxation_rounds``).
-    """
-
-    def __init__(
-        self,
-        llm_factory: LLMFactory,
-        max_code_executions: int = 12,
-        max_relaxation_rounds: int = 3,
-    ):
+    def __init__(self, llm_factory: LLMFactory) -> None:
         self._llm_factory = llm_factory
-        self.max_code_executions = max_code_executions
-        self.max_relaxation_rounds = max_relaxation_rounds
 
-    def create_execute_code_tool(self):
-        """Build the screener-scoped execute_python_code tool (no portfolio df)."""
+    def create_worker_tool(self) -> BaseTool:
+        """Build screener_analysis_tool for the orchestrator (HITL + deterministic screen)."""
 
-        async def execution_env_factory():
-            return build_screener_execution_env()
-
-        return build_execute_code_tool(execution_env_factory)
-
-    def create_worker_tool(self):
-        """Build a self-contained screener LangChain tool for the orchestrator.
-
-        Encapsulates the full pipeline: code generation → execution (with retry).
-        The orchestrator calls this with a focused screening task string and receives
-        the ranked/filtered stock list as a plain-text result.
-        """
-        execute_code_tool = self.create_execute_code_tool()
         node = self
 
         @tool
@@ -85,108 +178,58 @@ class ScreenerNode:
             """Screen the broader market for stocks matching specific criteria.
 
             Use for finding, filtering, and ranking stocks by fundamentals, valuation,
-            growth trends, or any quantitative strategy.  Does NOT access the user's
+            growth trends, or any quantitative strategy. Does NOT access the user's
             portfolio — call financial_analysis_tool for portfolio-related questions.
 
             Args:
-                task: Screening strategy and criteria, e.g.
-                      'Find Indian large-cap IT stocks with improving operating margins
-                       over the last 3 quarters and PE < 30. Rank top 10 by margin trend.'
+                task: Screening strategy and criteria with universe hints (sector, region, count).
             """
             runtime = get_runtime(AgentContext)
             context = runtime.context
             screener_model = context.get("screener_model", LLMModel.GPT4p1)
             llm = node._llm_factory(screener_model)
-            llm_with_tools = llm.bind_tools([execute_code_tool], tool_choice="required")
 
-            invoke_args = build_screener_code_gen_invoke_args(
-                messages=[],
-                user_request=task,
+            symbols_ctx = list(context.get("screener_candidate_symbols") or [])
+            candidate_symbols = (
+                _normalize_to_nse_symbols(symbols_ctx)
+                if symbols_ctx
+                else _extract_candidate_symbols(llm, task)
             )
-            ai_response = _invoke_screener_llm(llm_with_tools, invoke_args)
-            messages_ctx: List[BaseMessage] = [ai_response]
-
-            code_executions = 0
-            relaxation_rounds = 0
-            last_tool_result: str | None = None
-
-            while getattr(ai_response, "tool_calls", None) and code_executions < node.max_code_executions:
-                tool_call = ai_response.tool_calls[0]
-                code = tool_call["args"].get("code", "")
-                tool_call_id = tool_call.get("id", f"call_{code_executions}")
-
-                tool_result: str = await execute_code_tool.ainvoke({"code": code})
-                last_tool_result = tool_result
-                code_executions += 1
-                is_success = "STATUS: success" in tool_result
-
-                if is_success:
-                    screened = parse_screened_count_from_tool_result(tool_result)
-                    need_relaxation = (
-                        screened is not None
-                        and screened < MIN_RANKED_STOCKS_TARGET
-                        and relaxation_rounds < node.max_relaxation_rounds
-                    )
-                    if need_relaxation:
-                        relaxation_rounds += 1
-                        logger.info(
-                            "screener_analysis_tool relaxing thresholds (round %s), META_SCREENED_COUNT=%s",
-                            relaxation_rounds,
-                            screened,
-                        )
-                        tool_msg = ToolMessage(content=tool_result, tool_call_id=tool_call_id)
-                        relax_msg = HumanMessage(
-                            content=build_relaxation_user_message(
-                                screened=screened or 0,
-                                relaxation_round=relaxation_rounds,
-                            )
-                        )
-                        messages_ctx = messages_ctx + [tool_msg, relax_msg]
-                        invoke_args = build_screener_code_gen_invoke_args(
-                            messages=messages_ctx,
-                            user_request=task,
-                        )
-                        ai_response = _invoke_screener_llm(llm_with_tools, invoke_args)
-                        messages_ctx = messages_ctx + [ai_response]
-                        continue
-
-                    if (
-                        screened is not None
-                        and screened < MIN_RANKED_STOCKS_TARGET
-                        and relaxation_rounds >= node.max_relaxation_rounds
-                    ):
-                        prefix = (
-                            f"[Screener: fewer than {MIN_RANKED_STOCKS_TARGET} names after "
-                            f"{node.max_relaxation_rounds} relaxation round(s); best-effort results below.]\n\n"
-                        )
-                        return prefix + tool_result
-
-                    return tool_result
-
-                # execution error — retry until max_code_executions (shared with relax loop budget)
-                logger.info(
-                    "screener_analysis_tool retrying after execution error (code execution %s)",
-                    code_executions,
+            if not candidate_symbols:
+                return (
+                    "ERROR: No candidate symbols to screen. "
+                    "Describe a sector/universe or list tickers in your request."
                 )
-                tool_msg = ToolMessage(content=tool_result, tool_call_id=tool_call_id)
-                messages_ctx = messages_ctx + [tool_msg]
-                invoke_args = build_screener_code_gen_invoke_args(
-                    messages=messages_ctx,
-                    user_request=task,
-                )
-                ai_response = _invoke_screener_llm(llm_with_tools, invoke_args)
-                messages_ctx = messages_ctx + [ai_response]
 
-            if last_tool_result is not None:
-                return last_tool_result
-            return "Screener analysis completed with no output."
+            # Expose for tools that read AgentContext (e.g. get_screened_stocks)
+            context["screener_candidate_symbols"] = candidate_symbols
+
+            form_json = _load_hitl_a2ui_form()
+            payload = {
+                "kind": "hitl_screener",
+                "a2ui_form": form_json,
+                "candidate_symbols": candidate_symbols,
+                "task": task,
+                "defaults": dict(_MEDIUM_DEFAULTS),
+            }
+
+            resume_values = interrupt(payload)
+            if not isinstance(resume_values, dict):
+                return "ERROR: HITL resume payload must be a dict of form field values."
+
+            merged = {**resume_values}
+            kwargs = _parse_form_values_to_kwargs(merged)
+
+            return await asyncio.to_thread(
+                partial(run_get_screened_stocks_sync, candidate_symbols, **kwargs)
+            )
 
         return screener_analysis_tool
 
-    def get_runnable_sequence(self) -> RunnableLambda:
+    def get_runnable_sequence(self) -> RunnableLambda[AgentState, AgentState]:
         """Return a runnable for direct graph wiring (unused in current hub-spoke design)."""
 
-        async def screener_node_fn(state):
+        async def screener_node_fn(state: AgentState) -> AgentState:
             return state
 
         return RunnableLambda(screener_node_fn)

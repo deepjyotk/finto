@@ -365,7 +365,8 @@ def get_revenue_estimate(symbol_name: str) -> dict:
             print(f"ERROR: Symbol {symbol_name} is empty or None")
             raise ValueError("Symbol name is required.")
         normalized_symbol = normalize_symbol(symbol_name.strip().upper())
-        data = yf.Ticker(normalized_symbol).get_revenue_estimate()
+        # as_dict=True avoids returning a pandas DataFrame (truth-value ambiguous in callers).
+        data = yf.Ticker(normalized_symbol).get_revenue_estimate(as_dict=True)
         return {
             "symbol": symbol_name,
             "revenue_estimate": data if data is not None else {},

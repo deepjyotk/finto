@@ -83,6 +83,7 @@ class ChatService:
                     "user_id": user_id,
                     "orchestrator_model": LLMModel.GPT4oMini,
                     "portfolio_model": LLMModel.GPT4p1,
+                    "screener_model": LLMModel.GPT4p1,
                     "web_search_model": LLMModel.GPT4oMini,
                 }
 

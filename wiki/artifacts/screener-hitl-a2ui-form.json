@@ -1,0 +1,294 @@
+{
+  "type": "a2ui_response",
+  "root": [
+    "page_title",
+    "note",
+    "screener_form"
+  ],
+  "components": {
+    "page_title": {
+      "type": "heading",
+      "props": {
+        "text": "Stock screener \u2014 medium risk / medium return",
+        "level": 1
+      }
+    },
+    "note": {
+      "type": "info-box",
+      "props": {
+        "text": "Edit thresholds below, then submit. The client dispatches window event a2ui-form-submit with detail: { formId, values } for HITL resume. Candidate tickers are not part of this form; the screener node sets screener_candidate_symbols on AgentContext from orchestration.",
+        "variant": "info"
+      }
+    },
+    "screener_form": {
+      "type": "form",
+      "props": {
+        "form_id": "hitl_screener_params",
+        "title": "Screening parameters (_MEDIUM_DEFAULTS)",
+        "submit_label": "Run screening",
+        "children": [
+          "fld_universe_hint",
+          "fld_pe_min",
+          "fld_pe_max",
+          "fld_peg_min",
+          "fld_peg_max",
+          "fld_pb_max",
+          "fld_ps_max",
+          "fld_ev_ebitda_max",
+          "fld_roe_min_pct",
+          "fld_roic_min_pct",
+          "fld_operating_margin_min_pct",
+          "fld_revenue_growth_yoy_min_pct",
+          "fld_eps_growth_yoy_min_pct",
+          "fld_debt_to_equity_max",
+          "fld_interest_coverage_min",
+          "fld_current_ratio_min",
+          "fld_market_cap_min_usd",
+          "fld_beta_min",
+          "fld_beta_max",
+          "fld_dividend_yield_min_pct",
+          "fld_payout_ratio_max_pct",
+          "fld_max_results"
+        ]
+      }
+    },
+    "fld_universe_hint": {
+      "type": "form-field",
+      "props": {
+        "name": "universe_hint",
+        "label": "Universe hint",
+        "input_type": "text",
+        "placeholder": "US large-cap tech",
+        "help_text": "Optional context for the agent."
+      }
+    },
+    "fld_pe_min": {
+      "type": "form-field",
+      "props": {
+        "name": "pe_min",
+        "label": "P/E minimum",
+        "input_type": "number",
+        "help_text": "Trailing or forward P/E lower bound.",
+        "default": "12"
+      }
+    },
+    "fld_pe_max": {
+      "type": "form-field",
+      "props": {
+        "name": "pe_max",
+        "label": "P/E maximum",
+        "input_type": "number",
+        "help_text": "Trailing or forward P/E upper bound.",
+        "default": "25"
+      }
+    },
+    "fld_peg_min": {
+      "type": "form-field",
+      "props": {
+        "name": "peg_min",
+        "label": "PEG minimum",
+        "input_type": "number",
+        "help_text": "",
+        "default": "0.8",
+        "step": "0.1"
+      }
+    },
+    "fld_peg_max": {
+      "type": "form-field",
+      "props": {
+        "name": "peg_max",
+        "label": "PEG maximum",
+        "input_type": "number",
+        "help_text": "",
+        "default": "1.5",
+        "step": "0.1"
+      }
+    },
+    "fld_pb_max": {
+      "type": "form-field",
+      "props": {
+        "name": "pb_max",
+        "label": "P/B maximum",
+        "input_type": "number",
+        "help_text": "",
+        "default": "5",
+        "step": "0.1"
+      }
+    },
+    "fld_ps_max": {
+      "type": "form-field",
+      "props": {
+        "name": "ps_max",
+        "label": "P/S maximum",
+        "input_type": "number",
+        "help_text": "",
+        "default": "8",
+        "step": "0.1"
+      }
+    },
+    "fld_ev_ebitda_max": {
+      "type": "form-field",
+      "props": {
+        "name": "ev_ebitda_max",
+        "label": "EV/EBITDA maximum",
+        "input_type": "number",
+        "help_text": "",
+        "default": "18",
+        "step": "0.1"
+      }
+    },
+    "fld_roe_min_pct": {
+      "type": "form-field",
+      "props": {
+        "name": "roe_min_pct",
+        "label": "ROE minimum (%)",
+        "input_type": "number",
+        "help_text": "",
+        "default": "12",
+        "step": "0.1"
+      }
+    },
+    "fld_roic_min_pct": {
+      "type": "form-field",
+      "props": {
+        "name": "roic_min_pct",
+        "label": "ROIC minimum (%)",
+        "input_type": "number",
+        "help_text": "",
+        "default": "10",
+        "step": "0.1"
+      }
+    },
+    "fld_operating_margin_min_pct": {
+      "type": "form-field",
+      "props": {
+        "name": "operating_margin_min_pct",
+        "label": "Operating margin min (%)",
+        "input_type": "text",
+        "help_text": "Leave empty to disable this filter.",
+        "placeholder": "optional"
+      }
+    },
+    "fld_revenue_growth_yoy_min_pct": {
+      "type": "form-field",
+      "props": {
+        "name": "revenue_growth_yoy_min_pct",
+        "label": "Revenue YoY growth min (%)",
+        "input_type": "number",
+        "help_text": "",
+        "default": "8",
+        "step": "0.1"
+      }
+    },
+    "fld_eps_growth_yoy_min_pct": {
+      "type": "form-field",
+      "props": {
+        "name": "eps_growth_yoy_min_pct",
+        "label": "EPS YoY growth min (%)",
+        "input_type": "number",
+        "help_text": "",
+        "default": "8",
+        "step": "0.1"
+      }
+    },
+    "fld_debt_to_equity_max": {
+      "type": "form-field",
+      "props": {
+        "name": "debt_to_equity_max",
+        "label": "Debt/equity max",
+        "input_type": "number",
+        "help_text": "",
+        "default": "1",
+        "step": "0.01"
+      }
+    },
+    "fld_interest_coverage_min": {
+      "type": "form-field",
+      "props": {
+        "name": "interest_coverage_min",
+        "label": "Interest coverage min (\u00d7)",
+        "input_type": "number",
+        "help_text": "",
+        "default": "4",
+        "step": "0.1"
+      }
+    },
+    "fld_current_ratio_min": {
+      "type": "form-field",
+      "props": {
+        "name": "current_ratio_min",
+        "label": "Current ratio min",
+        "input_type": "number",
+        "help_text": "",
+        "default": "1.2",
+        "step": "0.01"
+      }
+    },
+    "fld_market_cap_min_usd": {
+      "type": "form-field",
+      "props": {
+        "name": "market_cap_min_usd",
+        "label": "Market cap min (USD)",
+        "input_type": "number",
+        "help_text": "",
+        "default": "1000000000",
+        "step": "1"
+      }
+    },
+    "fld_beta_min": {
+      "type": "form-field",
+      "props": {
+        "name": "beta_min",
+        "label": "Beta min",
+        "input_type": "number",
+        "help_text": "",
+        "default": "0.9",
+        "step": "0.01"
+      }
+    },
+    "fld_beta_max": {
+      "type": "form-field",
+      "props": {
+        "name": "beta_max",
+        "label": "Beta max",
+        "input_type": "number",
+        "help_text": "",
+        "default": "1.2",
+        "step": "0.01"
+      }
+    },
+    "fld_dividend_yield_min_pct": {
+      "type": "form-field",
+      "props": {
+        "name": "dividend_yield_min_pct",
+        "label": "Dividend yield min (%)",
+        "input_type": "number",
+        "help_text": "0 = no dividend floor.",
+        "default": "0",
+        "step": "0.1"
+      }
+    },
+    "fld_payout_ratio_max_pct": {
+      "type": "form-field",
+      "props": {
+        "name": "payout_ratio_max_pct",
+        "label": "Payout ratio max (%)",
+        "input_type": "number",
+        "help_text": "",
+        "default": "70",
+        "step": "0.1"
+      }
+    },
+    "fld_max_results": {
+      "type": "form-field",
+      "props": {
+        "name": "max_results",
+        "label": "Max results",
+        "input_type": "number",
+        "help_text": "Cap on returned tickers.",
+        "default": "25",
+        "step": "1"
+      }
+    }
+  }
+}

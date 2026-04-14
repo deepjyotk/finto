@@ -14,7 +14,7 @@ To implement HITL in LangGraph/LangChain, follow the docs: [https://docs.langcha
 
 There should be an interrupt that triggers a UI request rendering @screener-hit-a2ui-form.json on the right side of the chat panel. The user can view defaults, edit values, and submit. Once submitted, execution should resume.
 
-```
+```python
 """Deterministic stock screen using only BOTH_FUNCTIONS ∪ SCREENER_FUNCTIONS from yfinance_wrappers."""
 
 from __future__ import annotations

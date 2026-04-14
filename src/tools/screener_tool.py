@@ -4,12 +4,19 @@ from __future__ import annotations
 
 import asyncio
 import math
-from typing import Annotated, Any
+from typing import Any
 
 from langchain_core.tools import tool
-from langgraph.runtime import get_runtime
+from sqlalchemy import text
 
-from src.schemas.agent_state import AgentContext
+from src.core.db import SessionLocal
+from src.schemas.screener_tool_schemas import (
+    MediumScreenerParamConfig,
+    ScreenOneResult,
+    ScreenerCriteria,
+    ScreenerRunRequest,
+    ScreenerToolInput,
+)
 from src.tools.yfinance_wrappers import BOTH_FUNCTIONS, SCREENER_FUNCTIONS
 from src.tools.yfinance_wrappers import (
     get_balance_sheet,
@@ -29,29 +36,23 @@ assert {
     "get_revenue_estimate",
 } <= _ALLOWED_WRAPPERS
 
-_MEDIUM_DEFAULTS: dict[str, Any] = {
-    "pe_min": 12.0,
-    "pe_max": 25.0,
-    "peg_min": 0.8,
-    "peg_max": 1.5,
-    "pb_max": 5.0,
-    "ps_max": 8.0,
-    "ev_ebitda_max": 18.0,
-    "roe_min_pct": 12.0,
-    "roic_min_pct": 10.0,
-    "operating_margin_min_pct": None,
-    "revenue_growth_yoy_min_pct": 8.0,
-    "eps_growth_yoy_min_pct": 8.0,
-    "debt_to_equity_max": 1.0,
-    "interest_coverage_min": 4.0,
-    "current_ratio_min": 1.2,
-    "market_cap_min_usd": 1_000_000_000.0,
-    "beta_min": 0.9,
-    "beta_max": 1.2,
-    "dividend_yield_min_pct": 0.0,
-    "payout_ratio_max_pct": 70.0,
-    "max_results": 25,
-}
+_MEDIUM_PARAM_CONFIG = MediumScreenerParamConfig()
+_MEDIUM_DEFAULTS: dict[str, Any] = _MEDIUM_PARAM_CONFIG.default_values()
+
+
+def enabled_medium_hitl_param_names() -> tuple[str, ...]:
+    """Screener params that should be rendered in the HITL form."""
+    return _MEDIUM_PARAM_CONFIG.enabled_fields()
+
+
+def _build_screener_request_from_values(values: dict[str, Any]) -> ScreenerRunRequest:
+    enabled_fields = set(enabled_medium_hitl_param_names())
+    criteria = ScreenerCriteria.from_values(values, enabled_fields=enabled_fields)
+    return ScreenerRunRequest(
+        criteria=criteria,
+        max_results=int(values.get("max_results", _MEDIUM_DEFAULTS["max_results"])),
+        universe_hint=values.get("universe_hint"),
+    )
 
 
 def _f(x: Any) -> float | None:
@@ -109,46 +110,30 @@ def _estimate_growth_pct(estimate_blob: dict[str, Any]) -> float | None:
     return None
 
 
-def _screen_one(
+async def _load_all_equity_symbols() -> list[str]:
+    """Load all equities from `in_equities` and map to Yahoo `.NS` symbols."""
+    async with SessionLocal() as session:
+        result = await session.execute(text("SELECT symbol FROM in_equities ORDER BY symbol"))
+        symbols: list[str] = []
+        for row in result:
+            raw = row[0]
+            if not raw or not isinstance(raw, str):
+                continue
+            sym = raw.strip().upper()
+            if not sym:
+                continue
+            symbols.append(sym if sym.endswith(".NS") else f"{sym}.NS")
+    return list(dict.fromkeys(symbols))
+
+
+def _apply_growth_filters(
     symbol: str,
-    *,
-    pe_min: float | None,
-    pe_max: float | None,
-    peg_min: float | None,
-    peg_max: float | None,
-    pb_max: float | None,
-    ps_max: float | None,
-    ev_ebitda_max: float | None,
-    roe_min_pct: float | None,
-    roic_min_pct: float | None,
-    operating_margin_min_pct: float | None,
-    revenue_growth_yoy_min_pct: float | None,
-    eps_growth_yoy_min_pct: float | None,
-    debt_to_equity_max: float | None,
-    interest_coverage_min: float | None,
-    current_ratio_min: float | None,
-    market_cap_min_usd: float | None,
-    beta_min: float | None,
-    beta_max: float | None,
-    dividend_yield_min_pct: float | None,
-    payout_ratio_max_pct: float | None,
-) -> tuple[bool, dict[str, Any], list[str]]:
-    reasons: list[str] = []
-    snap: dict[str, Any] = {"symbol": symbol}
-
-    info = get_ticker_info(symbol)
-    if info.get("error"):
-        return False, snap, [f"ticker_info_error:{info.get('error')}"]
-
-    pe = _f(info.get("trailingPE"))
-    if pe is None:
-        pe = _f(info.get("forwardPE"))
-    snap["pe"] = pe
-    if pe_min is not None and pe is not None and pe < pe_min:
-        reasons.append(f"pe<{pe_min}")
-    if pe_max is not None and pe is not None and pe > pe_max:
-        reasons.append(f"pe>{pe_max}")
-
+    info: dict[str, Any],
+    criteria: ScreenerCriteria,
+    snap: dict[str, Any],
+    reasons: list[str],
+) -> tuple[float | None, float | None]:
+    """Populate growth metrics and apply growth thresholds."""
     rev_g = _growth_to_pct(info.get("revenueGrowth"))
     eps_g_info = _growth_to_pct(info.get("earningsGrowth"))
     snap["revenue_growth_pct"] = rev_g
@@ -161,71 +146,103 @@ def _screen_one(
 
     if eps_g_info is None:
         earn_est = _dict_only(get_earnings_estimate(symbol).get("earnings_estimate"))
-        eg = _estimate_growth_pct(earn_est)
-        eps_g_info = eg
+        eps_g_info = _estimate_growth_pct(earn_est)
         snap["eps_growth_pct"] = eps_g_info
 
-    if revenue_growth_yoy_min_pct is not None:
+    if criteria.revenue_growth_yoy_min_pct is not None:
         if rev_g is None:
             reasons.append("revenue_growth_missing")
-        elif rev_g < revenue_growth_yoy_min_pct:
-            reasons.append(f"revenue_growth<{revenue_growth_yoy_min_pct}")
+        elif rev_g < criteria.revenue_growth_yoy_min_pct:
+            reasons.append(f"revenue_growth<{criteria.revenue_growth_yoy_min_pct}")
 
-    if eps_growth_yoy_min_pct is not None:
+    if criteria.eps_growth_yoy_min_pct is not None:
         if eps_g_info is None:
             reasons.append("eps_growth_missing")
-        elif eps_g_info < eps_growth_yoy_min_pct:
-            reasons.append(f"eps_growth<{eps_growth_yoy_min_pct}")
+        elif eps_g_info < criteria.eps_growth_yoy_min_pct:
+            reasons.append(f"eps_growth<{criteria.eps_growth_yoy_min_pct}")
+
+    return rev_g, eps_g_info
+
+
+def _apply_valuation_filters(
+    info: dict[str, Any],
+    criteria: ScreenerCriteria,
+    snap: dict[str, Any],
+    reasons: list[str],
+    eps_g_info: float | None,
+) -> None:
+    """Populate valuation metrics and apply valuation thresholds."""
+    pe = _f(info.get("trailingPE"))
+    if pe is None:
+        pe = _f(info.get("forwardPE"))
+    snap["pe"] = pe
+    if criteria.pe_min is not None and pe is not None and pe < criteria.pe_min:
+        reasons.append(f"pe<{criteria.pe_min}")
+    if criteria.pe_max is not None and pe is not None and pe > criteria.pe_max:
+        reasons.append(f"pe>{criteria.pe_max}")
 
     peg: float | None = None
     if pe is not None and eps_g_info is not None and eps_g_info > 0:
         peg = pe / eps_g_info
     snap["peg"] = peg
-    if peg_min is not None or peg_max is not None:
+    if criteria.peg_min is not None or criteria.peg_max is not None:
         if peg is None:
             reasons.append("peg_undef")
         else:
-            if peg_min is not None and peg < peg_min:
-                reasons.append(f"peg<{peg_min}")
-            if peg_max is not None and peg > peg_max:
-                reasons.append(f"peg>{peg_max}")
+            if criteria.peg_min is not None and peg < criteria.peg_min:
+                reasons.append(f"peg<{criteria.peg_min}")
+            if criteria.peg_max is not None and peg > criteria.peg_max:
+                reasons.append(f"peg>{criteria.peg_max}")
 
     pb = _f(info.get("priceToBook"))
     snap["pb"] = pb
-    if pb_max is not None and pb is not None and pb > pb_max:
-        reasons.append(f"pb>{pb_max}")
+    if criteria.pb_max is not None and pb is not None and pb > criteria.pb_max:
+        reasons.append(f"pb>{criteria.pb_max}")
 
     ps = _f(info.get("priceToSalesTrailing12Months"))
     snap["ps"] = ps
-    if ps_max is not None and ps is not None and ps > ps_max:
-        reasons.append(f"ps>{ps_max}")
+    if criteria.ps_max is not None and ps is not None and ps > criteria.ps_max:
+        reasons.append(f"ps>{criteria.ps_max}")
 
-    ev = _f(info.get("enterpriseValue"))
+
+def _load_statement_context(symbol: str) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Load latest income/balance-sheet rows for statement-derived metrics."""
     inc = _dict_only(get_income_statement(symbol, freq="yearly").get("income_statement"))
-    latest_i = _latest_period_row(inc)
+    bs = _dict_only(get_balance_sheet(symbol, freq="yearly").get("balance_sheet"))
+    return _latest_period_row(inc), _latest_period_row(bs)
+
+
+def _apply_profitability_filters(
+    info: dict[str, Any],
+    criteria: ScreenerCriteria,
+    snap: dict[str, Any],
+    reasons: list[str],
+    latest_i: dict[str, Any],
+    latest_b: dict[str, Any],
+) -> tuple[float | None, float | None]:
+    """Apply EV/EBITDA, ROE, ROIC and operating-margin filters."""
+    ev = _f(info.get("enterpriseValue"))
     ebitda = _f(latest_i.get("EBITDA"))
     ev_ebitda: float | None = None
     if ev is not None and ebitda is not None and ebitda > 0:
         ev_ebitda = ev / ebitda
     snap["ev_ebitda"] = ev_ebitda
-    if ev_ebitda_max is not None:
+    if criteria.ev_ebitda_max is not None:
         if ev_ebitda is None:
             reasons.append("ev_ebitda_missing")
-        elif ev_ebitda > ev_ebitda_max:
-            reasons.append(f"ev_ebitda>{ev_ebitda_max}")
+        elif ev_ebitda > criteria.ev_ebitda_max:
+            reasons.append(f"ev_ebitda>{criteria.ev_ebitda_max}")
 
     roe = _f(info.get("returnOnEquity"))
     if roe is not None and -1 < roe < 1:
         roe *= 100.0
     snap["roe_pct"] = roe
-    if roe_min_pct is not None:
+    if criteria.roe_min_pct is not None:
         if roe is None:
             reasons.append("roe_missing")
-        elif roe < roe_min_pct:
-            reasons.append(f"roe<{roe_min_pct}")
+        elif roe < criteria.roe_min_pct:
+            reasons.append(f"roe<{criteria.roe_min_pct}")
 
-    bs = _dict_only(get_balance_sheet(symbol, freq="yearly").get("balance_sheet"))
-    latest_b = _latest_period_row(bs)
     td = _f(latest_b.get("TotalDebt"))
     eq = _f(latest_b.get("StockholdersEquity"))
     cash = _f(latest_b.get("CashAndCashEquivalents"))
@@ -239,88 +256,129 @@ def _screen_one(
     if oi is not None and invested is not None and invested > 0:
         roic_pct = (oi / invested) * 100.0
     snap["roic_pct"] = roic_pct
-    if roic_min_pct is not None:
+    if criteria.roic_min_pct is not None:
         if roic_pct is None:
             reasons.append("roic_missing")
-        elif roic_pct < roic_min_pct:
-            reasons.append(f"roic<{roic_min_pct}")
+        elif roic_pct < criteria.roic_min_pct:
+            reasons.append(f"roic<{criteria.roic_min_pct}")
 
     om = _f(info.get("operatingMargins"))
     if om is not None and -1 < om < 1:
         om *= 100.0
     snap["operating_margin_pct"] = om
-    if operating_margin_min_pct is not None:
+    if criteria.operating_margin_min_pct is not None:
         if om is None:
             reasons.append("operating_margin_missing")
-        elif om < operating_margin_min_pct:
-            reasons.append(f"operating_margin<{operating_margin_min_pct}")
+        elif om < criteria.operating_margin_min_pct:
+            reasons.append(f"operating_margin<{criteria.operating_margin_min_pct}")
 
+    return oi, interest
+
+
+def _apply_balance_sheet_filters(
+    info: dict[str, Any],
+    criteria: ScreenerCriteria,
+    snap: dict[str, Any],
+    reasons: list[str],
+    oi: float | None,
+    interest: float | None,
+) -> None:
+    """Apply debt, coverage, and current-ratio thresholds."""
     dte = _f(info.get("debtToEquity"))
     snap["debt_to_equity"] = dte
-    if debt_to_equity_max is not None:
+    if criteria.debt_to_equity_max is not None:
         if dte is None:
             reasons.append("debt_to_equity_missing")
-        elif dte > debt_to_equity_max:
-            reasons.append(f"debt_to_equity>{debt_to_equity_max}")
+        elif dte > criteria.debt_to_equity_max:
+            reasons.append(f"debt_to_equity>{criteria.debt_to_equity_max}")
 
     coverage: float | None = None
     if oi is not None and interest is not None and interest != 0:
         coverage = abs(oi / interest)
     snap["interest_coverage"] = coverage
-    if interest_coverage_min is not None:
+    if criteria.interest_coverage_min is not None:
         if coverage is None:
             reasons.append("interest_coverage_missing")
-        elif coverage < interest_coverage_min:
-            reasons.append(f"interest_coverage<{interest_coverage_min}")
+        elif coverage < criteria.interest_coverage_min:
+            reasons.append(f"interest_coverage<{criteria.interest_coverage_min}")
 
     cr = _f(info.get("currentRatio"))
     snap["current_ratio"] = cr
-    if current_ratio_min is not None:
+    if criteria.current_ratio_min is not None:
         if cr is None:
             reasons.append("current_ratio_missing")
-        elif cr < current_ratio_min:
-            reasons.append(f"current_ratio<{current_ratio_min}")
+        elif cr < criteria.current_ratio_min:
+            reasons.append(f"current_ratio<{criteria.current_ratio_min}")
 
+
+def _apply_market_filters(
+    info: dict[str, Any],
+    criteria: ScreenerCriteria,
+    snap: dict[str, Any],
+    reasons: list[str],
+) -> None:
+    """Apply market-cap, beta, dividend, and payout filters."""
     mcap = _f(info.get("marketCap"))
     snap["market_cap"] = mcap
-    if market_cap_min_usd is not None:
+    if criteria.market_cap_min_usd is not None:
         if mcap is None:
             reasons.append("market_cap_missing")
-        elif mcap < market_cap_min_usd:
-            reasons.append(f"market_cap<{market_cap_min_usd}")
+        elif mcap < criteria.market_cap_min_usd:
+            reasons.append(f"market_cap<{criteria.market_cap_min_usd}")
 
     beta = _f(info.get("beta"))
     snap["beta"] = beta
-    if beta_min is not None or beta_max is not None:
+    if criteria.beta_min is not None or criteria.beta_max is not None:
         if beta is None:
             reasons.append("beta_missing")
         else:
-            if beta_min is not None and beta < beta_min:
-                reasons.append(f"beta<{beta_min}")
-            if beta_max is not None and beta > beta_max:
-                reasons.append(f"beta>{beta_max}")
+            if criteria.beta_min is not None and beta < criteria.beta_min:
+                reasons.append(f"beta<{criteria.beta_min}")
+            if criteria.beta_max is not None and beta > criteria.beta_max:
+                reasons.append(f"beta>{criteria.beta_max}")
 
     dy = _f(info.get("dividendYield"))
     if dy is not None and dy <= 1.0:
         dy *= 100.0
     snap["dividend_yield_pct"] = dy
-    if dividend_yield_min_pct is not None and dividend_yield_min_pct > 0:
+    if criteria.dividend_yield_min_pct is not None and criteria.dividend_yield_min_pct > 0:
         if dy is None:
             reasons.append("dividend_yield_missing")
-        elif dy < dividend_yield_min_pct:
-            reasons.append(f"dividend_yield<{dividend_yield_min_pct}")
+        elif dy < criteria.dividend_yield_min_pct:
+            reasons.append(f"dividend_yield<{criteria.dividend_yield_min_pct}")
 
     pr = _f(info.get("payoutRatio"))
     if pr is not None and pr <= 1.0:
         pr *= 100.0
     snap["payout_ratio_pct"] = pr
-    if payout_ratio_max_pct is not None:
+    if criteria.payout_ratio_max_pct is not None:
         if pr is None:
             reasons.append("payout_ratio_missing")
-        elif pr > payout_ratio_max_pct:
-            reasons.append(f"payout_ratio>{payout_ratio_max_pct}")
+        elif pr > criteria.payout_ratio_max_pct:
+            reasons.append(f"payout_ratio>{criteria.payout_ratio_max_pct}")
 
-    return (len(reasons) == 0), snap, reasons
+
+def _screen_one(symbol: str, criteria: ScreenerCriteria) -> ScreenOneResult:
+    """Screen one symbol and return a typed screening result."""
+    reasons: list[str] = []
+    snap: dict[str, Any] = {"symbol": symbol}
+
+    info = get_ticker_info(symbol)
+    if info.get("error"):
+        return ScreenOneResult(
+            passed=False,
+            snapshot=snap,
+            reasons=[f"ticker_info_error:{info.get('error')}"],
+        )
+
+    _, eps_g_info = _apply_growth_filters(symbol, info, criteria, snap, reasons)
+    _apply_valuation_filters(info, criteria, snap, reasons, eps_g_info)
+    latest_i, latest_b = _load_statement_context(symbol)
+    oi, interest = _apply_profitability_filters(info, criteria, snap, reasons, latest_i, latest_b)
+    _apply_balance_sheet_filters(info, criteria, snap, reasons, oi, interest)
+    _apply_market_filters(info, criteria, snap, reasons)
+
+    return ScreenOneResult(passed=(len(reasons) == 0), snapshot=snap, reasons=reasons)
 
 
 def _format_result(
@@ -344,134 +402,42 @@ def _format_result(
 
 
 def run_get_screened_stocks_sync(
-    candidate_symbols: list[str],
-    *,
-    pe_min: float | None = _MEDIUM_DEFAULTS["pe_min"],
-    pe_max: float | None = _MEDIUM_DEFAULTS["pe_max"],
-    peg_min: float | None = _MEDIUM_DEFAULTS["peg_min"],
-    peg_max: float | None = _MEDIUM_DEFAULTS["peg_max"],
-    pb_max: float | None = _MEDIUM_DEFAULTS["pb_max"],
-    ps_max: float | None = _MEDIUM_DEFAULTS["ps_max"],
-    ev_ebitda_max: float | None = _MEDIUM_DEFAULTS["ev_ebitda_max"],
-    roe_min_pct: float | None = _MEDIUM_DEFAULTS["roe_min_pct"],
-    roic_min_pct: float | None = _MEDIUM_DEFAULTS["roic_min_pct"],
-    operating_margin_min_pct: float | None = _MEDIUM_DEFAULTS["operating_margin_min_pct"],
-    revenue_growth_yoy_min_pct: float | None = _MEDIUM_DEFAULTS["revenue_growth_yoy_min_pct"],
-    eps_growth_yoy_min_pct: float | None = _MEDIUM_DEFAULTS["eps_growth_yoy_min_pct"],
-    debt_to_equity_max: float | None = _MEDIUM_DEFAULTS["debt_to_equity_max"],
-    interest_coverage_min: float | None = _MEDIUM_DEFAULTS["interest_coverage_min"],
-    current_ratio_min: float | None = _MEDIUM_DEFAULTS["current_ratio_min"],
-    market_cap_min_usd: float | None = _MEDIUM_DEFAULTS["market_cap_min_usd"],
-    beta_min: float | None = _MEDIUM_DEFAULTS["beta_min"],
-    beta_max: float | None = _MEDIUM_DEFAULTS["beta_max"],
-    dividend_yield_min_pct: float | None = _MEDIUM_DEFAULTS["dividend_yield_min_pct"],
-    payout_ratio_max_pct: float | None = _MEDIUM_DEFAULTS["payout_ratio_max_pct"],
-    max_results: int = _MEDIUM_DEFAULTS["max_results"],
-    universe_hint: str | None = None,
+    symbols: list[str],
+    request: ScreenerRunRequest,
 ) -> str:
     notes: list[str] = []
-    if not candidate_symbols:
-        return (
-            "ERROR: No candidate symbols to screen. "
-            "The screener node must set screener_candidate_symbols on AgentContext before calling get_screened_stocks."
-        )
+    if not symbols:
+        return "ERROR: No symbols available to screen."
 
     passed: list[dict[str, Any]] = []
-    for sym in candidate_symbols:
-        if len(passed) >= max_results:
+    for sym in symbols:
+        if len(passed) >= request.max_results:
             break
-        ok, snap, reasons = _screen_one(
-            sym.strip(),
-            pe_min=pe_min,
-            pe_max=pe_max,
-            peg_min=peg_min,
-            peg_max=peg_max,
-            pb_max=pb_max,
-            ps_max=ps_max,
-            ev_ebitda_max=ev_ebitda_max,
-            roe_min_pct=roe_min_pct,
-            roic_min_pct=roic_min_pct,
-            operating_margin_min_pct=operating_margin_min_pct,
-            revenue_growth_yoy_min_pct=revenue_growth_yoy_min_pct,
-            eps_growth_yoy_min_pct=eps_growth_yoy_min_pct,
-            debt_to_equity_max=debt_to_equity_max,
-            interest_coverage_min=interest_coverage_min,
-            current_ratio_min=current_ratio_min,
-            market_cap_min_usd=market_cap_min_usd,
-            beta_min=beta_min,
-            beta_max=beta_max,
-            dividend_yield_min_pct=dividend_yield_min_pct,
-            payout_ratio_max_pct=payout_ratio_max_pct,
-        )
-        if ok:
-            passed.append(snap)
-        elif reasons and "ticker_info_error" not in reasons[0]:
-            notes.append(f"{sym}: {', '.join(reasons[:3])}")
+        result = _screen_one(sym.strip(), request.criteria)
+        if result.passed:
+            passed.append(result.snapshot)
+        elif result.reasons and "ticker_info_error" not in result.reasons[0]:
+            notes.append(f"{sym}: {', '.join(result.reasons[:3])}")
 
-    return _format_result(passed, universe_hint, notes[:50])
+    return _format_result(passed, request.universe_hint, notes[:50])
 
 
-@tool("get_screened_stocks")
-async def get_screened_stocks(
-    pe_min: Annotated[float | None, "Trailing or forward P/E lower bound."] = _MEDIUM_DEFAULTS["pe_min"],
-    pe_max: Annotated[float | None, "Trailing or forward P/E upper bound."] = _MEDIUM_DEFAULTS["pe_max"],
-    peg_min: Annotated[float | None, "PEG lower bound (earnings growth must be positive/stable to use)."] = _MEDIUM_DEFAULTS["peg_min"],
-    peg_max: Annotated[float | None, "PEG upper bound."] = _MEDIUM_DEFAULTS["peg_max"],
-    pb_max: Annotated[float | None, "Price/book ceiling (sector-sensitive)."] = _MEDIUM_DEFAULTS["pb_max"],
-    ps_max: Annotated[float | None, "Price/sales ceiling (sector-sensitive)."] = _MEDIUM_DEFAULTS["ps_max"],
-    ev_ebitda_max: Annotated[float | None, "EV/EBITDA ceiling."] = _MEDIUM_DEFAULTS["ev_ebitda_max"],
-    roe_min_pct: Annotated[float | None, "Minimum ROE (%)."] = _MEDIUM_DEFAULTS["roe_min_pct"],
-    roic_min_pct: Annotated[float | None, "Minimum ROIC (%)."] = _MEDIUM_DEFAULTS["roic_min_pct"],
-    operating_margin_min_pct: Annotated[float | None, "Optional minimum operating margin (%)."] = _MEDIUM_DEFAULTS["operating_margin_min_pct"],
-    revenue_growth_yoy_min_pct: Annotated[float | None, "Minimum revenue YoY growth (%)."] = _MEDIUM_DEFAULTS["revenue_growth_yoy_min_pct"],
-    eps_growth_yoy_min_pct: Annotated[float | None, "Minimum EPS YoY growth (%)."] = _MEDIUM_DEFAULTS["eps_growth_yoy_min_pct"],
-    debt_to_equity_max: Annotated[float | None, "Maximum debt/equity."] = _MEDIUM_DEFAULTS["debt_to_equity_max"],
-    interest_coverage_min: Annotated[float | None, "Minimum interest coverage (times)."] = _MEDIUM_DEFAULTS["interest_coverage_min"],
-    current_ratio_min: Annotated[float | None, "Minimum current ratio."] = _MEDIUM_DEFAULTS["current_ratio_min"],
-    market_cap_min_usd: Annotated[float | None, "Minimum market cap (USD)."] = _MEDIUM_DEFAULTS["market_cap_min_usd"],
-    beta_min: Annotated[float | None, "Minimum 1y beta vs benchmark."] = _MEDIUM_DEFAULTS["beta_min"],
-    beta_max: Annotated[float | None, "Maximum 1y beta vs benchmark."] = _MEDIUM_DEFAULTS["beta_max"],
-    dividend_yield_min_pct: Annotated[float | None, "Minimum dividend yield (%); 0 = no dividend floor."] = _MEDIUM_DEFAULTS["dividend_yield_min_pct"],
-    payout_ratio_max_pct: Annotated[float | None, "Maximum payout ratio (%)."] = _MEDIUM_DEFAULTS["payout_ratio_max_pct"],
-    max_results: Annotated[int, "Cap on returned tickers."] = _MEDIUM_DEFAULTS["max_results"],
-    universe_hint: Annotated[str | None, "Optional exchange/region/sector hint, e.g. 'US large-cap tech'."] = None,
-) -> str:
+@tool("get_screened_stocks", args_schema=ScreenerToolInput)
+async def get_screened_stocks(**kwargs: Any) -> str:
     """Return stocks passing quantitative filters.
 
     Threshold defaults match a **medium profit / medium risk** (balanced quality + growth)
     style screen. There is **no** risk-profile parameter — adjust any numeric arg to tune.
-
-    Candidate tickers are **not** a tool argument: the screener node sets
-    ``screener_candidate_symbols`` on ``AgentContext``
-    (e.g. from orchestration / universe resolution) before this tool runs.
+    Symbols are loaded from `in_equities` and screened against current thresholds.
 
     Uses only yfinance wrapper functions in ``BOTH_FUNCTIONS | SCREENER_FUNCTIONS``.
     """
-    runtime = get_runtime(AgentContext)
-    candidate_symbols: list[str] = list(runtime.context.get("screener_candidate_symbols") or [])
+    symbols = await _load_all_equity_symbols()
+    if not symbols:
+        return "ERROR: No equities found in in_equities table."
+    request = _build_screener_request_from_values(kwargs)
     return await asyncio.to_thread(
         run_get_screened_stocks_sync,
-        candidate_symbols,
-        pe_min=pe_min,
-        pe_max=pe_max,
-        peg_min=peg_min,
-        peg_max=peg_max,
-        pb_max=pb_max,
-        ps_max=ps_max,
-        ev_ebitda_max=ev_ebitda_max,
-        roe_min_pct=roe_min_pct,
-        roic_min_pct=roic_min_pct,
-        operating_margin_min_pct=operating_margin_min_pct,
-        revenue_growth_yoy_min_pct=revenue_growth_yoy_min_pct,
-        eps_growth_yoy_min_pct=eps_growth_yoy_min_pct,
-        debt_to_equity_max=debt_to_equity_max,
-        interest_coverage_min=interest_coverage_min,
-        current_ratio_min=current_ratio_min,
-        market_cap_min_usd=market_cap_min_usd,
-        beta_min=beta_min,
-        beta_max=beta_max,
-        dividend_yield_min_pct=dividend_yield_min_pct,
-        payout_ratio_max_pct=payout_ratio_max_pct,
-        max_results=max_results,
-        universe_hint=universe_hint,
+        symbols,
+        request,
     )

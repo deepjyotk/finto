@@ -156,22 +156,6 @@ Do NOT wrap the JSON in code fences. Do NOT add any explanation or text outside 
                    "x_key": string (x-axis key for bar/line/area; default "name"),
                    "unit": string (prefix for tooltip values, e.g. "₹" or "%"; optional)
                  }}
-• "form"         props: {{
-                   "form_id": string (optional, DOM id; default: component id),
-                   "title": string (optional heading inside the form),
-                   "submit_label": string (optional; default "Submit"),
-                   "children": [string, ...] — ids of child components (must be "form-field" entries).
-                   Do NOT list child ids again in "root"; only the form id appears in "root".
-                 }}
-• "form-field"   props: {{
-                   "name": string (required; HTML name + key in FormData on submit),
-                   "label": string (visible label),
-                   "input_type": "text" | "number",
-                   "default": string | number (optional initial value),
-                   "placeholder": string (optional),
-                   "step", "min", "max": string (optional; for number inputs),
-                   "help_text": string (optional small hint below the field)
-                 }}
 
 ─── RULES ───
 • Use short unique IDs: "h1", "badge1", "table1", "chart1", "info1", etc.
@@ -189,8 +173,8 @@ Do NOT wrap the JSON in code fences. Do NOT add any explanation or text outside 
   - For pie charts: data must have "name" and one numeric value key (e.g. "value").
   - For INR pie/bar charts, set "unit": "₹".
 • You can include both a chart AND a data-table when both are useful.
-• For user-editable parameters (screening thresholds, HITL tool args), use "form" with "form-field" children.
-  Each field needs a unique "name" matching the API/tool parameter. Use "input_type": "number" for numeric thresholds.
+• NEVER generate interactive input UI in final responses: no "form", no "form-field", no inputs, no selectors, and no buttons.
+• HITL parameter collection is handled by a deterministic server-side flow; final responses must be display-only components.
 
 ─── USER QUERY ───
 {user_request}

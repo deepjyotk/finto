@@ -201,6 +201,7 @@ class A2UIChatService:
             user_id=user_id,
             content=question,
         )
+        await self.chat_repo.session.commit()
 
         graph_runner: Any = await self.graph.get_graph()
         final_content_parts: list[str] = []

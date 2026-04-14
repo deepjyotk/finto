@@ -268,6 +268,7 @@ class ThesysChatService:
             user_id=user_id,
             content=question,
         )
+        await self.chat_repo.session.commit()
 
         graph_runner = await self.graph.get_graph()
         try:

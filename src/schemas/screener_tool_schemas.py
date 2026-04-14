@@ -112,6 +112,16 @@ class ScreenerRunRequest(BaseModel):
     max_results: int = 25
     universe_hint: str | None = None
 
+    @classmethod
+    def from_values(
+        cls, values: dict[str, Any], *, enabled_fields: set[str] | None = None
+    ) -> "ScreenerRunRequest":
+        return cls(
+            criteria=ScreenerCriteria.from_values(values, enabled_fields=enabled_fields),
+            max_results=int(values.get("max_results", 25)),
+            universe_hint=values.get("universe_hint"),
+        )
+
 
 class ScreenOneResult(BaseModel):
     """Result of screening one symbol against configured criteria."""

@@ -47,11 +47,9 @@ def enabled_medium_hitl_param_names() -> tuple[str, ...]:
 
 def _build_screener_request_from_values(values: dict[str, Any]) -> ScreenerRunRequest:
     enabled_fields = set(enabled_medium_hitl_param_names())
-    criteria = ScreenerCriteria.from_values(values, enabled_fields=enabled_fields)
-    return ScreenerRunRequest(
-        criteria=criteria,
-        max_results=int(values.get("max_results", _MEDIUM_DEFAULTS["max_results"])),
-        universe_hint=values.get("universe_hint"),
+    return ScreenerRunRequest.from_values(
+        values,
+        enabled_fields=enabled_fields,
     )
 
 

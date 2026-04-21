@@ -7,7 +7,13 @@ from dotenv import load_dotenv
 _env_file = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(_env_file, override=True)
 
+import asyncio  # noqa: E402
 import os  # noqa: E402
+import sys  # noqa: E402
+
+# Fix for Windows: psycopg requires SelectorEventLoop instead of ProactorEventLoop
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 import uvicorn  # noqa: E402
 from fastapi import FastAPI, HTTPException, Request, status  # noqa: E402
@@ -143,4 +149,12 @@ async def health_check():
 app.include_router(api_router)
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    if sys.platform == "win32":
+        import selectors
+
+        loop_factory = asyncio.SelectorEventLoop
+        config = uvicorn.Config(app, host="0.0.0.0", port=8000)
+        server = uvicorn.Server(config)
+        asyncio.run(server.serve(), loop_factory=loop_factory)
+    else:
+        uvicorn.run(app, host="0.0.0.0", port=8000)

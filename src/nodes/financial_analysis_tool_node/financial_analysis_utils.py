@@ -61,6 +61,10 @@ from src.tools.yfinance_wrappers import (
     get_ticker_info,
 )
 
+# ── Tool Registry (populates on first import) ──────────────────────────────
+import src.tools.register_all  # noqa: F401  — side-effect: populates registry
+from src.tools.registry import registry as _tool_registry
+
 logger = logger_for(__name__)
 
 # Parsed from generated code stdout (embedded in execute_python_code tool output).
@@ -236,7 +240,25 @@ def build_execution_env() -> Dict[str, object]:
 
 def financial_analysis_tool_sandbox_function_names() -> tuple[str, ...]:
     """Alphabetical names bound in the portfolio CodeAct sandbox (excludes ``__builtins__``)."""
-    return tuple(sorted(k for k in build_execution_env().keys() if k != "__builtins__"))
+    return _tool_registry.all_names()
+
+
+def build_execution_env_from_registry() -> Dict[str, object]:
+    """Build sandboxed exec namespace using the central ToolRegistry (all functions)."""
+    return _tool_registry.build_exec_env()
+
+
+def get_routed_function_signatures(user_request: str) -> str:
+    """Route the user query to relevant categories and return only those signatures.
+
+    This keeps the code-gen prompt lean: instead of injecting ALL 80+ function
+    docs, we inject only the 15-25 most relevant ones.
+    """
+    categories = _tool_registry.route_query(user_request, top_k=5)
+    if not categories:
+        # Fallback: return everything
+        return _tool_registry.get_signatures()
+    return _tool_registry.get_signatures(set(categories))
 
 
 def build_code_gen_invoke_args(
@@ -244,13 +266,24 @@ def build_code_gen_invoke_args(
     user_request: str,
     symbol_names: List[str],
 ) -> dict:
-    """Assemble all template variables needed by CODE_GENERATION_PROMPT."""
+    """Assemble all template variables needed by CODE_GENERATION_PROMPT.
+
+    Uses the ToolRegistry to inject **only** the function signatures relevant
+    to the user's query (via keyword routing).  The existing per-group template
+    variables are preserved for backward compatibility with the current prompt
+    template, but a new ``routed_function_signatures`` variable is added that
+    contains the full set of relevant functions.  You can migrate the prompt
+    template to use only ``routed_function_signatures`` when ready.
+    """
     return {
         "messages": messages,
         "user_request": user_request,
         "portfolio_df_schema": EquityHoldingSchema.get_holdings_schema(),
         "symbols_context": build_symbols_context(symbol_names),
         "current_date_time": datetime.now(ZoneInfo("Asia/Kolkata")).strftime("%Y-%m-%d %H:%M:%S"),
+        # ── NEW: single routed block (migrate prompt to use this) ───────
+        "routed_function_signatures": get_routed_function_signatures(user_request),
+        # ── Legacy per-group variables (keep until prompt migration) ────
         "risk_functions_with_doc_string": get_function_with_doc_string(
             [download_prices, portfolio_volatility, max_drawdown, max_drawdown_asset]
         ),

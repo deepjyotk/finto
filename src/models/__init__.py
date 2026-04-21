@@ -5,6 +5,7 @@ from src.models.broker import Broker
 from src.models.chat_messages import ChatMessage
 from src.models.chat_session import ChatSession, WhatsappChatSession
 from src.models.credit_transaction import CreditTransaction
+from src.models.daily_contest import ContestPick, DailyContest
 from src.models.equity_holding import EquityHolding
 from src.models.equity_holding_metadata import EquityHoldingMetadata, UploadedVia
 from src.models.holding_sync import HoldingSync
@@ -20,7 +21,9 @@ __all__ = [
     "ChatMessage",
     "ChatSession",
     "WhatsappChatSession",
+    "ContestPick",
     "CreditTransaction",
+    "DailyContest",
     "EquityHolding",
     "EquityHoldingMetadata",
     "HoldingSync",

@@ -21,6 +21,7 @@ from src.nodes.screener_analysis_tool_node import ScreenerNode
 from src.nodes.web_search import WebSearchNode
 from src.repositories.broker_repo import BrokerRepository
 from src.repositories.chat_repo import ChatRepository
+from src.repositories.daily_contest_repo import DailyContestRepo
 from src.repositories.holdings_repo import HoldingsRepository
 from src.repositories.pending_registration_repo import PendingRegistrationRepository
 from src.repositories.user_repo import UserRepository
@@ -29,6 +30,7 @@ from src.services.a2ui_chat_service import A2UIChatService
 from src.services.auth import AuthService
 from src.services.broker import BrokerService
 from src.services.chat import ChatService
+from src.services.daily_contest import DailyContestService
 from src.services.chat_thesys_service import ThesysChatService
 from src.services.email import EmailService
 from src.services.holdings import HoldingsService
@@ -74,6 +76,13 @@ def get_holdings_service(
 ) -> HoldingsService:
     """Provide HoldingsService with its own session scope."""
     return HoldingsService(repo=repo)
+
+
+async def get_daily_contest_service(
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> DailyContestService:
+    """Provide DailyContestService with a DB session."""
+    return DailyContestService(session=session)
 
 
 def _get_web_search_node(

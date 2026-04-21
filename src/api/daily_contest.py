@@ -15,16 +15,37 @@ from src.api.schemas.daily_contest import (
     LivePerformanceResponse,
     MyResultResponse,
     PickConfirmation,
+    StockSearchResponse,
     SubmitPicksRequest,
 )
 from src.core.json_logging import logger_for
 from src.core.middleware import require_auth
 from src.dependencies import get_daily_contest_service
 from src.services.daily_contest import DailyContestService
+from src.services.stock_search import search_stocks, search_stocks_semantic
 
 logger = logger_for(__name__)
 
 router = APIRouter(prefix="/game", tags=["daily-stock-game"])
+
+
+@router.get("/stocks/search", response_model=StockSearchResponse)
+async def search_stocks_endpoint(
+    q: str = Query(..., min_length=1, max_length=50, description="Symbol or company name to search"),
+    semantic: bool = Query(False, description="Use Pinecone semantic search (slower, for descriptions)"),
+    limit: int = Query(10, ge=1, le=30),
+):
+    """Autocomplete endpoint for the stock picker.
+
+    Fast in-memory search by default (prefix/substring on symbol + company name).
+    Set ?semantic=true for natural language queries like 'solar energy company'.
+    No auth required.
+    """
+    if semantic:
+        results = await search_stocks_semantic(q, limit=limit)
+    else:
+        results = search_stocks(q, limit=limit)
+    return StockSearchResponse(query=q, results=results, semantic=semantic)
 
 
 @router.post("/picks", response_model=PickConfirmation, status_code=status.HTTP_201_CREATED)

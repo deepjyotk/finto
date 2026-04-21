@@ -12,6 +12,22 @@ from pydantic import BaseModel, Field, field_validator
 # ── Requests ────────────────────────────────────────────────────────────────
 
 
+class StockSearchResult(BaseModel):
+    """A single stock match returned by the autocomplete search."""
+
+    symbol: str
+    symbol_ns: str
+    company_name: str
+
+
+class StockSearchResponse(BaseModel):
+    """Response for GET /game/stocks/search."""
+
+    query: str
+    results: list[StockSearchResult]
+    semantic: bool = False  # True when results came from Pinecone semantic search
+
+
 class SubmitPicksRequest(BaseModel):
     """User submits 5 stock symbols for today's contest."""
 

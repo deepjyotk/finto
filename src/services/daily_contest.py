@@ -27,6 +27,10 @@ NIFTY_TICKER = "^NSEI"
 MARKET_OPEN_HOUR = 9
 MARKET_OPEN_MINUTE = 30
 
+# NSE market close: 3:30 PM IST
+MARKET_CLOSE_HOUR = 15
+MARKET_CLOSE_MINUTE = 30
+
 
 class DailyContestService:
     """Orchestrates the daily stock-picking game."""
@@ -66,6 +70,40 @@ class DailyContestService:
         return (now.hour < MARKET_OPEN_HOUR) or (
             now.hour == MARKET_OPEN_HOUR and now.minute < MARKET_OPEN_MINUTE
         )
+
+    @staticmethod
+    def _is_after_market_close() -> bool:
+        now = datetime.now(IST)
+        return (now.hour > MARKET_CLOSE_HOUR) or (
+            now.hour == MARKET_CLOSE_HOUR and now.minute >= MARKET_CLOSE_MINUTE
+        )
+
+    async def auto_settle_if_needed(self, contest_date: Optional[date] = None) -> bool:
+        """Settle today's contest automatically if market has closed and it isn't settled yet.
+
+        Returns True if settlement was triggered, False if not needed.
+        Called transparently from status + live-performance endpoints.
+        """
+        if not self._is_after_market_close():
+            return False
+
+        d = contest_date or self._today_ist()
+        contest = await self._repo.get_contest_by_date(d)
+        if contest is None or contest.is_settled:
+            return False
+
+        # Only settle if there are picks
+        picks = await self._repo.get_all_picks_for_contest(contest.contest_id)
+        if not picks:
+            return False
+
+        logger.info("auto_settle_triggered", extra={"date": str(d)})
+        try:
+            await self.settle_contest(d)
+            return True
+        except Exception as exc:
+            logger.warning("auto_settle_failed", extra={"date": str(d), "error": str(exc)})
+            return False
 
     @staticmethod
     def _pick_stocks(pick: ContestPick) -> list[str]:
@@ -123,19 +161,24 @@ class DailyContestService:
 
     @staticmethod
     def _snapshot_prices(normalized: list[str]) -> list[float]:
-        """Fetch current market prices for a list of symbols (sync, call in executor)."""
+        """Validate symbols against known NSE list, then fetch current prices."""
+        from src.services.stock_search import validate_symbol
         snapshot: list[float] = []
         for sym in normalized:
+            bare = sym.upper().removesuffix(".NS")
+            if not validate_symbol(bare):
+                raise ValueError(f"'{bare}' is not a valid NSE stock symbol. Please pick from the search list.")
             try:
+                import yfinance as yf
                 ticker = yf.Ticker(sym)
                 price = ticker.info.get("regularMarketPrice")
                 if price is None:
-                    raise ValueError(f"Invalid or delisted symbol: {sym}")
+                    raise ValueError(f"Could not fetch price for {bare}. It may be delisted or suspended.")
                 snapshot.append(float(price))
             except ValueError:
                 raise
             except Exception:
-                raise ValueError(f"Could not verify symbol: {sym}")
+                raise ValueError(f"Could not verify symbol: {bare}")
         return snapshot
 
     async def submit_picks(self, user_id: UUID, stocks: list[str], display_name: str | None = None, ip_address: str | None = None) -> tuple[ContestPick, date]:
@@ -218,13 +261,10 @@ class DailyContestService:
     # ── Contest status ──────────────────────────────────────────────────
 
     async def get_contest_status(self, user_id: UUID, contest_date: Optional[date] = None):
-        """Check submission state and what phase the game is in.
+        """Check submission state and what phase the game is in."""
+        # Auto-settle if market has closed
+        await self.auto_settle_if_needed()
 
-        Phase values the UI can switch on:
-          'open'      — no picks yet, accepting submissions for today
-          'submitted' — user locked in picks, market still live
-          'settled'   — today's contest scored; accepting picks for tomorrow
-        """
         today = self._today_ist()
         active_date = contest_date or await self._get_active_contest_date()
         today_contest = await self._repo.get_contest_by_date(today)
@@ -437,6 +477,7 @@ class DailyContestService:
 
     async def get_live_performance_anon(self, anon_id: str, contest_date: Optional[date] = None) -> Optional[dict]:
         """Same as get_live_performance but looks up pick by anon_id."""
+        await self.auto_settle_if_needed()
         d = contest_date or self._today_ist()
         contest = await self._repo.get_contest_by_date(d)
         if contest is None:
@@ -450,6 +491,7 @@ class DailyContestService:
 
     async def get_live_performance(self, user_id: UUID, contest_date: Optional[date] = None) -> Optional[dict]:
         """Return real-time portfolio P&L for the user's picks."""
+        await self.auto_settle_if_needed()
         d = contest_date or self._today_ist()
         contest = await self._repo.get_contest_by_date(d)
         if contest is None:

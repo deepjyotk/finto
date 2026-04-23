@@ -15,6 +15,7 @@ from src.api.schemas.daily_contest import (
     LivePerformanceResponse,
     MyResultResponse,
     PickConfirmation,
+    PicksHistoryResponse,
     StockSearchResponse,
     SubmitPicksRequest,
 )
@@ -211,6 +212,20 @@ async def leaderboard(
     """Get the full leaderboard for a contest day. No auth required."""
     result = await svc.get_leaderboard(contest_date)
     return LeaderboardResponse(**result)
+
+
+@router.get("/my-history", response_model=PicksHistoryResponse)
+async def my_picks_history(
+    svc: Annotated[DailyContestService, Depends(get_daily_contest_service)],
+    user: dict = Depends(require_auth),
+    limit: int = Query(30, ge=1, le=90, description="Max number of past contest days to return"),
+):
+    """Return the authenticated user's full picks history with per-day scores and rankings."""
+    from uuid import UUID
+
+    user_id = UUID(user["user_id"])
+    history = await svc.get_picks_history(user_id, limit=limit)
+    return PicksHistoryResponse(history=history)
 
 
 @router.post("/settle", status_code=status.HTTP_200_OK)

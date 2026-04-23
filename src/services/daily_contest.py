@@ -501,6 +501,32 @@ class DailyContestService:
             return None
         return await self._live_performance_from_pick(pick, contest)
 
+    # ── Picks history ───────────────────────────────────────────────────
+
+    async def get_picks_history(self, user_id: UUID, limit: int = 30) -> list[dict]:
+        """Return all past picks for a user with per-day scores, newest first."""
+        rows = await self._repo.get_user_picks_history(user_id, limit=limit)
+        history = []
+        for pick, contest in rows:
+            stocks = self._pick_stocks(pick)
+            history.append({
+                "contest_date": contest.contest_date,
+                "is_settled": contest.is_settled,
+                "stocks": [
+                    {
+                        "symbol": stocks[i],
+                        "entry_price": getattr(pick, f"stock_{i+1}_entry_price"),
+                        "return_pct": getattr(pick, f"stock_{i+1}_return_pct"),
+                    }
+                    for i in range(5)
+                ],
+                "portfolio_return_pct": pick.portfolio_return_pct,
+                "nifty_return_pct": contest.nifty_return_pct,
+                "excess_return_pct": pick.excess_return_pct,
+                "rank": pick.rank,
+            })
+        return history
+
     # ── Settlement (called after market close) ──────────────────────────
 
     async def settle_contest(self, contest_date: Optional[date] = None) -> dict:

@@ -200,3 +200,29 @@ class ContestStatusResponse(BaseModel):
     is_settled: bool
     phase: str  # 'open' | 'submitted' | 'settled'
     total_participants: int
+
+
+class HistoryStockBreakdown(BaseModel):
+    """Per-stock detail in a historical pick entry."""
+
+    symbol: str
+    entry_price: Optional[float] = None
+    return_pct: Optional[float] = None
+
+
+class PickHistoryEntry(BaseModel):
+    """A single day's pick entry in the user's history."""
+
+    contest_date: date
+    is_settled: bool
+    stocks: list[HistoryStockBreakdown]
+    portfolio_return_pct: Optional[float] = None
+    nifty_return_pct: Optional[float] = None
+    excess_return_pct: Optional[float] = None
+    rank: Optional[int] = None
+
+
+class PicksHistoryResponse(BaseModel):
+    """Response for GET /game/my-history."""
+
+    history: list[PickHistoryEntry]

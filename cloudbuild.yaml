@@ -72,6 +72,9 @@ steps:
       - --set-secrets=SENDGRID_API_KEY=SENDGRID_API_KEY:latest
       - --set-secrets=SENDGRID_FROM_EMAIL=SENDGRID_FROM_EMAIL:latest
       - --set-secrets=SENDGRID_FROM_NAME=SENDGRID_FROM_NAME:latest
+      - --set-secrets=GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID:latest
+      - --set-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY:latest
+      - --set-secrets=ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest
       # Cookie settings for cross-origin requests (allows localhost:3000)
       # NOTE: For cross-origin (localhost:3000 → Cloud Run), browsers REQUIRE:
       # - SameSite=None + Secure=True (minimum required, can't be less secure)

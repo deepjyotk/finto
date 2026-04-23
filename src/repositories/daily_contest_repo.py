@@ -127,6 +127,20 @@ class DailyContestRepo:
         result = await self._s.execute(stmt)
         return result.scalar_one()
 
+    async def get_user_picks_history(
+        self, user_id: UUID, limit: int = 30
+    ) -> list[tuple["ContestPick", "DailyContest"]]:
+        """Return all picks for a user, newest first, joined with their contest."""
+        stmt = (
+            select(ContestPick, DailyContest)
+            .join(DailyContest, ContestPick.contest_id == DailyContest.contest_id)
+            .where(ContestPick.user_id == user_id)
+            .order_by(DailyContest.contest_date.desc())
+            .limit(limit)
+        )
+        result = await self._s.execute(stmt)
+        return [(row.ContestPick, row.DailyContest) for row in result]
+
     async def update_pick_scores(
         self,
         pick_id: UUID,

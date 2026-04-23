@@ -21,9 +21,12 @@ from fastapi.exceptions import RequestValidationError  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
 
+from contextlib import asynccontextmanager  # noqa: E402
+
 from src.api.routes import api_router  # noqa: E402
 from src.core.json_logging import logger_for, setup_json_logging  # noqa: E402
 from src.core.settings import llm_settings  # noqa: E402
+from src.services.stock_search import load_equity_cache  # noqa: E402
 
 setup_json_logging()
 logger = logger_for(__name__)
@@ -38,8 +41,15 @@ if os.getenv("FINTO_LOG_OPENAI_KEY_FINGERPRINT", "").lower() in ("1", "true", "y
         len(k),
     )
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await load_equity_cache()
+    yield
+
+
 app = FastAPI(
     title="Arthik API",
+    lifespan=lifespan,
     description="JWT-based authentication API with chat functionality",
     version="0.1.0",
     openapi_tags=[

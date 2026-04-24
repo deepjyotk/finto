@@ -70,14 +70,14 @@ class DailyContestRepo:
         result = await self._s.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def get_pick_by_ip(self, contest_id: UUID, ip_address: str) -> Optional[ContestPick]:
-        """Secondary dedup — one submission per IP per contest day."""
-        stmt = select(ContestPick).where(
+    async def count_picks_by_ip(self, contest_id: UUID, ip_address: str) -> int:
+        """Count how many submissions have been made from an IP address for a contest day."""
+        stmt = select(func.count()).select_from(ContestPick).where(
             ContestPick.contest_id == contest_id,
             ContestPick.ip_address == ip_address,
         )
         result = await self._s.execute(stmt)
-        return result.scalars().first()
+        return result.scalar_one()
 
     async def create_pick(
         self,
@@ -140,6 +140,26 @@ class DailyContestRepo:
         )
         result = await self._s.execute(stmt)
         return [(row.ContestPick, row.DailyContest) for row in result]
+
+    async def get_user_picks_history_with_counts(
+        self, user_id: UUID, limit: int = 30
+    ) -> list[tuple["ContestPick", "DailyContest", int]]:
+        """Return user's picks with contest and total participant count, newest first."""
+        participant_counts = (
+            select(ContestPick.contest_id, func.count().label("cnt"))
+            .group_by(ContestPick.contest_id)
+            .subquery()
+        )
+        stmt = (
+            select(ContestPick, DailyContest, participant_counts.c.cnt)
+            .join(DailyContest, ContestPick.contest_id == DailyContest.contest_id)
+            .outerjoin(participant_counts, ContestPick.contest_id == participant_counts.c.contest_id)
+            .where(ContestPick.user_id == user_id)
+            .order_by(DailyContest.contest_date.desc())
+            .limit(limit)
+        )
+        result = await self._s.execute(stmt)
+        return [(row.ContestPick, row.DailyContest, row.cnt or 0) for row in result]
 
     async def update_pick_scores(
         self,

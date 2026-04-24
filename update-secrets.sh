@@ -58,8 +58,13 @@ for secret_name in "${SECRETS[@]}"; do
   else
     echo "Creating $secret_name..."
     echo -n "$secret_value" | gcloud secrets create "$secret_name" --project=$PROJECT_ID --replication-policy=automatic --data-file=-
-    gcloud secrets add-iam-policy-binding "$secret_name" --project=$PROJECT_ID --member=serviceAccount:$RUNTIME_SA --role=roles/secretmanager.secretAccessor
   fi
+
+  # Ensure runtime SA can read every secret, including pre-existing ones.
+  gcloud secrets add-iam-policy-binding "$secret_name" \
+    --project=$PROJECT_ID \
+    --member=serviceAccount:$RUNTIME_SA \
+    --role=roles/secretmanager.secretAccessor >/dev/null
 done
 
 echo "All secrets updated successfully"

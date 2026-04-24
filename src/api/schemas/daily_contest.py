@@ -226,3 +226,27 @@ class PicksHistoryResponse(BaseModel):
     """Response for GET /game/my-history."""
 
     history: list[PickHistoryEntry]
+
+
+class ProfileHistoryEntry(BaseModel):
+    """A single day's entry in a public player profile."""
+
+    contest_date: date
+    is_settled: bool
+    stocks: list[str]
+    portfolio_return_pct: Optional[float] = None
+    nifty_return_pct: Optional[float] = None
+    excess_return_pct: Optional[float] = None
+    rank: Optional[int] = None
+    total_participants: Optional[int] = None
+
+
+class PlayerProfileResponse(BaseModel):
+    """Public player profile — no private fields exposed."""
+
+    user_id: str
+    username: str
+    full_name: Optional[str] = None
+    total_games: int
+    wins: int
+    history: list[ProfileHistoryEntry]

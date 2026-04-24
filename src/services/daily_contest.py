@@ -237,9 +237,10 @@ class DailyContestService:
         if await self._repo.get_anon_pick(contest.contest_id, anon_id):
             raise ValueError("This device has already submitted picks for today's contest.")
 
-        # Secondary limit: one per IP address
-        if ip_address and await self._repo.get_pick_by_ip(contest.contest_id, ip_address):
-            raise ValueError("A submission has already been made from your network today.")
+        # Secondary limit: max 5 submissions per IP per day (covers households / shared WiFi)
+        _MAX_PICKS_PER_IP = 5
+        if ip_address and await self._repo.count_picks_by_ip(contest.contest_id, ip_address) >= _MAX_PICKS_PER_IP:
+            raise ValueError("Too many submissions have been made from your network today (limit: 5).")
 
         pick = await self._repo.create_pick(
             contest_id=contest.contest_id,
@@ -526,6 +527,45 @@ class DailyContestService:
                 "rank": pick.rank,
             })
         return history
+
+    async def get_user_profile(self, user_id: UUID, limit: int = 30) -> dict | None:
+        """Return public profile data for a user. Returns None if user not found."""
+        from src.repositories.user_repo import UserRepository
+
+        user = await UserRepository(self._session).by_id(user_id)
+        if user is None:
+            return None
+
+        rows = await self._repo.get_user_picks_history_with_counts(user_id, limit=limit)
+
+        total_games = 0
+        wins = 0
+        history = []
+        for pick, contest, total_participants in rows:
+            stocks = self._pick_stocks(pick)
+            if contest.is_settled:
+                total_games += 1
+                if pick.excess_return_pct is not None and pick.excess_return_pct > 0:
+                    wins += 1
+            history.append({
+                "contest_date": contest.contest_date,
+                "is_settled": contest.is_settled,
+                "stocks": stocks,
+                "portfolio_return_pct": pick.portfolio_return_pct,
+                "nifty_return_pct": contest.nifty_return_pct,
+                "excess_return_pct": pick.excess_return_pct,
+                "rank": pick.rank,
+                "total_participants": total_participants,
+            })
+
+        return {
+            "user_id": str(user.user_id),
+            "username": user.username,
+            "full_name": user.full_name or None,
+            "total_games": total_games,
+            "wins": wins,
+            "history": history,
+        }
 
     # ── Settlement (called after market close) ──────────────────────────
 

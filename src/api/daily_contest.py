@@ -16,6 +16,7 @@ from src.api.schemas.daily_contest import (
     MyResultResponse,
     PickConfirmation,
     PicksHistoryResponse,
+    PlayerProfileResponse,
     StockSearchResponse,
     SubmitPicksRequest,
 )
@@ -226,6 +227,26 @@ async def my_picks_history(
     user_id = UUID(user["user_id"])
     history = await svc.get_picks_history(user_id, limit=limit)
     return PicksHistoryResponse(history=history)
+
+
+@router.get("/users/{user_id}/profile", response_model=PlayerProfileResponse)
+async def get_user_profile(
+    user_id: str,
+    svc: Annotated[DailyContestService, Depends(get_daily_contest_service)],
+    limit: int = Query(30, ge=1, le=90, description="Max history entries to return"),
+):
+    """Public player profile — no auth required. Returns 404 if user_id does not exist."""
+    from uuid import UUID
+
+    try:
+        uid = UUID(user_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+
+    profile = await svc.get_user_profile(uid, limit=limit)
+    if profile is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+    return PlayerProfileResponse(**profile)
 
 
 @router.post("/settle", status_code=status.HTTP_200_OK)

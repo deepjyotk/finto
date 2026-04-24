@@ -11,6 +11,7 @@ from src.api.holdings import router as holdings_router
 from src.api.kiteconnect_integration import router as kite_router
 from src.api.smallcase_gateway import router as smallcase_gateway_router
 from src.api.thesys_chat import router as thesys_chat_router
+from src.api.ticker import router as ticker_router
 from src.api.whatsapp import router as whatsapp_router
 
 # Create main API router with /api/v1/ prefix
@@ -26,4 +27,5 @@ api_router.include_router(holdings_router)
 api_router.include_router(kite_router)
 api_router.include_router(smallcase_gateway_router)
 api_router.include_router(thesys_chat_router)
+api_router.include_router(ticker_router)
 api_router.include_router(whatsapp_router)

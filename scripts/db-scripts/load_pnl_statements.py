@@ -3,7 +3,7 @@
 Load pnl_statements.csv → f_pnl_statements table (JSONB schema).
 
 The CSV is long/EAV format (one row per metric). This script pivots it
-in-memory into JSONB rows: one row per (symbol_ns, statement_type, period)
+in-memory into JSONB rows: one row per (in_equity_id, statement_type, period)
 with all metrics packed into a single dict.
 
 Usage:
@@ -15,7 +15,7 @@ CSV shape (unchanged from fetch script):
     symbol, symbol_ns, statement_type, metric, period, value
 
 DB shape after pivot:
-    symbol_ns='RELIANCE.NS', statement_type='annual', period=2024-03-31
+    in_equity_id=<in_equities.id>, statement_type='annual', period=2024-03-31
     data={"Net Income": 179181000000, "Total Revenue": 899328000000, ...}
 """
 
@@ -37,7 +37,7 @@ load_dotenv()
 
 SCRIPT_DIR = Path(__file__).parent
 DEFAULT_CSV = SCRIPT_DIR.parent / "artifacts" / "pnl_statements.csv"
-CHUNK_SIZE = 5_000   # rows (JSONB rows, each ~1 KB — smaller chunks than EAV)
+CHUNK_SIZE = 5_000  # rows (JSONB rows, each ~1 KB — smaller chunks than EAV)
 
 
 def parse_date(s: str) -> date | None:
@@ -127,10 +127,16 @@ async def _upsert_chunk(conn: asyncpg.Connection, rows: list[tuple]) -> None:
         await conn.execute(
             """
             INSERT INTO f_financial_statements
-                (symbol, symbol_ns, statement_type, period, data)
-            SELECT symbol, symbol_ns, statement_type, period, data::jsonb
-            FROM   _pnl_stage
-            ON CONFLICT (symbol_ns, statement_type, period)
+                (in_equity_id, statement_type, period, data)
+            SELECT ie.id, s.statement_type, s.period, s.data::jsonb
+            FROM   _pnl_stage AS s
+            JOIN   in_equities AS ie
+              ON   ie.symbol = split_part(
+                       upper(COALESCE(NULLIF(s.symbol, ''), s.symbol_ns)),
+                       '.',
+                       1
+                   )
+            ON CONFLICT (in_equity_id, statement_type, period)
             DO UPDATE SET
                 data       = EXCLUDED.data,
                 updated_at = now()
@@ -172,10 +178,12 @@ async def load(csv_path: Path, truncate: bool) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--file", type=Path, default=DEFAULT_CSV,
-                        help="Path to pnl_statements.csv (long-format)")
-    parser.add_argument("--truncate", action="store_true",
-                        help="Truncate the table before loading (full reload)")
+    parser.add_argument(
+        "--file", type=Path, default=DEFAULT_CSV, help="Path to pnl_statements.csv (long-format)"
+    )
+    parser.add_argument(
+        "--truncate", action="store_true", help="Truncate the table before loading (full reload)"
+    )
     args = parser.parse_args()
 
     if not args.file.exists():
@@ -186,4 +194,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

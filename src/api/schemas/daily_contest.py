@@ -77,6 +77,7 @@ class AnonSubmitPicksRequest(BaseModel):
     @classmethod
     def sanitize_name(cls, v: str) -> str:
         import re
+
         # strip anything that isn't alphanumeric, space, dash, underscore
         cleaned = re.sub(r"[^\w\s\-]", "", v).strip()
         if not cleaned:

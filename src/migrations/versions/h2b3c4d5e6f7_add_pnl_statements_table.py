@@ -59,7 +59,9 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint(
-            "symbol_ns", "statement_type", "period",
+            "symbol_ns",
+            "statement_type",
+            "period",
             name="uq_pnl_symbol_type_period",
         ),
     )
@@ -76,9 +78,7 @@ def upgrade() -> None:
     # Enables efficient cross-stock screener queries like:
     #   WHERE data ? 'Net Income'          (stock has this metric)
     #   WHERE (data->>'Net Income')::numeric > 1e10
-    op.execute(
-        "CREATE INDEX ix_fin_data_gin ON f_financial_statements USING gin(data)"
-    )
+    op.execute("CREATE INDEX ix_fin_data_gin ON f_financial_statements USING gin(data)")
 
 
 def downgrade() -> None:

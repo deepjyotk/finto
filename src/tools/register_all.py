@@ -119,7 +119,16 @@ from src.tools.valuation_metrics import (
 )
 
 registry.register_many(
-    [pe_ratio, forward_pe, pb_ratio, ps_ratio, peg_ratio, ev_to_ebitda, earnings_yield, price_to_fcf],
+    [
+        pe_ratio,
+        forward_pe,
+        pb_ratio,
+        ps_ratio,
+        peg_ratio,
+        ev_to_ebitda,
+        earnings_yield,
+        price_to_fcf,
+    ],
     {VALUATION},
 )
 
@@ -153,7 +162,15 @@ from src.tools.risk_metrics import (
 )
 
 registry.register_many(
-    [beta, alpha, treynor_ratio, information_ratio, value_at_risk_historical, calmar_ratio, omega_ratio],
+    [
+        beta,
+        alpha,
+        treynor_ratio,
+        information_ratio,
+        value_at_risk_historical,
+        calmar_ratio,
+        omega_ratio,
+    ],
     {RISK},
 )
 registry.register(quick_ratio, {LIQUIDITY})

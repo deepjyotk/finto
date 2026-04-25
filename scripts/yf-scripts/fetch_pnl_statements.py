@@ -41,7 +41,7 @@ CHECKPOINT_FILE = ARTIFACTS_DIR / "pnl_checkpoint.txt"
 
 # ── Config ─────────────────────────────────────────────────────────────────
 
-DELAY_BETWEEN_STOCKS = 0.5   # seconds between requests (be polite to yfinance)
+DELAY_BETWEEN_STOCKS = 0.5  # seconds between requests (be polite to yfinance)
 STATEMENT_TYPES = {
     "annual": "income_stmt",
     "quarterly": "quarterly_income_stmt",
@@ -51,6 +51,7 @@ OUTPUT_COLUMNS = ["symbol", "symbol_ns", "statement_type", "metric", "period", "
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────
+
 
 def load_symbols() -> list[str]:
     """Read all symbols from the NSE equity CSV."""
@@ -97,29 +98,40 @@ def fetch_statements(symbol_ns: str) -> list[dict]:
                 # Skip NaN
                 try:
                     import math
+
                     if value is None or (isinstance(value, float) and math.isnan(value)):
                         continue
                 except Exception:
                     continue
 
-                rows.append({
-                    "symbol": symbol_ns.removesuffix(".NS"),
-                    "symbol_ns": symbol_ns,
-                    "statement_type": stmt_type,
-                    "metric": str(metric),
-                    "period": str(period_col.date()) if hasattr(period_col, "date") else str(period_col),
-                    "value": value,
-                })
+                rows.append(
+                    {
+                        "symbol": symbol_ns.removesuffix(".NS"),
+                        "symbol_ns": symbol_ns,
+                        "statement_type": stmt_type,
+                        "metric": str(metric),
+                        "period": (
+                            str(period_col.date())
+                            if hasattr(period_col, "date")
+                            else str(period_col)
+                        ),
+                        "value": value,
+                    }
+                )
 
     return rows
 
 
 # ── Main ───────────────────────────────────────────────────────────────────
 
+
 def main() -> None:
     import argparse
+
     parser = argparse.ArgumentParser()
-    parser.add_argument("--limit", type=int, default=None, help="Process only N symbols (for testing)")
+    parser.add_argument(
+        "--limit", type=int, default=None, help="Process only N symbols (for testing)"
+    )
     args = parser.parse_args()
 
     ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)

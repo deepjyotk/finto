@@ -23,7 +23,9 @@ def _get_ticker_service(
 
 @router.get("/search", response_model=list[StockSearchResult])
 async def search_tickers(
-    q: str = Query(..., min_length=1, max_length=100, description="Search query: symbol or company name"),
+    q: str = Query(
+        ..., min_length=1, max_length=100, description="Search query: symbol or company name"
+    ),
     limit: int = Query(10, ge=1, le=30, description="Max results"),
 ):
     """

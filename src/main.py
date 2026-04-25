@@ -41,6 +41,7 @@ if os.getenv("FINTO_LOG_OPENAI_KEY_FINGERPRINT", "").lower() in ("1", "true", "y
         len(k),
     )
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await load_equity_cache()

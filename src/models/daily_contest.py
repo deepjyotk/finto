@@ -51,9 +51,7 @@ class ContestPick(Base):
     """A user's portfolio of 5 stocks for a given contest day."""
 
     __tablename__ = "f_contest_picks"
-    __table_args__ = (
-        UniqueConstraint("contest_id", "user_id", name="uq_contest_user"),
-    )
+    __table_args__ = (UniqueConstraint("contest_id", "user_id", name="uq_contest_user"),)
 
     pick_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True),

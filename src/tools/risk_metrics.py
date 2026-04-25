@@ -30,7 +30,9 @@ def beta(asset_returns: List[float], market_returns: List[float]) -> float:
     mean_a = sum(asset_returns) / n
     mean_m = sum(market_returns) / n
 
-    covar = sum((a - mean_a) * (m - mean_m) for a, m in zip(asset_returns, market_returns)) / (n - 1)
+    covar = sum((a - mean_a) * (m - mean_m) for a, m in zip(asset_returns, market_returns)) / (
+        n - 1
+    )
     var_m = sum((m - mean_m) ** 2 for m in market_returns) / (n - 1)
 
     if var_m == 0:
@@ -62,9 +64,7 @@ def alpha(
     return portfolio_return - expected
 
 
-def treynor_ratio(
-    portfolio_return: float, risk_free_rate: float, beta_value: float
-) -> float:
+def treynor_ratio(portfolio_return: float, risk_free_rate: float, beta_value: float) -> float:
     """
     Calculate Treynor Ratio — return per unit of systematic risk (beta).
 
@@ -106,9 +106,7 @@ def information_ratio(
     return (portfolio_return - benchmark_return) / tracking_error
 
 
-def value_at_risk_historical(
-    returns: List[float], confidence_level: float = 0.95
-) -> float:
+def value_at_risk_historical(returns: List[float], confidence_level: float = 0.95) -> float:
     """
     Calculate Historical Value at Risk (VaR).
 
@@ -130,9 +128,7 @@ def value_at_risk_historical(
     return abs(sorted_returns[index])
 
 
-def calmar_ratio(
-    annualized_return: float, max_drawdown_value: float
-) -> float:
+def calmar_ratio(annualized_return: float, max_drawdown_value: float) -> float:
     """
     Calculate Calmar Ratio — annualized return divided by max drawdown.
 
@@ -151,9 +147,7 @@ def calmar_ratio(
     return annualized_return / max_drawdown_value
 
 
-def omega_ratio(
-    returns: List[float], threshold: float = 0.0
-) -> float:
+def omega_ratio(returns: List[float], threshold: float = 0.0) -> float:
     """
     Calculate Omega Ratio — probability-weighted gains over losses.
 
@@ -176,9 +170,7 @@ def omega_ratio(
     return gains / losses
 
 
-def quick_ratio(
-    current_assets: float, inventory: float, current_liabilities: float
-) -> float:
+def quick_ratio(current_assets: float, inventory: float, current_liabilities: float) -> float:
     """
     Calculate Quick Ratio (Acid-Test Ratio).
 

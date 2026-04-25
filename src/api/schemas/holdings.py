@@ -214,9 +214,7 @@ class PortfolioHoldingItem(BaseModel):
     current_value: Decimal = Field(..., description="qty_available × ltp")
     pnl_absolute: Decimal = Field(..., description="current_value − investment_value")
     pnl_percent: Decimal = Field(..., description="pnl_absolute / investment_value × 100")
-    weight_percent: Decimal = Field(
-        ..., description="current_value / total_portfolio_value × 100"
-    )
+    weight_percent: Decimal = Field(..., description="current_value / total_portfolio_value × 100")
 
 
 class PortfolioSummary(BaseModel):

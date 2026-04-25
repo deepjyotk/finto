@@ -45,7 +45,9 @@ class OrchestratorNode:
       web_search_tool          → news, macro context, "why" explanations (one company per call)
     """
 
-    _SUPERVISOR_PROMPT_TEMPLATE: Final[str] = f"""
+    _SUPERVISOR_PROMPT_TEMPLATE: Final[
+        str
+    ] = f"""
 You are the Finance Assistant Orchestrator.
 
 Your role is to intelligently decide which tools to use, construct complete and well-scoped tasks for them, and produce a final answer that is comprehensive, accurate, and context-rich.

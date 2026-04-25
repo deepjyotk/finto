@@ -4,6 +4,7 @@ Loads NSE equity list from the `in_equities` DB table once at startup.
 Fast prefix + substring matching — no DB calls per keystroke.
 Falls back to Pinecone for semantic "company description" queries.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -21,15 +22,16 @@ _valid_symbols: set[str] = set()
 
 
 class StockMatch(TypedDict):
-    symbol: str          # e.g. "RELIANCE"
-    symbol_ns: str       # e.g. "RELIANCE.NS"
-    company_name: str    # e.g. "Reliance Industries Limited"
+    symbol: str  # e.g. "RELIANCE"
+    symbol_ns: str  # e.g. "RELIANCE.NS"
+    company_name: str  # e.g. "Reliance Industries Limited"
 
 
 async def load_equity_cache() -> None:
     """Populate the in-memory cache from the `in_equities` table. Call once at startup."""
     global _equity_cache, _valid_symbols
     from src.core.db import SessionLocal
+
     try:
         async with SessionLocal() as session:
             result = await session.execute(
@@ -101,9 +103,11 @@ async def search_stocks_semantic(query: str, limit: int = 10) -> list[StockMatch
     Only called when the fast search returns few results and query looks like a description.
     Runs sync Pinecone/OpenAI call in a thread pool.
     """
+
     def _sync_search() -> list[StockMatch]:
         try:
             from src.services.vector_embeddings import init_pinecone, query_symbols
+
             index, embeddings = init_pinecone()
             matches = query_symbols(index, embeddings, query, top_k=limit)
             return [

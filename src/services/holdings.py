@@ -324,9 +324,7 @@ class HoldingsService:
         """
         # Verify ownership and fetch broker metadata
         metadata_rows = await self.repo.get_metadata_with_broker_name(user_id)
-        metadata = next(
-            (m for m in metadata_rows if m["user_broker_id"] == user_broker_id), None
-        )
+        metadata = next((m for m in metadata_rows if m["user_broker_id"] == user_broker_id), None)
         if metadata is None:
             raise ValueError("Holdings metadata not found or access denied")
 

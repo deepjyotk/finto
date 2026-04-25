@@ -14,6 +14,7 @@ from src.models.base import Base
 from src.models.broker import Broker  # noqa: F401
 from src.models.chat_session import ChatSession  # noqa: F401
 from src.models.equity_holding import EquityHolding  # noqa: F401
+from src.models.price_bar_1d import PriceBar1d  # noqa: F401
 from src.models.user import User  # noqa: F401
 from src.models.whatsapp_cache import WhatsAppCache  # noqa: F401
 from src.models.whatsapp_metadata import WhatsAppMetadata  # noqa: F401

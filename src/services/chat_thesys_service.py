@@ -25,7 +25,9 @@ logger = logger_for(__name__)
 _PREVIEW_MAX_LEN = 400
 
 
-def _truncate_session_preview(content: str | None, *, max_len: int = _PREVIEW_MAX_LEN) -> str | None:
+def _truncate_session_preview(
+    content: str | None, *, max_len: int = _PREVIEW_MAX_LEN
+) -> str | None:
     if content is None:
         return None
     stripped = content.strip()

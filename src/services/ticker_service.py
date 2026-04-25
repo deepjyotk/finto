@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import date, datetime, timedelta
-from typing import Optional
+from datetime import date
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -80,6 +79,7 @@ class TickerService:
     @staticmethod
     def _fetch_yf_info(symbol_ns: str) -> dict:
         import yfinance as yf
+
         ticker = yf.Ticker(symbol_ns)
         info = ticker.info or {}
         return info
@@ -87,20 +87,23 @@ class TickerService:
     @staticmethod
     def _fetch_price_history(symbol_ns: str, period: str, interval: str) -> list[dict]:
         import yfinance as yf
+
         ticker = yf.Ticker(symbol_ns)
         hist = ticker.history(period=period, interval=interval, auto_adjust=True)
         if hist is None or hist.empty:
             return []
         rows = []
         for ts, row in hist.iterrows():
-            rows.append({
-                "date": ts.strftime("%Y-%m-%d"),
-                "open": round(float(row["Open"]), 2) if row["Open"] else None,
-                "high": round(float(row["High"]), 2) if row["High"] else None,
-                "low": round(float(row["Low"]), 2) if row["Low"] else None,
-                "close": round(float(row["Close"]), 2) if row["Close"] else None,
-                "volume": int(row["Volume"]) if row["Volume"] else None,
-            })
+            rows.append(
+                {
+                    "date": ts.strftime("%Y-%m-%d"),
+                    "open": round(float(row["Open"]), 2) if row["Open"] else None,
+                    "high": round(float(row["High"]), 2) if row["High"] else None,
+                    "low": round(float(row["Low"]), 2) if row["Low"] else None,
+                    "close": round(float(row["Close"]), 2) if row["Close"] else None,
+                    "volume": int(row["Volume"]) if row["Volume"] else None,
+                }
+            )
         return rows
 
     @staticmethod
@@ -127,7 +130,9 @@ class TickerService:
         periods_set: set[str] = set()
 
         for r in rows:
-            period_str = r["period"].isoformat() if isinstance(r["period"], date) else str(r["period"])
+            period_str = (
+                r["period"].isoformat() if isinstance(r["period"], date) else str(r["period"])
+            )
             periods_set.add(period_str)
             for metric, val in (r["data"] or {}).items():
                 by_metric[metric][period_str] = float(val) if val is not None else None
@@ -149,6 +154,7 @@ class TickerService:
     @staticmethod
     def _extract_key_ratios(info: dict) -> list[dict]:
         """Map yfinance info dict to the key ratio tiles."""
+
         def fmt_cr(v) -> str | None:
             """Convert raw INR to Crores."""
             try:
@@ -176,17 +182,21 @@ class TickerService:
         ratios = [
             {"label": "Market Cap", "value": fmt_cr(mktcap), "unit": "Cr."},
             {"label": "Current Price", "value": fmt_num(price, 0), "unit": "₹"},
-            {"label": "52W High / Low",
-             "value": f"{fmt_num(high52, 0)} / {fmt_num(low52, 0)}" if high52 else None,
-             "unit": "₹"},
+            {
+                "label": "52W High / Low",
+                "value": f"{fmt_num(high52, 0)} / {fmt_num(low52, 0)}" if high52 else None,
+                "unit": "₹",
+            },
             {"label": "P/E Ratio", "value": fmt_num(info.get("trailingPE")), "unit": None},
             {"label": "Book Value", "value": fmt_num(info.get("bookValue")), "unit": "₹"},
-            {"label": "Dividend Yield",
-             "value": fmt_pct(info.get("dividendYield")),
-             "unit": "%"},
+            {"label": "Dividend Yield", "value": fmt_pct(info.get("dividendYield")), "unit": "%"},
             {"label": "ROCE", "value": fmt_pct(info.get("returnOnAssets")), "unit": "%"},
             {"label": "ROE", "value": fmt_pct(info.get("returnOnEquity")), "unit": "%"},
-            {"label": "Face Value", "value": fmt_num(info.get("faceValue") or info.get("priceToBook")), "unit": "₹"},
+            {
+                "label": "Face Value",
+                "value": fmt_num(info.get("faceValue") or info.get("priceToBook")),
+                "unit": "₹",
+            },
         ]
         return ratios
 
@@ -200,8 +210,13 @@ class TickerService:
         annual_periods: int = 10,
         quarterly_periods: int = 12,
     ) -> dict | None:
-        symbol_ns = self._to_ns(symbol)
-        bare = symbol_ns.removesuffix(".NS")
+        equity = await self._info_repo.get_equity(symbol)
+        if equity is None:
+            return None
+
+        bare = equity["symbol"]
+        symbol_ns = f"{bare}.NS"
+        in_equity_id = equity["id"]
 
         loop = asyncio.get_event_loop()
 
@@ -219,20 +234,34 @@ class TickerService:
         # Fetch all statement types sequentially — asyncio Sessions are not safe
         # for concurrent use; two gather'd coroutines on the same session
         # cause IllegalStateChangeError.
-        annual_rows = await self._fin_repo.get_statements(symbol_ns, "annual", annual_periods)
-        quarterly_rows = await self._fin_repo.get_statements(symbol_ns, "quarterly", quarterly_periods)
-        annual_balance_rows = await self._fin_repo.get_statements(symbol_ns, "annual_balance", annual_periods)
-        quarterly_balance_rows = await self._fin_repo.get_statements(symbol_ns, "quarterly_balance", quarterly_periods)
-        annual_cashflow_rows = await self._fin_repo.get_statements(symbol_ns, "annual_cashflow", annual_periods)
-        quarterly_cashflow_rows = await self._fin_repo.get_statements(symbol_ns, "quarterly_cashflow", quarterly_periods)
+        annual_rows = await self._fin_repo.get_statements(in_equity_id, "annual", annual_periods)
+        quarterly_rows = await self._fin_repo.get_statements(
+            in_equity_id, "quarterly", quarterly_periods
+        )
+        annual_balance_rows = await self._fin_repo.get_statements(
+            in_equity_id, "annual_balance", annual_periods
+        )
+        quarterly_balance_rows = await self._fin_repo.get_statements(
+            in_equity_id, "quarterly_balance", quarterly_periods
+        )
+        annual_cashflow_rows = await self._fin_repo.get_statements(
+            in_equity_id, "annual_cashflow", annual_periods
+        )
+        quarterly_cashflow_rows = await self._fin_repo.get_statements(
+            in_equity_id, "quarterly_cashflow", quarterly_periods
+        )
         ticker_info = await self._info_repo.get_info(symbol_ns)
 
         annual_stmts = self._build_statements(annual_rows, ANNUAL_METRICS)
         quarterly_stmts = self._build_statements(quarterly_rows, QUARTERLY_METRICS)
         annual_balance_stmts = self._build_statements(annual_balance_rows, BALANCE_SHEET_METRICS)
-        quarterly_balance_stmts = self._build_statements(quarterly_balance_rows, BALANCE_SHEET_METRICS)
+        quarterly_balance_stmts = self._build_statements(
+            quarterly_balance_rows, BALANCE_SHEET_METRICS
+        )
         annual_cashflow_stmts = self._build_statements(annual_cashflow_rows, CASH_FLOW_METRICS)
-        quarterly_cashflow_stmts = self._build_statements(quarterly_cashflow_rows, CASH_FLOW_METRICS)
+        quarterly_cashflow_stmts = self._build_statements(
+            quarterly_cashflow_rows, CASH_FLOW_METRICS
+        )
 
         company = {
             "symbol": bare,

@@ -46,7 +46,9 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("contest_id"),
     )
-    op.create_index("ix_f_daily_contests_contest_date", "f_daily_contests", ["contest_date"], unique=True)
+    op.create_index(
+        "ix_f_daily_contests_contest_date", "f_daily_contests", ["contest_date"], unique=True
+    )
 
     op.create_table(
         "f_contest_picks",

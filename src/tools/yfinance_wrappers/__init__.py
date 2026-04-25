@@ -820,7 +820,9 @@ def get_last_close_prices_batch(symbol_names: List[str], period: str = "5d") -> 
             "note": "Yahoo returned no rows for the batch price request.",
         }
 
-    def _last_close_for_ticker(norm_key: str) -> tuple[Optional[float], Optional[str], Optional[str]]:
+    def _last_close_for_ticker(
+        norm_key: str,
+    ) -> tuple[Optional[float], Optional[str], Optional[str]]:
         try:
             s = None
             if isinstance(data.columns, pd.MultiIndex):
@@ -885,7 +887,9 @@ def get_last_close_prices_batch(symbol_names: List[str], period: str = "5d") -> 
             "Yahoo data; use this batch function instead of per-symbol get_last_close_price loops."
         )
     elif fail_count == len(results) and results:
-        note_extra = "All symbols failed in batch — check exchange suffix (.NS/.BO) or ticker validity."
+        note_extra = (
+            "All symbols failed in batch — check exchange suffix (.NS/.BO) or ticker validity."
+        )
 
     return {
         "results": results,

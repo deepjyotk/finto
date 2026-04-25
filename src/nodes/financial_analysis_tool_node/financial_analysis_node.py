@@ -141,11 +141,7 @@ class PortfolioNode:
                 if is_success:
                     price_meta = parse_portfolio_price_meta_from_tool_output(tool_result)
                     failed_n = price_meta.get("failed")
-                    if (
-                        partial_price_retries < 1
-                        and failed_n is not None
-                        and failed_n > 0
-                    ):
+                    if partial_price_retries < 1 and failed_n is not None and failed_n > 0:
                         partial_price_retries += 1
                         logger.info(
                             "financial_analysis_tool retrying after partial price fetch "

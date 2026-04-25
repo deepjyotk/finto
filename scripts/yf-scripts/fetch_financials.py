@@ -47,13 +47,13 @@ CHECKPOINT_FILE = ARTIFACTS_DIR / "financials_checkpoint.txt"
 
 # ── Config ─────────────────────────────────────────────────────────────────
 
-DELAY_BETWEEN_STOCKS = 0.5   # seconds — be polite to yfinance
+DELAY_BETWEEN_STOCKS = 0.5  # seconds — be polite to yfinance
 
 # Maps statement_type label → yfinance Ticker attribute name
 STATEMENT_TYPES: dict[str, str] = {
-    "annual_balance":     "balance_sheet",
-    "quarterly_balance":  "quarterly_balance_sheet",
-    "annual_cashflow":    "cashflow",
+    "annual_balance": "balance_sheet",
+    "quarterly_balance": "quarterly_balance_sheet",
+    "annual_cashflow": "cashflow",
     "quarterly_cashflow": "quarterly_cashflow",
 }
 
@@ -61,6 +61,7 @@ OUTPUT_COLUMNS = ["symbol", "symbol_ns", "statement_type", "metric", "period", "
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────
+
 
 def load_symbols() -> list[str]:
     with open(CSV_INPUT, newline="", encoding="utf-8") as f:
@@ -107,30 +108,33 @@ def fetch_statements(symbol_ns: str) -> list[dict]:
                 value = df.at[metric, period_col]
                 if _is_nan(value):
                     continue
-                rows.append({
-                    "symbol": bare,
-                    "symbol_ns": symbol_ns,
-                    "statement_type": stmt_type,
-                    "metric": str(metric),
-                    "period": (
-                        str(period_col.date())
-                        if hasattr(period_col, "date")
-                        else str(period_col)
-                    ),
-                    "value": value,
-                })
+                rows.append(
+                    {
+                        "symbol": bare,
+                        "symbol_ns": symbol_ns,
+                        "statement_type": stmt_type,
+                        "metric": str(metric),
+                        "period": (
+                            str(period_col.date())
+                            if hasattr(period_col, "date")
+                            else str(period_col)
+                        ),
+                        "value": value,
+                    }
+                )
 
     return rows
 
 
 # ── Main ───────────────────────────────────────────────────────────────────
 
+
 def main() -> None:
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--limit", type=int, default=None,
-        help="Process only N symbols (for testing)"
+        "--limit", type=int, default=None, help="Process only N symbols (for testing)"
     )
     args = parser.parse_args()
 

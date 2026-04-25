@@ -10,9 +10,9 @@ from pydantic import BaseModel
 
 
 class StockSearchResult(BaseModel):
-    symbol: str          # e.g. "RELIANCE"
-    symbol_ns: str       # e.g. "RELIANCE.NS"
-    company_name: str    # e.g. "Reliance Industries Limited"
+    symbol: str  # e.g. "RELIANCE"
+    symbol_ns: str  # e.g. "RELIANCE.NS"
+    company_name: str  # e.g. "Reliance Industries Limited"
 
 
 class PricePoint(BaseModel):
@@ -26,21 +26,23 @@ class PricePoint(BaseModel):
 
 class StatementRow(BaseModel):
     """One metric row across all periods — wide format for the UI table."""
+
     metric: str
-    values: dict[str, Optional[float]]   # period ISO string → value
+    values: dict[str, Optional[float]]  # period ISO string → value
 
 
 class FinancialStatements(BaseModel):
     """Annual or quarterly P&L table ready for direct rendering."""
-    statement_type: str          # 'annual' | 'quarterly'
-    periods: list[str]           # ordered period ISO strings (newest last)
+
+    statement_type: str  # 'annual' | 'quarterly'
+    periods: list[str]  # ordered period ISO strings (newest last)
     rows: list[StatementRow]
 
 
 class KeyRatio(BaseModel):
     label: str
     value: Optional[str] = None
-    unit: Optional[str] = None   # '₹', '%', 'Cr.', etc.
+    unit: Optional[str] = None  # '₹', '%', 'Cr.', etc.
 
 
 class CompanyInfo(BaseModel):
@@ -58,11 +60,11 @@ class CompanyInfo(BaseModel):
 class TickerResponse(BaseModel):
     company: CompanyInfo
     key_ratios: list[KeyRatio]
-    price_history: list[PricePoint]              # for chart (default 1Y daily OHLCV)
+    price_history: list[PricePoint]  # for chart (default 1Y daily OHLCV)
     annual_pnl: FinancialStatements
     quarterly_pnl: FinancialStatements
     annual_balance_sheet: FinancialStatements
     quarterly_balance_sheet: FinancialStatements
     annual_cash_flow: FinancialStatements
     quarterly_cash_flow: FinancialStatements
-    ticker_info: Optional[dict] = None           # raw Yahoo Finance info dict from f_ticker_info
+    ticker_info: Optional[dict] = None  # yfinance snapshot from in_equities.company_metadata

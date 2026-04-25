@@ -79,9 +79,7 @@ def upgrade() -> None:
     # GIN for cross-stock screener queries:
     #   WHERE (data->>'trailingPE')::numeric < 20
     #   WHERE data->>'sector' = 'Technology'
-    op.execute(
-        "CREATE INDEX ix_ticker_info_data_gin ON f_ticker_info USING gin(data)"
-    )
+    op.execute("CREATE INDEX ix_ticker_info_data_gin ON f_ticker_info USING gin(data)")
 
 
 def downgrade() -> None:

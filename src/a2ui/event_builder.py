@@ -83,6 +83,7 @@ def _aux_chain_step_name(chain_name: str) -> str:
     """Stable id for a non–graph-node chain; must match between start and end events."""
     return f"__chain:{chain_name}"
 
+
 # ---------------------------------------------------------------------------
 # Tool name → display label
 # ---------------------------------------------------------------------------

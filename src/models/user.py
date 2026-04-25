@@ -27,9 +27,7 @@ class User(Base):
     full_name: Mapped[str] = mapped_column(Text, nullable=False)
     password_hash: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     google_id: Mapped[Optional[str]] = mapped_column(Text, unique=True, nullable=True, index=True)
-    auth_provider: Mapped[str] = mapped_column(
-        Text, nullable=False, server_default=text("'local'")
-    )
+    auth_provider: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'local'"))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

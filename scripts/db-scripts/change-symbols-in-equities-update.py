@@ -92,9 +92,7 @@ async def update_symbols_in_equities() -> None:
             )
             if new_exists:
                 conflict_skipped += 1
-                print(
-                    f"Skipped (new symbol already exists): {old_symbol} -> {new_symbol}"
-                )
+                print(f"Skipped (new symbol already exists): {old_symbol} -> {new_symbol}")
                 continue
 
             result = await conn.execute(

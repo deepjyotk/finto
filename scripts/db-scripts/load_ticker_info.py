@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
 """
-Load ticker_info.csv → f_ticker_info table.
+Load ticker_info.csv into in_equities.company_metadata (yfinance JSON snapshot).
+
+Only updates rows that already exist in in_equities (NSE symbol = CSV "symbol");
+CSV rows for unknown symbols are ignored.
 
 Usage:
     python scripts/db-scripts/load_ticker_info.py
     python scripts/db-scripts/load_ticker_info.py --file path/to/other.csv
-    python scripts/db-scripts/load_ticker_info.py --truncate   # wipe first
+    python scripts/db-scripts/load_ticker_info.py --truncate   # clear all metadata first
 
 Strategy:
-  - One row per symbol_ns (unique constraint).
-  - ON CONFLICT (symbol_ns) DO UPDATE — fully idempotent re-run.
-  - data column is stored as JSONB; we pass it as TEXT and cast in SQL.
+  - Staging table → UPDATE in_equities on matching `symbol` (NSE).
+  - Idempotent: re-run overwrites company_metadata and updated_at.
+  - `data` is passed as TEXT and cast to jsonb in SQL.
 """
 
 from __future__ import annotations
@@ -52,13 +55,12 @@ async def _upsert_chunk(conn: asyncpg.Connection, rows: list[tuple]) -> None:
 
         await conn.execute(
             """
-            INSERT INTO f_ticker_info (symbol, symbol_ns, data)
-            SELECT symbol, symbol_ns, data::jsonb
-            FROM   _ticker_info_stage
-            ON CONFLICT (symbol_ns)
-            DO UPDATE SET
-                data       = EXCLUDED.data,
+            UPDATE in_equities AS ie
+            SET
+                company_metadata = s.data::jsonb,
                 updated_at = now()
+            FROM _ticker_info_stage AS s
+            WHERE ie.symbol = s.symbol
             """
         )
 
@@ -72,8 +74,8 @@ async def load(csv_path: Path, truncate: bool) -> None:
 
     try:
         if truncate:
-            print("Truncating f_ticker_info …")
-            await conn.execute("TRUNCATE TABLE f_ticker_info RESTART IDENTITY")
+            print("Clearing company_metadata on all in_equities …")
+            await conn.execute("UPDATE in_equities SET company_metadata = NULL")
 
         print(f"Reading {csv_path} …")
         chunk: list[tuple] = []
@@ -103,8 +105,10 @@ async def load(csv_path: Path, truncate: bool) -> None:
 
         print(f"\nDone. {upserted:,} ticker rows upserted from {total:,} CSV rows.")
 
-        count = await conn.fetchval("SELECT COUNT(*) FROM f_ticker_info")
-        print(f"Total rows in f_ticker_info: {count:,}")
+        count = await conn.fetchval(
+            "SELECT COUNT(*) FROM in_equities WHERE company_metadata IS NOT NULL"
+        )
+        print(f"in_equities rows with company_metadata: {count:,}")
 
     finally:
         await conn.close()
@@ -112,10 +116,12 @@ async def load(csv_path: Path, truncate: bool) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--file", type=Path, default=DEFAULT_CSV,
-                        help="Path to ticker_info.csv")
-    parser.add_argument("--truncate", action="store_true",
-                        help="Truncate the table before loading")
+    parser.add_argument("--file", type=Path, default=DEFAULT_CSV, help="Path to ticker_info.csv")
+    parser.add_argument(
+        "--truncate",
+        action="store_true",
+        help="Set company_metadata to NULL on all in_equities rows before loading",
+    )
     args = parser.parse_args()
 
     if not args.file.exists():

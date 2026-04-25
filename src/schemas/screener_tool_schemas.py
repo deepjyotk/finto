@@ -32,7 +32,9 @@ class MediumScreenerParamConfig(BaseModel):
     debt_to_equity_max: ScreenerParamConfig = ScreenerParamConfig(default=1.0, enabled=True)
     interest_coverage_min: ScreenerParamConfig = ScreenerParamConfig(default=4.0, enabled=False)
     current_ratio_min: ScreenerParamConfig = ScreenerParamConfig(default=1.2, enabled=False)
-    market_cap_min_usd: ScreenerParamConfig = ScreenerParamConfig(default=1_000_000_000.0, enabled=False)
+    market_cap_min_usd: ScreenerParamConfig = ScreenerParamConfig(
+        default=1_000_000_000.0, enabled=False
+    )
     beta_min: ScreenerParamConfig = ScreenerParamConfig(default=0.9, enabled=False)
     beta_max: ScreenerParamConfig = ScreenerParamConfig(default=1.2, enabled=False)
     dividend_yield_min_pct: ScreenerParamConfig = ScreenerParamConfig(default=0.0, enabled=False)
@@ -43,9 +45,7 @@ class MediumScreenerParamConfig(BaseModel):
         return {name: getattr(self, name).default for name in self.__class__.model_fields}
 
     def enabled_fields(self) -> tuple[str, ...]:
-        return tuple(
-            name for name in self.__class__.model_fields if getattr(self, name).enabled
-        )
+        return tuple(name for name in self.__class__.model_fields if getattr(self, name).enabled)
 
 
 class ScreenerCriteria(BaseModel):
@@ -154,21 +154,27 @@ class ScreenerToolInput(BaseModel):
         default=8.0,
         description="Minimum revenue YoY growth (%).",
     )
-    eps_growth_yoy_min_pct: float | None = Field(default=8.0, description="Minimum EPS YoY growth (%).")
+    eps_growth_yoy_min_pct: float | None = Field(
+        default=8.0, description="Minimum EPS YoY growth (%)."
+    )
     debt_to_equity_max: float | None = Field(default=1.0, description="Maximum debt/equity.")
     interest_coverage_min: float | None = Field(
         default=4.0,
         description="Minimum interest coverage (times).",
     )
     current_ratio_min: float | None = Field(default=1.2, description="Minimum current ratio.")
-    market_cap_min_usd: float | None = Field(default=1_000_000_000.0, description="Minimum market cap (USD).")
+    market_cap_min_usd: float | None = Field(
+        default=1_000_000_000.0, description="Minimum market cap (USD)."
+    )
     beta_min: float | None = Field(default=0.9, description="Minimum 1y beta vs benchmark.")
     beta_max: float | None = Field(default=1.2, description="Maximum 1y beta vs benchmark.")
     dividend_yield_min_pct: float | None = Field(
         default=0.0,
         description="Minimum dividend yield (%); 0 = no dividend floor.",
     )
-    payout_ratio_max_pct: float | None = Field(default=70.0, description="Maximum payout ratio (%).")
+    payout_ratio_max_pct: float | None = Field(
+        default=70.0, description="Maximum payout ratio (%)."
+    )
     max_results: int = Field(default=25, description="Cap on returned tickers.")
     universe_hint: str | None = Field(
         default=None,

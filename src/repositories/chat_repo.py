@@ -91,7 +91,9 @@ class ChatRepository:
         )
         return list(result.scalars().all()), total_sessions
 
-    async def get_first_user_message_by_session_ids(self, session_ids: list[UUID]) -> dict[UUID, str]:
+    async def get_first_user_message_by_session_ids(
+        self, session_ids: list[UUID]
+    ) -> dict[UUID, str]:
         """
         For each session, return the content of the first USER message (lowest seq_no among user messages).
 

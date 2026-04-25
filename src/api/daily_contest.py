@@ -33,8 +33,12 @@ router = APIRouter(prefix="/game", tags=["daily-stock-game"])
 
 @router.get("/stocks/search", response_model=StockSearchResponse)
 async def search_stocks_endpoint(
-    q: str = Query(..., min_length=1, max_length=50, description="Symbol or company name to search"),
-    semantic: bool = Query(False, description="Use Pinecone semantic search (slower, for descriptions)"),
+    q: str = Query(
+        ..., min_length=1, max_length=50, description="Symbol or company name to search"
+    ),
+    semantic: bool = Query(
+        False, description="Use Pinecone semantic search (slower, for descriptions)"
+    ),
     limit: int = Query(10, ge=1, le=30),
 ):
     """Autocomplete endpoint for the stock picker.
@@ -74,7 +78,9 @@ async def submit_picks(
     )
 
 
-@router.post("/anon/picks", response_model=AnonPickConfirmation, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/anon/picks", response_model=AnonPickConfirmation, status_code=status.HTTP_201_CREATED
+)
 async def submit_anon_picks(
     request: Request,
     body: AnonSubmitPicksRequest,

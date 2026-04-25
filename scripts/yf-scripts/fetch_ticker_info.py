@@ -3,7 +3,7 @@
 Fetch yfinance ticker info (market cap, P/E, ratios, sector, etc.) for all NSE stocks.
 
 This writes one JSON row per stock to ticker_info.csv, which is then loaded into
-f_ticker_info table via load_ticker_info.py.
+in_equities.company_metadata via load_ticker_info.py.
 
 Usage:
     python scripts/yf-scripts/fetch_ticker_info.py
@@ -63,46 +63,88 @@ DELAY_BETWEEN_STOCKS = 0.5
 # Storing a curated subset keeps rows small and avoids internal yfinance keys.
 FIELDS_TO_KEEP = [
     # Valuation
-    "marketCap", "trailingPE", "forwardPE", "priceToBook",
-    "enterpriseValue", "enterpriseToRevenue", "enterpriseToEbitda",
-    "trailingEps", "forwardEps",
+    "marketCap",
+    "trailingPE",
+    "forwardPE",
+    "priceToBook",
+    "enterpriseValue",
+    "enterpriseToRevenue",
+    "enterpriseToEbitda",
+    "trailingEps",
+    "forwardEps",
     # Price
-    "currentPrice", "regularMarketPrice",
-    "fiftyTwoWeekHigh", "fiftyTwoWeekLow",
-    "fiftyDayAverage", "twoHundredDayAverage",
+    "currentPrice",
+    "regularMarketPrice",
+    "fiftyTwoWeekHigh",
+    "fiftyTwoWeekLow",
+    "fiftyDayAverage",
+    "twoHundredDayAverage",
     # Profitability
-    "grossMargins", "operatingMargins", "profitMargins",
-    "returnOnEquity", "returnOnAssets",
+    "grossMargins",
+    "operatingMargins",
+    "profitMargins",
+    "returnOnEquity",
+    "returnOnAssets",
     # Growth
-    "earningsGrowth", "revenueGrowth", "earningsQuarterlyGrowth",
+    "earningsGrowth",
+    "revenueGrowth",
+    "earningsQuarterlyGrowth",
     # Dividends
-    "dividendYield", "dividendRate", "payoutRatio",
-    "exDividendDate", "lastDividendDate",
+    "dividendYield",
+    "dividendRate",
+    "payoutRatio",
+    "exDividendDate",
+    "lastDividendDate",
     # Balance sheet derived
-    "debtToEquity", "currentRatio", "quickRatio",
-    "totalCash", "totalCashPerShare", "totalDebt",
-    "totalRevenue", "revenuePerShare",
-    "freeCashflow", "operatingCashflow",
+    "debtToEquity",
+    "currentRatio",
+    "quickRatio",
+    "totalCash",
+    "totalCashPerShare",
+    "totalDebt",
+    "totalRevenue",
+    "revenuePerShare",
+    "freeCashflow",
+    "operatingCashflow",
     # Shares
-    "sharesOutstanding", "floatShares", "sharesShort",
-    "shortRatio", "shortPercentOfFloat",
+    "sharesOutstanding",
+    "floatShares",
+    "sharesShort",
+    "shortRatio",
+    "shortPercentOfFloat",
     # Risk
-    "beta", "auditRisk", "boardRisk", "compensationRisk", "overallRisk",
+    "beta",
+    "auditRisk",
+    "boardRisk",
+    "compensationRisk",
+    "overallRisk",
     # Metadata
-    "sector", "industry", "fullTimeEmployees",
-    "country", "city", "website",
-    "longName", "shortName",
+    "sector",
+    "industry",
+    "fullTimeEmployees",
+    "country",
+    "city",
+    "website",
+    "longName",
+    "shortName",
     "longBusinessSummary",
     # Exchange / price info
-    "currency", "exchange", "quoteType",
-    "previousClose", "open", "volume", "averageVolume",
-    "bookValue", "faceValue",
+    "currency",
+    "exchange",
+    "quoteType",
+    "previousClose",
+    "open",
+    "volume",
+    "averageVolume",
+    "bookValue",
+    "faceValue",
 ]
 
 OUTPUT_COLUMNS = ["symbol", "symbol_ns", "data"]
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────
+
 
 def load_symbols() -> list[str]:
     with open(CSV_INPUT, newline="", encoding="utf-8") as f:
@@ -130,6 +172,7 @@ def _clean(v: Any) -> Any:
     # yfinance sometimes returns Timestamp objects
     try:
         import pandas as pd
+
         if isinstance(v, pd.Timestamp):
             return v.isoformat()
     except ImportError:
@@ -154,11 +197,14 @@ def fetch_info(symbol_ns: str) -> dict | None:
 
 # ── Main ───────────────────────────────────────────────────────────────────
 
+
 def main() -> None:
     import argparse
+
     parser = argparse.ArgumentParser()
-    parser.add_argument("--limit", type=int, default=None,
-                        help="Process only N symbols (for testing)")
+    parser.add_argument(
+        "--limit", type=int, default=None, help="Process only N symbols (for testing)"
+    )
     args = parser.parse_args()
 
     ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -189,11 +235,13 @@ def main() -> None:
             try:
                 data = fetch_info(symbol_ns)
                 if data:
-                    writer.writerow({
-                        "symbol": symbol,
-                        "symbol_ns": symbol_ns,
-                        "data": json.dumps(data),
-                    })
+                    writer.writerow(
+                        {
+                            "symbol": symbol,
+                            "symbol_ns": symbol_ns,
+                            "data": json.dumps(data),
+                        }
+                    )
                     out_file.flush()
                     print(f"{len(data)} fields")
                 else:
@@ -212,8 +260,8 @@ def main() -> None:
     done_now = load_checkpoint()
     print(f"\nDone. Processed {len(done_now)}/{len(all_symbols)} symbols.")
     print(f"Output saved to: {CSV_OUTPUT}")
-    print(f"\nTo load into DB:")
-    print(f"  python scripts/db-scripts/load_ticker_info.py")
+    print("\nTo load into DB:")
+    print("  python scripts/db-scripts/load_ticker_info.py")
 
 
 if __name__ == "__main__":

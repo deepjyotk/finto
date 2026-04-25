@@ -46,11 +46,20 @@ async def get_ticker(
     svc: Annotated[TickerService, Depends(_get_ticker_service)],
     price_period: str = Query(
         "1y",
-        description="yfinance period string: 1d 5d 1mo 3mo 6mo 1y 2y 5y 10y ytd max",
+        description=(
+            "Chart lookback. Default: DB-backed daily bars from price_bars_1d: "
+            "1mo, 6mo, 1y, max (max = ~2y of table data). "
+            "Legacy 3y/5y/… map to max. "
+            "Set TICKER_USE_YFINANCE_FOR_PRICES=1 to use yfinance for price_history: "
+            "1d 5d 1mo 3mo 6mo 1y 2y 5y 10y ytd max"
+        ),
     ),
     price_interval: str = Query(
         "1d",
-        description="yfinance interval: 1m 2m 5m 15m 30m 60m 90m 1h 1d 5d 1wk 1mo 3mo",
+        description=(
+            "Candle interval for price chart. With DB (default) only 1d data exists; "
+            "other values are ignored. With yfinance flag: 1m 2m 5m 15m 30m 60m 90m 1h 1d 5d 1wk 1mo 3mo"
+        ),
     ),
     annual_periods: int = Query(10, ge=1, le=20, description="Number of annual periods"),
     quarterly_periods: int = Query(12, ge=1, le=20, description="Number of quarterly periods"),

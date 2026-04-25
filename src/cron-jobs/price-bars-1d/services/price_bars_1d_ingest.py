@@ -12,11 +12,9 @@ from uuid import UUID
 
 import pandas as pd
 import yfinance as yf
-from sqlalchemy import func, text
-from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.models.price_bar_1d import PriceBar1d
+from src.repositories.price_bars_1d_repo import PriceBars1DRepository
 
 logger = logging.getLogger(__name__)
 
@@ -71,41 +69,67 @@ async def fetch_daily_history(yahoo_symbol: str, period: str) -> list[dict[str, 
     return await loop.run_in_executor(None, _fetch_daily_history_sync, yahoo_symbol, period)
 
 
-async def upsert_bars(session: AsyncSession, in_equity_id: UUID, bars: list[dict[str, Any]]) -> int:
-    if not bars:
-        return 0
-    table = PriceBar1d.__table__
-    rows = [
-        {
-            "in_equity_id": in_equity_id,
-            "trade_date": b["trade_date"],
-            "open": b["open"],
-            "high": b["high"],
-            "low": b["low"],
-            "close": b["close"],
-            "volume": b["volume"],
-        }
-        for b in bars
-    ]
-    ins = pg_insert(table).values(rows)
-    upsert = ins.on_conflict_do_update(
-        index_elements=[table.c.in_equity_id, table.c.trade_date],
-        set_={
-            "open": ins.excluded.open,
-            "high": ins.excluded.high,
-            "low": ins.excluded.low,
-            "close": ins.excluded.close,
-            "volume": ins.excluded.volume,
-            "updated_at": func.now(),
-        },
-    )
-    await session.execute(upsert)
-    return len(rows)
+class PriceBars1DIngestService:
+    """Orchestrates daily bar fetching and DB upserts."""
 
+    def __init__(self, repo: PriceBars1DRepository) -> None:
+        self._repo = repo
 
-async def load_all_equities(session: AsyncSession) -> list[EquityRow]:
-    result = await session.execute(text("SELECT id, symbol FROM in_equities ORDER BY symbol"))
-    return [EquityRow(id=r[0], symbol=r[1]) for r in result.fetchall()]
+    async def _load_all_equities(self) -> list[EquityRow]:
+        rows = await self._repo.load_all_equities()
+        return [EquityRow(id=row[0], symbol=row[1]) for row in rows]
+
+    async def backfill_two_years(
+        self,
+        *,
+        period: str = "2y",
+        delay_seconds: float = 0.15,
+        limit: Optional[int] = None,
+    ) -> None:
+        equities = await self._load_all_equities()
+        if limit is not None:
+            equities = equities[:limit]
+        total = len(equities)
+        for i, eq in enumerate(equities, start=1):
+            ysym = to_yahoo_ns(eq.symbol)
+            try:
+                bars = await fetch_daily_history(ysym, period)
+                count = await self._repo.upsert_bars(eq.id, bars)
+                await self._repo.commit()
+                logger.info("[%s/%s] %s (%s): upserted %s bars", i, total, eq.symbol, ysym, count)
+            except Exception:
+                await self._repo.rollback()
+                logger.exception("Failed equity %s (%s)", eq.symbol, ysym)
+            if delay_seconds > 0 and i < total:
+                await asyncio.sleep(delay_seconds)
+
+    async def refresh_recent_daily(
+        self,
+        *,
+        period: str = "14d",
+        delay_seconds: float = 0.1,
+        limit: Optional[int] = None,
+    ) -> None:
+        """
+        Idempotent catch-up: re-fetch last N calendar days of daily bars and upsert.
+        Covers weekends/holidays and missed scheduler runs.
+        """
+        equities = await self._load_all_equities()
+        if limit is not None:
+            equities = equities[:limit]
+        total = len(equities)
+        for i, eq in enumerate(equities, start=1):
+            ysym = to_yahoo_ns(eq.symbol)
+            try:
+                bars = await fetch_daily_history(ysym, period)
+                count = await self._repo.upsert_bars(eq.id, bars)
+                await self._repo.commit()
+                logger.info("[%s/%s] %s: upserted %s recent bars", i, total, eq.symbol, count)
+            except Exception:
+                await self._repo.rollback()
+                logger.exception("Failed equity %s", eq.symbol)
+            if delay_seconds > 0 and i < total:
+                await asyncio.sleep(delay_seconds)
 
 
 async def backfill_two_years(
@@ -115,22 +139,10 @@ async def backfill_two_years(
     delay_seconds: float = 0.15,
     limit: Optional[int] = None,
 ) -> None:
-    equities = await load_all_equities(session)
-    if limit is not None:
-        equities = equities[:limit]
-    total = len(equities)
-    for i, eq in enumerate(equities, start=1):
-        ysym = to_yahoo_ns(eq.symbol)
-        try:
-            bars = await fetch_daily_history(ysym, period)
-            n = await upsert_bars(session, eq.id, bars)
-            await session.commit()
-            logger.info("[%s/%s] %s (%s): upserted %s bars", i, total, eq.symbol, ysym, n)
-        except Exception:
-            await session.rollback()
-            logger.exception("Failed equity %s (%s)", eq.symbol, ysym)
-        if delay_seconds > 0 and i < total:
-            await asyncio.sleep(delay_seconds)
+    """Backward-compatible function wrapper used by the CLI script."""
+    repo = PriceBars1DRepository(session)
+    service = PriceBars1DIngestService(repo)
+    await service.backfill_two_years(period=period, delay_seconds=delay_seconds, limit=limit)
 
 
 async def refresh_recent_daily(
@@ -140,23 +152,7 @@ async def refresh_recent_daily(
     delay_seconds: float = 0.1,
     limit: Optional[int] = None,
 ) -> None:
-    """
-    Idempotent catch-up: re-fetch last N calendar days of daily bars and upsert.
-    Covers weekends/holidays and missed scheduler runs.
-    """
-    equities = await load_all_equities(session)
-    if limit is not None:
-        equities = equities[:limit]
-    total = len(equities)
-    for i, eq in enumerate(equities, start=1):
-        ysym = to_yahoo_ns(eq.symbol)
-        try:
-            bars = await fetch_daily_history(ysym, period)
-            n = await upsert_bars(session, eq.id, bars)
-            await session.commit()
-            logger.info("[%s/%s] %s: upserted %s recent bars", i, total, eq.symbol, n)
-        except Exception:
-            await session.rollback()
-            logger.exception("Failed equity %s", eq.symbol)
-        if delay_seconds > 0 and i < total:
-            await asyncio.sleep(delay_seconds)
+    """Backward-compatible function wrapper used by the CLI script."""
+    repo = PriceBars1DRepository(session)
+    service = PriceBars1DIngestService(repo)
+    await service.refresh_recent_daily(period=period, delay_seconds=delay_seconds, limit=limit)

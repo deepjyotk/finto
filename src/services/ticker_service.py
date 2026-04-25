@@ -3,13 +3,21 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import date
+from datetime import date, datetime, timedelta
+from decimal import Decimal
+from typing import Any
+from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.json_logging import logger_for
+from src.core.settings import settings
 from src.repositories.financial_statements_repo import FinancialStatementsRepo
+from src.repositories.price_bars_1d_repo import PriceBars1DRepository
 from src.repositories.ticker_info_repo import TickerInfoRepo
+
+IST = ZoneInfo("Asia/Kolkata")
 
 logger = logger_for(__name__)
 
@@ -68,6 +76,7 @@ class TickerService:
         self._session = session
         self._fin_repo = FinancialStatementsRepo(session)
         self._info_repo = TickerInfoRepo(session)
+        self._price_bars_repo = PriceBars1DRepository(session)
 
     # ── helpers ─────────────────────────────────────────────────────────
 
@@ -85,7 +94,7 @@ class TickerService:
         return info
 
     @staticmethod
-    def _fetch_price_history(symbol_ns: str, period: str, interval: str) -> list[dict]:
+    def _fetch_price_history_yfinance(symbol_ns: str, period: str, interval: str) -> list[dict]:
         import yfinance as yf
 
         ticker = yf.Ticker(symbol_ns)
@@ -105,6 +114,58 @@ class TickerService:
                 }
             )
         return rows
+
+    @staticmethod
+    def _db_chart_start_date(price_period: str) -> date:
+        """Map UI/yfinance period strings to a first trade_date (inclusive) for `price_bars_1d`."""
+        today = datetime.now(IST).date()
+        p = (price_period or "1y").lower().strip()
+        if p in ("3y", "5y", "10y", "2y", "max", "ytd"):
+            p = "max"
+        if p in ("1d", "5d", "1wk", "1w"):
+            p = "1mo"
+        if p == "1mo":
+            return today - timedelta(days=32)
+        if p == "6mo":
+            return today - timedelta(days=184)
+        if p == "1y":
+            return today - timedelta(days=370)
+        if p == "max":
+            return today - timedelta(days=730)
+        return today - timedelta(days=370)
+
+    @staticmethod
+    def _price_point_from_db_row(row: dict[str, Any]) -> dict[str, Any]:
+        def num(v: Any) -> float | None:
+            if v is None:
+                return None
+            if isinstance(v, Decimal):
+                return round(float(v), 2)
+            return round(float(v), 2)
+
+        td = row["trade_date"]
+        day = td.isoformat() if isinstance(td, date) else str(td)
+        vol = row.get("volume")
+        vol_i = int(vol) if vol is not None else None
+        return {
+            "date": day,
+            "open": num(row.get("open")),
+            "high": num(row.get("high")),
+            "low": num(row.get("low")),
+            "close": num(row.get("close")),
+            "volume": vol_i,
+        }
+
+    async def _fetch_price_history_from_db(
+        self,
+        in_equity_id: UUID,
+        price_period: str,
+        _price_interval: str,
+    ) -> list[dict[str, Any]]:
+        """Load daily OHLCV from `price_bars_1d` (1d data only; interval is ignored)."""
+        start = self._db_chart_start_date(price_period)
+        raw = await self._price_bars_repo.list_bars_for_equity_since(in_equity_id, start)
+        return [self._price_point_from_db_row(r) for r in raw]
 
     @staticmethod
     def _build_statements(rows: list[dict], preferred_order: list[str]) -> dict:
@@ -220,37 +281,58 @@ class TickerService:
 
         loop = asyncio.get_event_loop()
 
-        # Fetch yf info + price history in executor (blocking IO)
-        info, price_history = await asyncio.gather(
-            loop.run_in_executor(None, self._fetch_yf_info, symbol_ns),
-            loop.run_in_executor(
-                None, self._fetch_price_history, symbol_ns, price_period, price_interval
-            ),
-        )
+        # Prices: yfinance or DB. Company metrics: yfinance `info` when using yfinance for
+        # prices; otherwise `in_equities.company_metadata` via get_info (no yfinance call).
+        if settings.ticker_use_yfinance_for_prices:
+            price_await = loop.run_in_executor(
+                None, self._fetch_price_history_yfinance, symbol_ns, price_period, price_interval
+            )
+            info, price_history = await asyncio.gather(
+                loop.run_in_executor(None, self._fetch_yf_info, symbol_ns),
+                price_await,
+            )
+        else:
+            price_history = await self._fetch_price_history_from_db(
+                in_equity_id, price_period, price_interval
+            )
+            ticker_info = await self._info_repo.get_info(symbol_ns)
+            info = ticker_info or {}
 
         if not info and not price_history:
             return None
 
-        # Fetch all statement types sequentially — asyncio Sessions are not safe
-        # for concurrent use; two gather'd coroutines on the same session
-        # cause IllegalStateChangeError.
-        annual_rows = await self._fin_repo.get_statements(in_equity_id, "annual", annual_periods)
-        quarterly_rows = await self._fin_repo.get_statements(
-            in_equity_id, "quarterly", quarterly_periods
-        )
-        annual_balance_rows = await self._fin_repo.get_statements(
-            in_equity_id, "annual_balance", annual_periods
-        )
-        quarterly_balance_rows = await self._fin_repo.get_statements(
-            in_equity_id, "quarterly_balance", quarterly_periods
-        )
-        annual_cashflow_rows = await self._fin_repo.get_statements(
-            in_equity_id, "annual_cashflow", annual_periods
-        )
-        quarterly_cashflow_rows = await self._fin_repo.get_statements(
-            in_equity_id, "quarterly_cashflow", quarterly_periods
-        )
-        ticker_info = await self._info_repo.get_info(symbol_ns)
+        if settings.ticker_include_financial_statements:
+            # Fetch all statement types sequentially — asyncio Sessions are not safe
+            # for concurrent use; two gather'd coroutines on the same session
+            # cause IllegalStateChangeError.
+            annual_rows = await self._fin_repo.get_statements(
+                in_equity_id, "annual", annual_periods
+            )
+            quarterly_rows = await self._fin_repo.get_statements(
+                in_equity_id, "quarterly", quarterly_periods
+            )
+            annual_balance_rows = await self._fin_repo.get_statements(
+                in_equity_id, "annual_balance", annual_periods
+            )
+            quarterly_balance_rows = await self._fin_repo.get_statements(
+                in_equity_id, "quarterly_balance", quarterly_periods
+            )
+            annual_cashflow_rows = await self._fin_repo.get_statements(
+                in_equity_id, "annual_cashflow", annual_periods
+            )
+            quarterly_cashflow_rows = await self._fin_repo.get_statements(
+                in_equity_id, "quarterly_cashflow", quarterly_periods
+            )
+        else:
+            annual_rows = []
+            quarterly_rows = []
+            annual_balance_rows = []
+            quarterly_balance_rows = []
+            annual_cashflow_rows = []
+            quarterly_cashflow_rows = []
+
+        if settings.ticker_use_yfinance_for_prices:
+            ticker_info = await self._info_repo.get_info(symbol_ns)
 
         annual_stmts = self._build_statements(annual_rows, ANNUAL_METRICS)
         quarterly_stmts = self._build_statements(quarterly_rows, QUARTERLY_METRICS)

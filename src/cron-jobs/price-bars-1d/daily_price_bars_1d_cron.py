@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import importlib.util
 import logging
 import sys
 from pathlib import Path
@@ -30,15 +29,7 @@ from dotenv import load_dotenv  # noqa: E402
 load_dotenv(_ROOT / ".env")
 
 from src.core.db import SessionLocal  # noqa: E402
-
-_INGEST_PATH = Path(__file__).resolve().parent / "services" / "price_bars_1d_ingest.py"
-_SPEC = importlib.util.spec_from_file_location("price_bars_1d_ingest", _INGEST_PATH)
-if _SPEC is None or _SPEC.loader is None:
-    raise ImportError(f"Unable to load ingest module from {_INGEST_PATH}")
-_MOD = importlib.util.module_from_spec(_SPEC)
-sys.modules[_SPEC.name] = _MOD
-_SPEC.loader.exec_module(_MOD)
-refresh_recent_daily = _MOD.refresh_recent_daily
+from src.services.price_bars_1d_ingest import refresh_recent_daily  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -49,8 +40,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--limit", type=int, default=None, help="Max number of equities to process")
     p.add_argument(
         "--period",
-        default="14d",
-        help="yfinance lookback window (default 14d)",
+        default="2d",
+        help="yfinance lookback window (default 2d)",
     )
     p.add_argument(
         "--delay",

@@ -16,7 +16,7 @@ Live snapshot from `gcloud` (project `finto-477904`). Regenerate when the stack 
 
 | Area | What exists |
 |------|----------------|
-| **Cloud Run** | One service: **`finto-service`** in **`us-central1`**. Status **Ready**. Public URL: `https://finto-service-yn3hkiazaq-uc.a.run.app` (also `https://finto-service-933094822357.us-central1.run.app`). Container port **8000**, **512Mi** / **1** CPU, timeout **60s**, max instances **1**, unauthenticated ingress. Runtime service account: **`run-runtime@finto-477904.iam.gserviceaccount.com`**. Revisions deployed by **`cb-build@finto-477904.iam.gserviceaccount.com`**. |
+| **Cloud Run** | One service: **`finto-service`** in **`us-central1`**. Status **Ready**. Public URL: `https://finto-service-yn3hkiazaq-uc.a.run.app` (also `https://finto-service-933094822357.us-central1.run.app`). Container port **8000**, **2Gi** / **1** CPU, timeout **900s**, max instances **1**, unauthenticated ingress. Runtime service account: **`run-runtime@finto-477904.iam.gserviceaccount.com`**. Revisions deployed by **`cb-build@finto-477904.iam.gserviceaccount.com`**. |
 | **Cloud Build** | Trigger **`finto-trigger`** (`5e84e0db-f5b7-4c28-be6e-0a38a2e70f55`). **GitHub** `deepjyotk/finto` — fires on **push of tags** matching `^v\d+\.\d+\.\d+$`. Uses build service account **`cb-build@finto-477904.iam.gserviceaccount.com`**. Build logs: included with status. |
 | **Artifact Registry** | Repository **`apps`** (`DOCKER`) in **`us-central1`** — images for the Cloud Run service (e.g. `us-central1-docker.pkg.dev/finto-477904/apps/finto-service:<tag>`). |
 | **Secret Manager** | Used by Cloud Run for env at runtime (**secret names only** — see below). |
@@ -46,7 +46,7 @@ CI/CD pipeline behavior is defined in-repo at [`finto/cloudbuild.yaml`](../../cl
 | **HTTP method** | `POST` |
 | **Target URL** | `https://finto-service-yn3hkiazaq-uc.a.run.app/api/v1/cron-jobs/daily/` |
 | **Request auth (Scheduler → URL)** | **Unauthenticated** — `httpTarget` has **no** `oidcToken` and **no** `oauthToken` (public URL + public route). |
-| **Attempt deadline** | `180s` |
+| **Attempt deadline** | `900s` (aligned with Cloud Run request timeout for long daily yfinance batches) |
 
 **Note:** If the product goal is **16:00 IST** instead, the cron would need a different `hour` (e.g. `0 16 * * 1-5` for 16:00) — the deployed string above is what `gcloud` currently has.
 

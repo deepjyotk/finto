@@ -22,7 +22,8 @@ COPY . .
 FROM python:3.13-slim-bookworm AS runtime
 
 ENV PYTHONUNBUFFERED=1 \
-    PATH="/app/.venv/bin:${PATH}"
+    PATH="/app/.venv/bin:${PATH}" \
+    HOME=/tmp
 
 WORKDIR /app
 

@@ -42,9 +42,10 @@ steps:
       - --service-account=${_RUNTIME_SA}
       - --allow-unauthenticated
       - --port=8000
-      - --timeout=60
+      # Daily cron loads ~2k+ symbols via yfinance+pandas; 512Mi OOMs mid-request (503).
+      - --timeout=900
       - --cpu=1
-      - --memory=512Mi
+      - --memory=2Gi
       - --min-instances=0
       - --max-instances=1
       # Secrets must exist in Secret Manager and the runtime SA must have secretAccessor

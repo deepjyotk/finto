@@ -46,20 +46,29 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--delay",
         type=float,
-        default=0.1,
-        help="Sleep between symbols (seconds)",
+        default=0.0,
+        help="Ignored in batched mode; keep as 0",
     )
     return p.parse_args()
 
 
 async def _run(args: argparse.Namespace) -> None:
     async with SessionLocal() as session:
-        await refresh_recent_daily(
+        result = await refresh_recent_daily(
             session,
             period=args.period,
             delay_seconds=args.delay,
             limit=args.limit,
         )
+        logger.info(
+            "Refresh stats: total=%s ok=%s failed=%s rows=%s",
+            result.total_equities,
+            result.successful,
+            result.failed,
+            result.rows_upserted,
+        )
+        if result.failed_symbols:
+            logger.warning("Failed symbols: %s", ", ".join(result.failed_symbols))
 
 
 def main() -> None:

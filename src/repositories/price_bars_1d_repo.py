@@ -87,6 +87,27 @@ class PriceBars1DRepository:
         await self._session.execute(upsert)
         return len(rows)
 
+    async def upsert_bars_bulk(self, rows: Sequence[dict[str, Any]]) -> int:
+        """Bulk upsert rows shaped as DB columns for faster ingest throughput."""
+        if not rows:
+            return 0
+
+        table = PriceBar1d.__table__
+        ins = pg_insert(table).values(list(rows))
+        upsert = ins.on_conflict_do_update(
+            index_elements=[table.c.in_equity_id, table.c.trade_date],
+            set_={
+                "open": ins.excluded.open,
+                "high": ins.excluded.high,
+                "low": ins.excluded.low,
+                "close": ins.excluded.close,
+                "volume": ins.excluded.volume,
+                "updated_at": func.now(),
+            },
+        )
+        await self._session.execute(upsert)
+        return len(rows)
+
     async def commit(self) -> None:
         await self._session.commit()
 

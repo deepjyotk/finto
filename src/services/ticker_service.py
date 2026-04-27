@@ -234,21 +234,17 @@ class TickerService:
         # Fetch all statement types sequentially — asyncio Sessions are not safe
         # for concurrent use; two gather'd coroutines on the same session
         # cause IllegalStateChangeError.
-        annual_rows = await self._fin_repo.get_statements(in_equity_id, "annual", annual_periods)
-        quarterly_rows = await self._fin_repo.get_statements(
+        annual_rows = await self._fin_repo.get_income_statements(in_equity_id, "annual", annual_periods)
+        quarterly_rows = await self._fin_repo.get_income_statements(
             in_equity_id, "quarterly", quarterly_periods
         )
-        annual_balance_rows = await self._fin_repo.get_statements(
-            in_equity_id, "annual_balance", annual_periods
+        annual_balance_rows = await self._fin_repo.get_balance_sheets(in_equity_id, "annual", annual_periods)
+        quarterly_balance_rows = await self._fin_repo.get_balance_sheets(
+            in_equity_id, "quarterly", quarterly_periods
         )
-        quarterly_balance_rows = await self._fin_repo.get_statements(
-            in_equity_id, "quarterly_balance", quarterly_periods
-        )
-        annual_cashflow_rows = await self._fin_repo.get_statements(
-            in_equity_id, "annual_cashflow", annual_periods
-        )
-        quarterly_cashflow_rows = await self._fin_repo.get_statements(
-            in_equity_id, "quarterly_cashflow", quarterly_periods
+        annual_cashflow_rows = await self._fin_repo.get_cash_flows(in_equity_id, "annual", annual_periods)
+        quarterly_cashflow_rows = await self._fin_repo.get_cash_flows(
+            in_equity_id, "quarterly", quarterly_periods
         )
         ticker_info = await self._info_repo.get_info(symbol_ns)
 

@@ -1,4 +1,4 @@
-.PHONY: setup run-apis run-ui clean lint help render-graph run-evaluation-script create-dataset
+.PHONY: setup run-apis run-ui clean lint help render-graph run-evaluation-script create-dataset deploy-tag
 
 # Detect operating system
 ifeq ($(OS),Windows_NT)
@@ -21,6 +21,7 @@ help:
 	@echo "  make render-graph - Render the LangGraph topology image"
 	@echo "  make run-evaluation-script dataset_name=<name> - Run LangSmith evaluation on specified dataset"
 	@echo "  make create-dataset dataset_name=<name> - Create LangSmith dataset from JSON file"
+	@echo "  make deploy-tag - Validate .env vs update-secrets.sh + cloudbuild.yaml, then bump patch semver tag on GitHub (gh)"
 
 setup:
 	@echo "🔧 Setting up project for $(DETECTED_OS)..."
@@ -112,3 +113,7 @@ create-dataset:
 	@echo "📦 Creating LangSmith dataset from: scripts/langsmith/datasets/$(dataset_name).json"
 	@uv run python scripts/langsmith/datasets/manual_create_dataset.py --dataset-file scripts/langsmith/datasets/$(dataset_name).json
 	@echo "✅ Dataset creation complete!"
+
+# Optional: make deploy-tag DEPLOY_TAG_REPO=owner/repo (default deepjyotk/finto)
+deploy-tag:
+	@DEPLOY_TAG_REPO='$(DEPLOY_TAG_REPO)' bash scripts/deploy-tag.sh

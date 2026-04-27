@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import importlib.util
 import logging
 import sys
 from pathlib import Path
@@ -32,15 +31,7 @@ from dotenv import load_dotenv  # noqa: E402
 load_dotenv(_ROOT / ".env")
 
 from src.core.db import SessionLocal  # noqa: E402
-
-_INGEST_PATH = Path(__file__).resolve().parent / "services" / "price_bars_1d_ingest.py"
-_SPEC = importlib.util.spec_from_file_location("price_bars_1d_ingest", _INGEST_PATH)
-if _SPEC is None or _SPEC.loader is None:
-    raise ImportError(f"Unable to load ingest module from {_INGEST_PATH}")
-_MOD = importlib.util.module_from_spec(_SPEC)
-sys.modules[_SPEC.name] = _MOD
-_SPEC.loader.exec_module(_MOD)
-backfill_two_years = _MOD.backfill_two_years
+from src.services.price_bars_1d_ingest import backfill_two_years  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger(__name__)

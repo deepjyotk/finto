@@ -24,6 +24,7 @@ from src.repositories.chat_repo import ChatRepository
 from src.repositories.daily_contest_repo import DailyContestRepo
 from src.repositories.holdings_repo import HoldingsRepository
 from src.repositories.pending_registration_repo import PendingRegistrationRepository
+from src.repositories.price_bars_1d_repo import PriceBars1DRepository
 from src.repositories.user_repo import UserRepository
 from src.repositories.whatsapp_repo import WhatsAppRepository
 from src.services.a2ui_chat_service import A2UIChatService
@@ -34,6 +35,7 @@ from src.services.daily_contest import DailyContestService
 from src.services.chat_thesys_service import ThesysChatService
 from src.services.email import EmailService
 from src.services.holdings import HoldingsService
+from src.services.price_bars_1d_ingest import PriceBars1DIngestService
 from src.services.whatsapp import WhatsAppService
 
 
@@ -83,6 +85,20 @@ async def get_daily_contest_service(
 ) -> DailyContestService:
     """Provide DailyContestService with a DB session."""
     return DailyContestService(session=session)
+
+
+def _get_price_bars_1d_repository(
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> PriceBars1DRepository:
+    """Provide PriceBars1DRepository with request-scoped DB session."""
+    return PriceBars1DRepository(session)
+
+
+def get_price_bars_1d_ingest_service(
+    repo: Annotated[PriceBars1DRepository, Depends(_get_price_bars_1d_repository)],
+) -> PriceBars1DIngestService:
+    """Provide PriceBars1DIngestService for cron-triggered runs."""
+    return PriceBars1DIngestService(repo)
 
 
 def _get_web_search_node(

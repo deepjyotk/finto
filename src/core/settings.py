@@ -63,6 +63,18 @@ class Settings(BaseSettings):
             )
         return self
 
+    # Ticker page: chart OHLCV from DB (`price_bars_1d`) by default; set True to use yfinance.
+    ticker_use_yfinance_for_prices: bool = Field(
+        default=False,
+        description="When True, GET /ticker/{symbol} price_history uses yfinance; when False, uses price_bars_1d.",
+    )
+    # P&L / balance / cash flow tables (e.g. f_income_statements, f_balance_sheets, f_cash_flows paths).
+    # TODO: this is to be deleted, keeping it to avoid merge conflicts
+    ticker_include_financial_statements: bool = Field(
+        default=False,
+        description="When False, skip DB loads for financial statements; empty tables in response (useful when testing price logic only).",
+    )
+
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
     )

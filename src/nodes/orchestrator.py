@@ -265,7 +265,8 @@ BAD: "Apple cash flow statement last quarter" or "compare balance sheets" — th
                     self._financial_analysis_tool,
                     self._screener_analysis_tool,
                     self._web_search_tool,
-                ]
+                ],
+                parallel_tool_calls=False,
             )
 
             messages = state.get("messages", [])

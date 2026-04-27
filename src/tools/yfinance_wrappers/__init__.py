@@ -22,15 +22,125 @@ SCREENER:
 
 BOTH:
   get_balance_sheet, get_income_statement, get_cash_flow,
-  get_ticker_price, get_last_close_price, get_ticker_info
+  get_financial_metric, get_ticker_price, get_last_close_price, get_ticker_info
 """
 
+import os
 from typing import List, Optional
 
 import pandas as pd
 import yfinance as yf
 
 from src.tools.common_utils import normalize_symbol
+
+
+# ── DB helper ─────────────────────────────────────────────────────────────────
+
+def _get_db_url() -> str | None:
+    """Return a psycopg-compatible sync DB URL, or None if DATABASE_URL is not set."""
+    raw = os.environ.get("DATABASE_URL", "")
+    if not raw:
+        return None
+    return raw.replace("postgresql+asyncpg://", "postgresql://")
+
+
+# Freq string → statement_type value stored in DB
+_FREQ_TO_STMT: dict[str, str] = {"yearly": "annual", "quarterly": "quarterly"}
+
+# Display name → CamelCase (tool output uses CamelCase for LLM compat)
+_INCOME_DB_COLS = [
+    ("total_revenue", "TotalRevenue"),
+    ("cost_of_revenue", "CostOfRevenue"),
+    ("gross_profit", "GrossProfit"),
+    ("operating_expense", "OperatingExpense"),
+    ("operating_income", "OperatingIncome"),
+    ("ebitda", "EBITDA"),
+    ("interest_expense", "InterestExpense"),
+    ("tax_provision", "TaxProvision"),
+    ("pretax_income", "PretaxIncome"),
+    ("net_income", "NetIncome"),
+    ("basic_eps", "BasicEPS"),
+    ("diluted_eps", "DilutedEPS"),
+    ("total_expenses", "TotalExpenses"),
+]
+
+_BALANCE_DB_COLS = [
+    ("total_assets", "TotalAssets"),
+    ("current_assets", "CurrentAssets"),
+    ("cash_and_cash_equivalents", "CashAndCashEquivalents"),
+    ("accounts_receivable", "AccountsReceivable"),
+    ("inventory", "Inventory"),
+    ("net_ppe", "NetPPE"),
+    ("total_non_current_assets", "TotalNonCurrentAssets"),
+    ("goodwill", "Goodwill"),
+    ("total_liabilities", "TotalLiabilitiesNetMinorityInterest"),
+    ("current_liabilities", "CurrentLiabilities"),
+    ("current_debt", "CurrentDebt"),
+    ("accounts_payable", "AccountsPayable"),
+    ("long_term_debt", "LongTermDebt"),
+    ("total_debt", "TotalDebt"),
+    ("stockholders_equity", "StockholdersEquity"),
+    ("common_stock_equity", "CommonStockEquity"),
+    ("retained_earnings", "RetainedEarnings"),
+    ("working_capital", "WorkingCapital"),
+    ("net_debt", "NetDebt"),
+]
+
+_CASHFLOW_DB_COLS = [
+    ("operating_cash_flow", "OperatingCashFlow"),
+    ("net_income_from_continuing_ops", "NetIncomeFromContinuingOperations"),
+    ("depreciation_and_amortization", "DepreciationAndAmortization"),
+    ("change_in_working_capital", "ChangeInWorkingCapital"),
+    ("change_in_receivables", "ChangeInReceivables"),
+    ("change_in_inventory", "ChangeInInventory"),
+    ("change_in_payable", "ChangeInPayable"),
+    ("investing_cash_flow", "InvestingCashFlow"),
+    ("capital_expenditure", "CapitalExpenditure"),
+    ("capital_expenditure_reported", "CapitalExpenditureReported"),
+    ("purchase_of_ppe", "PurchaseOfPPE"),
+    ("sale_of_ppe", "SaleOfPPE"),
+    ("purchase_of_investment", "PurchaseOfInvestment"),
+    ("sale_of_investment", "SaleOfInvestment"),
+    ("financing_cash_flow", "FinancingCashFlow"),
+    ("net_issuance_payments_of_debt", "NetIssuancePaymentsOfDebt"),
+    ("long_term_debt_issuance", "LongTermDebtIssuance"),
+    ("long_term_debt_payments", "LongTermDebtPayments"),
+    ("common_stock_issuance", "CommonStockIssuance"),
+    ("cash_dividends_paid", "CashDividendsPaid"),
+    ("free_cash_flow", "FreeCashFlow"),
+    ("changes_in_cash", "ChangesInCash"),
+    ("end_cash_position", "EndCashPosition"),
+]
+
+# Metric name (snake_case OR CamelCase) → (table, snake_col, camel_name)
+# Used by get_financial_metric() for validated column routing.
+_METRIC_LOOKUP: dict[str, tuple[str, str, str]] = {}
+for _snake, _camel in _INCOME_DB_COLS:
+    _METRIC_LOOKUP[_snake] = _METRIC_LOOKUP[_camel] = ("f_income_statements", _snake, _camel)
+for _snake, _camel in _BALANCE_DB_COLS:
+    _METRIC_LOOKUP[_snake] = _METRIC_LOOKUP[_camel] = ("f_balance_sheets", _snake, _camel)
+for _snake, _camel in _CASHFLOW_DB_COLS:
+    _METRIC_LOOKUP[_snake] = _METRIC_LOOKUP[_camel] = ("f_cash_flows", _snake, _camel)
+
+# Per-statement alias dicts: snake_case OR CamelCase → CamelCase output key
+# Used by get_balance_sheet / get_income_statement / get_cash_flow metrics param.
+_INCOME_ALIASES: dict[str, str] = {
+    **{camel: camel for _, camel in _INCOME_DB_COLS},
+    **{snake: camel for snake, camel in _INCOME_DB_COLS},
+}
+_BALANCE_ALIASES: dict[str, str] = {
+    **{camel: camel for _, camel in _BALANCE_DB_COLS},
+    **{snake: camel for snake, camel in _BALANCE_DB_COLS},
+}
+_CASHFLOW_ALIASES: dict[str, str] = {
+    **{camel: camel for _, camel in _CASHFLOW_DB_COLS},
+    **{snake: camel for snake, camel in _CASHFLOW_DB_COLS},
+}
+
+
+def _resolve_metric_filter(requested: list[str], aliases: dict[str, str]) -> set[str]:
+    """Resolve snake_case or CamelCase metric names to a set of CamelCase keys."""
+    return {aliases[m] for m in requested if m in aliases}
 
 # ── Category sets (for runtime lookup by node utils) ──────────────────────────
 
@@ -62,6 +172,7 @@ BOTH_FUNCTIONS: frozenset[str] = frozenset(
         "get_balance_sheet",
         "get_income_statement",
         "get_cash_flow",
+        "get_financial_metric",
         "get_ticker_price",
         "get_last_close_price",
         "get_ticker_info",
@@ -69,193 +180,370 @@ BOTH_FUNCTIONS: frozenset[str] = frozenset(
 )
 
 
-def get_balance_sheet(symbol_name: str, freq: str = "yearly", pretty: bool = False) -> dict:
-    """Fetch balance sheet (yearly or quarterly) with important fields only.
+def get_balance_sheet(
+    symbol_names: "str | list[str]",
+    freq: str = "yearly",
+    metrics: "list[str] | None" = None,
+    pretty: bool = False,
+) -> dict:
+    """Fetch balance sheet for one or more stocks — DB-first, yfinance fallback.
 
     Args:
-        symbol_name: Stock ticker symbol (e.g., "AAPL", "RELIANCE")
-        freq: "yearly" or "quarterly"
-        pretty: If True, format column names nicely
+        symbol_names: Single symbol string OR list of symbols.
+                      e.g. "RELIANCE"  or  ["RELIANCE", "TCS", "INFY"]
+        freq:         "yearly" (default) or "quarterly"
+        metrics:      Optional list of fields to include (snake_case or CamelCase).
+                      If omitted, all fields are returned.
+                      e.g. ["total_assets", "TotalDebt", "net_debt"]
+        pretty:       Ignored when data is served from DB (kept for API compat)
 
     Returns:
-        {"symbol": t, "balance_sheet": {...}} with filtered important fields:
-        TotalAssets, CurrentAssets, CashAndCashEquivalents, AccountsReceivable,
-        Inventory, NetPPE, TotalNonCurrentAssets, Goodwill, TotalLiabilitiesNetMinorityInterest,
-        CurrentLiabilities, CurrentDebt, AccountsPayable, LongTermDebt, TotalDebt,
-        StockholdersEquity, CommonStockEquity, RetainedEarnings, WorkingCapital, NetDebt
+        Single symbol:    {"symbol": "RELIANCE", "balance_sheet": {"YYYY-MM-DD": {"TotalAssets": ...}}}
+        Multiple symbols: {"balance_sheet": {"RELIANCE": {"YYYY-MM-DD": {...}}, "TCS": {...}}}
     """
-    try:
-        if not symbol_name:
-            print(f"ERROR: Symbol {symbol_name} is empty or None")
-            raise ValueError("Symbol name is required.")
-        normalized_symbol = normalize_symbol(symbol_name.strip().upper())
-        data = yf.Ticker(normalized_symbol).get_balance_sheet(
-            as_dict=True, pretty=pretty, freq=freq
-        )
+    if not symbol_names:
+        raise ValueError("symbol_names is required.")
 
-        # Important fields to keep
-        important_fields = {
-            "TotalAssets",
-            "CurrentAssets",
-            "CashAndCashEquivalents",
-            "AccountsReceivable",
-            "Inventory",
-            "NetPPE",
-            "TotalNonCurrentAssets",
-            "Goodwill",
-            "TotalLiabilitiesNetMinorityInterest",
-            "CurrentLiabilities",
-            "CurrentDebt",
-            "AccountsPayable",
-            "LongTermDebt",
-            "TotalDebt",
-            "StockholdersEquity",
-            "CommonStockEquity",
-            "RetainedEarnings",
-            "WorkingCapital",
-            "NetDebt",
-        }
+    multi = isinstance(symbol_names, list)
+    symbols_list = [s.strip().upper() for s in (symbol_names if multi else [symbol_names])]
+    stmt_type = _FREQ_TO_STMT.get(freq, "annual")
+    metric_filter = _resolve_metric_filter(metrics, _BALANCE_ALIASES) if metrics else None
 
-        # Convert Timestamp keys to strings and filter fields
-        if isinstance(data, dict):
-            balance_sheet = {}
-            for date_key, fields in data.items():
-                filtered_fields = {
-                    field: value for field, value in fields.items() if field in important_fields
-                }
-                balance_sheet[str(date_key)] = filtered_fields
-        else:
-            balance_sheet = data
+    db_url = _get_db_url()
+    if db_url:
+        try:
+            import psycopg
+            with psycopg.connect(db_url) as conn:
+                rows = conn.execute(
+                    """
+                    SELECT ie.symbol, bs.period,
+                           total_assets, current_assets, cash_and_cash_equivalents,
+                           accounts_receivable, inventory, net_ppe,
+                           total_non_current_assets, goodwill, total_liabilities,
+                           current_liabilities, current_debt, accounts_payable,
+                           long_term_debt, total_debt, stockholders_equity,
+                           common_stock_equity, retained_earnings, working_capital, net_debt
+                    FROM   f_balance_sheets bs
+                    JOIN   in_equities ie ON ie.id = bs.in_equity_id
+                    WHERE  ie.symbol = ANY(%s) AND bs.statement_type = %s
+                    ORDER  BY ie.symbol, bs.period DESC
+                    """,
+                    (symbols_list, stmt_type),
+                ).fetchall()
+            if rows:
+                by_symbol: dict[str, dict] = {}
+                counts: dict[str, int] = {}
+                for row in rows:
+                    sym = row[0]
+                    if counts.get(sym, 0) >= 10:
+                        continue
+                    period_str = str(row[1])
+                    data = {
+                        camel: float(row[i + 2])
+                        for i, (_, camel) in enumerate(_BALANCE_DB_COLS)
+                        if row[i + 2] is not None
+                    }
+                    if metric_filter:
+                        data = {k: v for k, v in data.items() if k in metric_filter}
+                    by_symbol.setdefault(sym, {})[period_str] = data
+                    counts[sym] = counts.get(sym, 0) + 1
+                if multi:
+                    return {"balance_sheet": by_symbol}
+                return {"symbol": symbols_list[0], "balance_sheet": by_symbol.get(symbols_list[0], {})}
+        except Exception as e:
+            print(f"[get_balance_sheet] DB fetch failed ({e}), falling back to yfinance")
 
-        return {"symbol": symbol_name, "balance_sheet": balance_sheet}
-    except Exception as e:
-        print(f"ERROR: Failed to fetch balance sheet for symbol: {symbol_name} - {e}")
-        return {"symbol": symbol_name, "balance_sheet": {}, "error": str(e)}
+    # yfinance fallback
+    important_fields = {camel for _, camel in _BALANCE_DB_COLS}
+    if metric_filter:
+        important_fields &= metric_filter
+
+    def _yf_fetch(sym: str) -> dict:
+        try:
+            data = yf.Ticker(normalize_symbol(sym)).get_balance_sheet(as_dict=True, pretty=pretty, freq=freq)
+            if not isinstance(data, dict):
+                return {}
+            return {str(dk): {f: v for f, v in flds.items() if f in important_fields} for dk, flds in data.items()}
+        except Exception as e:
+            print(f"ERROR: Failed to fetch balance sheet for {sym} - {e}")
+            return {}
+
+    if multi:
+        return {"balance_sheet": {sym: _yf_fetch(sym) for sym in symbols_list}}
+    return {"symbol": symbols_list[0], "balance_sheet": _yf_fetch(symbols_list[0])}
 
 
-def get_income_statement(symbol_name: str, freq: str = "yearly", pretty: bool = False) -> dict:
-    """Fetch income statement (yearly or quarterly) with important fields only.
+def get_income_statement(
+    symbol_names: "str | list[str]",
+    freq: str = "yearly",
+    metrics: "list[str] | None" = None,
+    pretty: bool = False,
+) -> dict:
+    """Fetch income statement for one or more stocks — DB-first, yfinance fallback.
 
     Args:
-        symbol_name: Stock ticker symbol
-        freq: "yearly" or "quarterly"
-        pretty: If True, format column names nicely
+        symbol_names: Single symbol string OR list of symbols.
+                      e.g. "RELIANCE"  or  ["RELIANCE", "TCS"]
+        freq:         "yearly" (default) or "quarterly"
+        metrics:      Optional list of fields to include (snake_case or CamelCase).
+                      e.g. ["total_revenue", "NetIncome", "ebitda"]
+        pretty:       Ignored when data is served from DB (kept for API compat)
 
     Returns:
-        {"symbol": t, "income_statement": {...}} with filtered important fields:
-        TotalRevenue, CostOfRevenue, GrossProfit, OperatingExpense, OperatingIncome,
-        EBITDA, InterestExpense, TaxProvision, NetIncome, BasicEPS, DilutedEPS
+        Single symbol:    {"symbol": "RELIANCE", "income_statement": {"YYYY-MM-DD": {"TotalRevenue": ...}}}
+        Multiple symbols: {"income_statement": {"RELIANCE": {"YYYY-MM-DD": {...}}, "TCS": {...}}}
     """
-    try:
-        if not symbol_name:
-            print(f"ERROR: Symbol {symbol_name} is empty or None")
-            raise ValueError("Symbol name is required.")
-        normalized_symbol = normalize_symbol(symbol_name.strip().upper())
-        data = yf.Ticker(normalized_symbol).get_income_stmt(as_dict=True, pretty=pretty, freq=freq)
+    if not symbol_names:
+        raise ValueError("symbol_names is required.")
 
-        # Important fields to keep
-        important_fields = {
-            "TotalRevenue",
-            "CostOfRevenue",
-            "GrossProfit",
-            "OperatingExpense",
-            "OperatingIncome",
-            "EBITDA",
-            "InterestExpense",
-            "TaxProvision",
-            "NetIncome",
-            "BasicEPS",
-            "DilutedEPS",
-        }
+    multi = isinstance(symbol_names, list)
+    symbols_list = [s.strip().upper() for s in (symbol_names if multi else [symbol_names])]
+    stmt_type = _FREQ_TO_STMT.get(freq, "annual")
+    metric_filter = _resolve_metric_filter(metrics, _INCOME_ALIASES) if metrics else None
 
-        # Convert Timestamp keys to strings and filter fields
-        if isinstance(data, dict):
-            income_statement = {}
-            for date_key, fields in data.items():
-                filtered_fields = {
-                    field: value for field, value in fields.items() if field in important_fields
-                }
-                income_statement[str(date_key)] = filtered_fields
-        else:
-            income_statement = data
+    db_url = _get_db_url()
+    if db_url:
+        try:
+            import psycopg
+            with psycopg.connect(db_url) as conn:
+                rows = conn.execute(
+                    """
+                    SELECT ie.symbol, fs.period,
+                           total_revenue, cost_of_revenue, gross_profit, operating_expense,
+                           operating_income, ebitda, interest_expense, tax_provision,
+                           pretax_income, net_income, basic_eps, diluted_eps, total_expenses
+                    FROM   f_income_statements fs
+                    JOIN   in_equities ie ON ie.id = fs.in_equity_id
+                    WHERE  ie.symbol = ANY(%s) AND fs.statement_type = %s
+                    ORDER  BY ie.symbol, fs.period DESC
+                    """,
+                    (symbols_list, stmt_type),
+                ).fetchall()
+            if rows:
+                by_symbol: dict[str, dict] = {}
+                counts: dict[str, int] = {}
+                for row in rows:
+                    sym = row[0]
+                    if counts.get(sym, 0) >= 10:
+                        continue
+                    period_str = str(row[1])
+                    data = {
+                        camel: float(row[i + 2])
+                        for i, (_, camel) in enumerate(_INCOME_DB_COLS)
+                        if row[i + 2] is not None
+                    }
+                    if metric_filter:
+                        data = {k: v for k, v in data.items() if k in metric_filter}
+                    by_symbol.setdefault(sym, {})[period_str] = data
+                    counts[sym] = counts.get(sym, 0) + 1
+                if multi:
+                    return {"income_statement": by_symbol}
+                return {"symbol": symbols_list[0], "income_statement": by_symbol.get(symbols_list[0], {})}
+        except Exception as e:
+            print(f"[get_income_statement] DB fetch failed ({e}), falling back to yfinance")
 
-        return {"symbol": symbol_name, "income_statement": income_statement}
-    except Exception as e:
-        print(f"ERROR: Failed to fetch income statement for symbol: {symbol_name} - {e}")
-        return {"symbol": symbol_name, "income_statement": {}, "error": str(e)}
+    # yfinance fallback
+    important_fields = {camel for _, camel in _INCOME_DB_COLS}
+    if metric_filter:
+        important_fields &= metric_filter
+
+    def _yf_fetch(sym: str) -> dict:
+        try:
+            data = yf.Ticker(normalize_symbol(sym)).get_income_stmt(as_dict=True, pretty=pretty, freq=freq)
+            if not isinstance(data, dict):
+                return {}
+            return {str(dk): {f: v for f, v in flds.items() if f in important_fields} for dk, flds in data.items()}
+        except Exception as e:
+            print(f"ERROR: Failed to fetch income statement for {sym} - {e}")
+            return {}
+
+    if multi:
+        return {"income_statement": {sym: _yf_fetch(sym) for sym in symbols_list}}
+    return {"symbol": symbols_list[0], "income_statement": _yf_fetch(symbols_list[0])}
 
 
-def get_cash_flow(symbol_name: str, freq: str = "yearly", pretty: bool = False) -> dict:
-    """Fetch cash flow statement (yearly or quarterly) with important fields only.
+def get_cash_flow(
+    symbol_names: "str | list[str]",
+    freq: str = "yearly",
+    metrics: "list[str] | None" = None,
+    pretty: bool = False,
+) -> dict:
+    """Fetch cash flow statement for one or more stocks — DB-first, yfinance fallback.
 
     Args:
-        symbol_name: Stock ticker symbol
-        freq: "yearly" or "quarterly"
-        pretty: If True, format column names nicely
+        symbol_names: Single symbol string OR list of symbols.
+                      e.g. "RELIANCE"  or  ["RELIANCE", "TCS"]
+        freq:         "yearly" (default) or "quarterly"
+        metrics:      Optional list of fields to include (snake_case or CamelCase).
+                      e.g. ["free_cash_flow", "OperatingCashFlow", "capital_expenditure"]
+        pretty:       Ignored when data is served from DB (kept for API compat)
 
     Returns:
-        {"symbol": t, "cash_flow": {...}} with filtered important fields:
-        Operating: OperatingCashFlow, NetIncomeFromContinuingOperations, DepreciationAndAmortization,
-        ChangeInWorkingCapital, ChangeInReceivables, ChangeInInventory, ChangeInPayable
-        Investing: InvestingCashFlow, CapitalExpenditure, PurchaseOfPPE, SaleOfPPE, PurchaseOfInvestment, SaleOfInvestment
-        Financing: FinancingCashFlow, NetIssuancePaymentsOfDebt, LongTermDebtIssuance, LongTermDebtPayments, CommonStockIssuance, CashDividendsPaid
-        Summary: FreeCashFlow, ChangesInCash, EndCashPosition
+        Single symbol:    {"symbol": "RELIANCE", "cash_flow": {"YYYY-MM-DD": {"OperatingCashFlow": ...}}}
+        Multiple symbols: {"cash_flow": {"RELIANCE": {"YYYY-MM-DD": {...}}, "TCS": {...}}}
     """
-    try:
-        if not symbol_name:
-            print(f"ERROR: Symbol {symbol_name} is empty or None")
-            raise ValueError("Symbol name is required.")
+    if not symbol_names:
+        raise ValueError("symbol_names is required.")
 
-        normalized_symbol = normalize_symbol(symbol_name.strip().upper())
-        data = yf.Ticker(normalized_symbol).get_cashflow(as_dict=True, pretty=pretty, freq=freq)
+    multi = isinstance(symbol_names, list)
+    symbols_list = [s.strip().upper() for s in (symbol_names if multi else [symbol_names])]
+    stmt_type = _FREQ_TO_STMT.get(freq, "annual")
+    metric_filter = _resolve_metric_filter(metrics, _CASHFLOW_ALIASES) if metrics else None
 
-        # Important fields to keep
-        important_fields = {
-            # Operating Cash Flow
-            "OperatingCashFlow",
-            "NetIncomeFromContinuingOperations",
-            "DepreciationAndAmortization",
-            "ChangeInWorkingCapital",
-            "ChangeInReceivables",
-            "ChangeInInventory",
-            "ChangeInPayable",
-            # Investing Cash Flow
-            "InvestingCashFlow",
-            "CapitalExpenditure",
-            "CapitalExpenditureReported",
-            "PurchaseOfPPE",
-            "SaleOfPPE",
-            "PurchaseOfInvestment",
-            "SaleOfInvestment",
-            # Financing Cash Flow
-            "FinancingCashFlow",
-            "NetIssuancePaymentsOfDebt",
-            "LongTermDebtIssuance",
-            "LongTermDebtPayments",
-            "CommonStockIssuance",
-            "CashDividendsPaid",
-            # Summary
-            "FreeCashFlow",
-            "ChangesInCash",
-            "EndCashPosition",
+    db_url = _get_db_url()
+    if db_url:
+        try:
+            import psycopg
+            with psycopg.connect(db_url) as conn:
+                rows = conn.execute(
+                    """
+                    SELECT ie.symbol, cf.period,
+                           operating_cash_flow, net_income_from_continuing_ops,
+                           depreciation_and_amortization, change_in_working_capital,
+                           change_in_receivables, change_in_inventory, change_in_payable,
+                           investing_cash_flow, capital_expenditure, capital_expenditure_reported,
+                           purchase_of_ppe, sale_of_ppe, purchase_of_investment, sale_of_investment,
+                           financing_cash_flow, net_issuance_payments_of_debt,
+                           long_term_debt_issuance, long_term_debt_payments,
+                           common_stock_issuance, cash_dividends_paid,
+                           free_cash_flow, changes_in_cash, end_cash_position
+                    FROM   f_cash_flows cf
+                    JOIN   in_equities ie ON ie.id = cf.in_equity_id
+                    WHERE  ie.symbol = ANY(%s) AND cf.statement_type = %s
+                    ORDER  BY ie.symbol, cf.period DESC
+                    """,
+                    (symbols_list, stmt_type),
+                ).fetchall()
+            if rows:
+                by_symbol: dict[str, dict] = {}
+                counts: dict[str, int] = {}
+                for row in rows:
+                    sym = row[0]
+                    if counts.get(sym, 0) >= 10:
+                        continue
+                    period_str = str(row[1])
+                    data = {
+                        camel: float(row[i + 2])
+                        for i, (_, camel) in enumerate(_CASHFLOW_DB_COLS)
+                        if row[i + 2] is not None
+                    }
+                    if metric_filter:
+                        data = {k: v for k, v in data.items() if k in metric_filter}
+                    by_symbol.setdefault(sym, {})[period_str] = data
+                    counts[sym] = counts.get(sym, 0) + 1
+                if multi:
+                    return {"cash_flow": by_symbol}
+                return {"symbol": symbols_list[0], "cash_flow": by_symbol.get(symbols_list[0], {})}
+        except Exception as e:
+            print(f"[get_cash_flow] DB fetch failed ({e}), falling back to yfinance")
+
+    # yfinance fallback
+    important_fields = {camel for _, camel in _CASHFLOW_DB_COLS}
+    if metric_filter:
+        important_fields &= metric_filter
+
+    def _yf_fetch(sym: str) -> dict:
+        try:
+            data = yf.Ticker(normalize_symbol(sym)).get_cashflow(as_dict=True, pretty=pretty, freq=freq)
+            if not isinstance(data, dict):
+                return {}
+            return {str(dk): {f: v for f, v in flds.items() if f in important_fields} for dk, flds in data.items()}
+        except Exception as e:
+            print(f"ERROR: Failed to fetch cash flow for {sym} - {e}")
+            return {}
+
+    if multi:
+        return {"cash_flow": {sym: _yf_fetch(sym) for sym in symbols_list}}
+    return {"symbol": symbols_list[0], "cash_flow": _yf_fetch(symbols_list[0])}
+
+
+def get_financial_metric(
+    symbol_names: list[str],
+    metric: str,
+    freq: str = "yearly",
+    periods: int = 5,
+) -> dict:
+    """Fetch a single financial metric for one or more stocks across periods.
+
+    Reads from the typed financial tables (DB-first, no yfinance network call).
+    Works across income statements, balance sheets, and cash flows — the table
+    is chosen automatically based on the metric name.
+
+    Args:
+        symbol_names: One or more stock symbols, e.g. ["RELIANCE", "TCS"]
+        metric:       snake_case column name ("net_income", "free_cash_flow") OR
+                      CamelCase name ("NetIncome", "FreeCashFlow")
+        freq:         "yearly" (default) or "quarterly"
+        periods:      Number of most-recent periods to return per symbol (default 5)
+
+    Returns:
+        {
+          "metric": "NetIncome",
+          "freq":   "yearly",
+          "data":   {
+            "RELIANCE": {"2024-03-31": 179181000000, "2023-03-31": ...},
+            "TCS":      {"2024-03-31": ...}
+          }
         }
 
-        # Convert Timestamp keys to strings and filter fields
-        if isinstance(data, dict):
-            cash_flow = {}
-            for date_key, fields in data.items():
-                filtered_fields = {
-                    field: value for field, value in fields.items() if field in important_fields
-                }
-                cash_flow[str(date_key)] = filtered_fields
-        else:
-            cash_flow = data
+    Known metrics
+    -------------
+    Income:    total_revenue, cost_of_revenue, gross_profit, operating_expense,
+               operating_income, ebitda, interest_expense, tax_provision,
+               pretax_income, net_income, basic_eps, diluted_eps, total_expenses
+    Balance:   total_assets, current_assets, cash_and_cash_equivalents,
+               accounts_receivable, inventory, net_ppe, total_non_current_assets,
+               goodwill, total_liabilities, current_liabilities, current_debt,
+               accounts_payable, long_term_debt, total_debt, stockholders_equity,
+               common_stock_equity, retained_earnings, working_capital, net_debt
+    Cash Flow: operating_cash_flow, investing_cash_flow, financing_cash_flow,
+               free_cash_flow, capital_expenditure, depreciation_and_amortization,
+               change_in_working_capital, net_income_from_continuing_ops,
+               changes_in_cash, end_cash_position  (and more)
+    """
+    resolved = _METRIC_LOOKUP.get(metric)
+    if resolved is None:
+        known = sorted(_METRIC_LOOKUP.keys())
+        return {"error": f"Unknown metric '{metric}'. Known metrics: {known}"}
 
-        return {"symbol": symbol_name, "cash_flow": cash_flow}
+    table, col, camel = resolved
+    stmt_type = _FREQ_TO_STMT.get(freq, "annual")
+    symbols = [s.strip().upper() for s in symbol_names]
 
-    except Exception as e:
-        print(f"ERROR: Failed to fetch cash flow for symbol: {symbol_name} - {e}")
-        return {"symbol": symbol_name, "cash_flow": {}, "error": str(e)}
+    db_url = _get_db_url()
+    if db_url:
+        try:
+            import psycopg
+            from psycopg import sql as pgsql
+            # col and table come from the hardcoded _METRIC_LOOKUP — validated values
+            query = pgsql.SQL(
+                """
+                SELECT ie.symbol, fs.period, fs.{col}
+                FROM   {table} fs
+                JOIN   in_equities ie ON ie.id = fs.in_equity_id
+                WHERE  ie.symbol = ANY(%s)
+                  AND  fs.statement_type = %s
+                  AND  fs.{col} IS NOT NULL
+                ORDER  BY ie.symbol, fs.period DESC
+                """
+            ).format(col=pgsql.Identifier(col), table=pgsql.Identifier(table))
+            with psycopg.connect(db_url) as conn:
+                rows = conn.execute(query, (symbols, stmt_type)).fetchall()
+
+            data: dict[str, dict] = {}
+            for sym, period, val in rows:
+                if sym not in data:
+                    data[sym] = {}
+                if len(data[sym]) < periods:
+                    data[sym][str(period)] = float(val)
+
+            return {"metric": camel, "freq": freq, "data": data}
+
+        except Exception as e:
+            print(f"[get_financial_metric] DB fetch failed ({e})")
+            return {"metric": camel, "freq": freq, "data": {}, "error": str(e)}
+
+    return {"metric": camel, "freq": freq, "data": {}, "error": "DATABASE_URL not set"}
 
 
 def get_dividends(symbol_name: str, period: str = "max") -> dict:
@@ -978,12 +1266,33 @@ def get_ticker_info(symbol: str) -> dict:
         "fiftyTwoWeekLow",
     }
 
+    symbol_upper = symbol.strip().upper()
+
+    # DB-first: query company_metadata JSONB from in_equities
+    db_url = _get_db_url()
+    if db_url:
+        try:
+            import psycopg
+            with psycopg.connect(db_url) as conn:
+                row = conn.execute(
+                    "SELECT company_metadata FROM in_equities WHERE symbol = %s",
+                    (symbol_upper,),
+                ).fetchone()
+            if row and row[0]:
+                raw_meta = row[0]  # psycopg returns JSONB as dict automatically
+                if isinstance(raw_meta, dict) and raw_meta:
+                    result = {"symbol": symbol}
+                    result.update({k: v for k, v in raw_meta.items() if k in allowed_keys})
+                    return result
+        except Exception as e:
+            print(f"[get_ticker_info] DB fetch failed ({e}), falling back to yfinance")
+
+    # yfinance fallback
     try:
-        normalized_symbol = normalize_symbol(symbol.strip().upper())
+        normalized_symbol = normalize_symbol(symbol_upper)
         ticker = yf.Ticker(normalized_symbol)
         info = ticker.info
 
-        # Filter to only allowed keys and include symbol
         result = {"symbol": symbol}
         if isinstance(info, dict):
             filtered_info = {k: v for k, v in info.items() if k in allowed_keys}

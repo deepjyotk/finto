@@ -48,7 +48,6 @@ class DailyContestService:
     @staticmethod
     def _tomorrow_ist() -> date:
         from datetime import timedelta
-
         return datetime.now(IST).date() + timedelta(days=1)
 
     async def _get_active_contest_date(self) -> date:
@@ -122,7 +121,7 @@ class DailyContestService:
                 "emoji": "⏳",
                 "label": "Fetching prices…",
                 "message": "Hang tight, we're getting live quotes.",
-                "vs_bar": 0,  # -100 (full Nifty) ↔ +100 (full portfolio)
+                "vs_bar": 0,   # -100 (full Nifty) ↔ +100 (full portfolio)
                 "color": "gray",
             }
 
@@ -130,68 +129,33 @@ class DailyContestService:
         vs_bar = round(max(-100, min(100, excess_return / 3 * 100)), 1)
 
         if excess_return >= 2.0:
-            return {
-                "tier": "legendary",
-                "emoji": "🚀",
-                "label": "Nifty Destroyer",
-                "message": "You're absolutely crushing the index today!",
-                "vs_bar": vs_bar,
-                "color": "emerald",
-            }
+            return {"tier": "legendary", "emoji": "🚀", "label": "Nifty Destroyer",
+                    "message": "You're absolutely crushing the index today!",
+                    "vs_bar": vs_bar, "color": "emerald"}
         elif excess_return >= 1.0:
-            return {
-                "tier": "fire",
-                "emoji": "🔥",
-                "label": "On Fire",
-                "message": "Outpacing Nifty by a full percent — keep it up!",
-                "vs_bar": vs_bar,
-                "color": "green",
-            }
+            return {"tier": "fire", "emoji": "🔥", "label": "On Fire",
+                    "message": "Outpacing Nifty by a full percent — keep it up!",
+                    "vs_bar": vs_bar, "color": "green"}
         elif excess_return >= 0.25:
-            return {
-                "tier": "winning",
-                "emoji": "💪",
-                "label": "Beating the Market",
-                "message": "Your picks are ahead of the benchmark. Nice work.",
-                "vs_bar": vs_bar,
-                "color": "green",
-            }
+            return {"tier": "winning", "emoji": "💪", "label": "Beating the Market",
+                    "message": "Your picks are ahead of the benchmark. Nice work.",
+                    "vs_bar": vs_bar, "color": "green"}
         elif excess_return >= -0.25:
-            return {
-                "tier": "neck_and_neck",
-                "emoji": "⚔️",
-                "label": "Neck & Neck",
-                "message": "Dead heat with Nifty. One good move can tip the scales.",
-                "vs_bar": vs_bar,
-                "color": "yellow",
-            }
+            return {"tier": "neck_and_neck", "emoji": "⚔️", "label": "Neck & Neck",
+                    "message": "Dead heat with Nifty. One good move can tip the scales.",
+                    "vs_bar": vs_bar, "color": "yellow"}
         elif excess_return >= -1.0:
-            return {
-                "tier": "trailing",
-                "emoji": "😓",
-                "label": "Slightly Behind",
-                "message": "Nifty has a small edge. The day isn't over yet.",
-                "vs_bar": vs_bar,
-                "color": "orange",
-            }
+            return {"tier": "trailing", "emoji": "😓", "label": "Slightly Behind",
+                    "message": "Nifty has a small edge. The day isn't over yet.",
+                    "vs_bar": vs_bar, "color": "orange"}
         elif excess_return >= -2.0:
-            return {
-                "tier": "losing",
-                "emoji": "💨",
-                "label": "Nifty is Winning",
-                "message": "The index is pulling ahead. Time to hope for a reversal.",
-                "vs_bar": vs_bar,
-                "color": "red",
-            }
+            return {"tier": "losing", "emoji": "💨", "label": "Nifty is Winning",
+                    "message": "The index is pulling ahead. Time to hope for a reversal.",
+                    "vs_bar": vs_bar, "color": "red"}
         else:
-            return {
-                "tier": "crushed",
-                "emoji": "😭",
-                "label": "Getting Rekt",
-                "message": "Nifty is on a rampage. At least you're learning!",
-                "vs_bar": vs_bar,
-                "color": "red",
-            }
+            return {"tier": "crushed", "emoji": "😭", "label": "Getting Rekt",
+                    "message": "Nifty is on a rampage. At least you're learning!",
+                    "vs_bar": vs_bar, "color": "red"}
 
     # ── Submit picks ────────────────────────────────────────────────────
 
@@ -199,23 +163,17 @@ class DailyContestService:
     def _snapshot_prices(normalized: list[str]) -> list[float]:
         """Validate symbols against known NSE list, then fetch current prices."""
         from src.services.stock_search import validate_symbol
-
         snapshot: list[float] = []
         for sym in normalized:
             bare = sym.upper().removesuffix(".NS")
             if not validate_symbol(bare):
-                raise ValueError(
-                    f"'{bare}' is not a valid NSE stock symbol. Please pick from the search list."
-                )
+                raise ValueError(f"'{bare}' is not a valid NSE stock symbol. Please pick from the search list.")
             try:
                 import yfinance as yf
-
                 ticker = yf.Ticker(sym)
                 price = ticker.info.get("regularMarketPrice")
                 if price is None:
-                    raise ValueError(
-                        f"Could not fetch price for {bare}. It may be delisted or suspended."
-                    )
+                    raise ValueError(f"Could not fetch price for {bare}. It may be delisted or suspended.")
                 snapshot.append(float(price))
             except ValueError:
                 raise
@@ -223,13 +181,7 @@ class DailyContestService:
                 raise ValueError(f"Could not verify symbol: {bare}")
         return snapshot
 
-    async def submit_picks(
-        self,
-        user_id: UUID,
-        stocks: list[str],
-        display_name: str | None = None,
-        ip_address: str | None = None,
-    ) -> tuple[ContestPick, date]:
+    async def submit_picks(self, user_id: UUID, stocks: list[str], display_name: str | None = None, ip_address: str | None = None) -> tuple[ContestPick, date]:
         """Lock in 5 stocks for today's or next contest (authenticated user)."""
         target_date = await self._get_active_contest_date()
         normalized = [normalize_symbol(s) for s in stocks]
@@ -287,14 +239,8 @@ class DailyContestService:
 
         # Secondary limit: max 5 submissions per IP per day (covers households / shared WiFi)
         _MAX_PICKS_PER_IP = 5
-        if (
-            ip_address
-            and await self._repo.count_picks_by_ip(contest.contest_id, ip_address)
-            >= _MAX_PICKS_PER_IP
-        ):
-            raise ValueError(
-                "Too many submissions have been made from your network today (limit: 5)."
-            )
+        if ip_address and await self._repo.count_picks_by_ip(contest.contest_id, ip_address) >= _MAX_PICKS_PER_IP:
+            raise ValueError("Too many submissions have been made from your network today (limit: 5).")
 
         pick = await self._repo.create_pick(
             contest_id=contest.contest_id,
@@ -309,12 +255,7 @@ class DailyContestService:
 
         logger.info(
             "anon_pick_submitted",
-            extra={
-                "anon_id": anon_id,
-                "display_name": display_name,
-                "stocks": normalized,
-                "date": str(today),
-            },
+            extra={"anon_id": anon_id, "display_name": display_name, "stocks": normalized, "date": str(today)},
         )
         return pick, today
 
@@ -356,7 +297,6 @@ class DailyContestService:
             phase = "open"
 
         from datetime import timedelta
-
         return {
             "contest_date": today,
             "active_contest_date": active_date,
@@ -428,18 +368,20 @@ class DailyContestService:
         entries = []
         for p in picks:
             is_anon = p.user_id is None
-            name = p.display_name or (user_map.get(p.user_id) if p.user_id else None) or "Anonymous"
-            entries.append(
-                {
-                    "rank": p.rank or 0,
-                    "user_id": p.user_id,
-                    "display_name": name,
-                    "is_anonymous": is_anon,
-                    "stocks": self._pick_stocks(p),
-                    "portfolio_return_pct": p.portfolio_return_pct or 0.0,
-                    "excess_return_pct": p.excess_return_pct or 0.0,
-                }
+            name = (
+                p.display_name
+                or (user_map.get(p.user_id) if p.user_id else None)
+                or "Anonymous"
             )
+            entries.append({
+                "rank": p.rank or 0,
+                "user_id": p.user_id,
+                "display_name": name,
+                "is_anonymous": is_anon,
+                "stocks": self._pick_stocks(p),
+                "portfolio_return_pct": p.portfolio_return_pct or 0.0,
+                "excess_return_pct": p.excess_return_pct or 0.0,
+            })
 
         # Sort by excess return descending
         entries.sort(key=lambda e: e["excess_return_pct"], reverse=True)
@@ -454,11 +396,11 @@ class DailyContestService:
 
     # ── Live performance (polled every 5s by UI) ─────────────────────────
 
-    async def _live_performance_from_pick(
-        self, pick: "ContestPick", contest: "DailyContest"
-    ) -> dict:
+    async def _live_performance_from_pick(self, pick: "ContestPick", contest: "DailyContest") -> dict:
         """Shared implementation — works for both auth and anon users."""
-        symbols = [pick.stock_1, pick.stock_2, pick.stock_3, pick.stock_4, pick.stock_5]
+        symbols = [
+            pick.stock_1, pick.stock_2, pick.stock_3, pick.stock_4, pick.stock_5
+        ]
         entry_prices = [
             pick.stock_1_entry_price,
             pick.stock_2_entry_price,
@@ -497,14 +439,12 @@ class DailyContestService:
             else:
                 ret = None
             total_return_pct += ret or 0.0
-            stocks_live.append(
-                {
-                    "symbol": sym,
-                    "entry_price": entry,
-                    "current_price": current,
-                    "return_pct": ret,
-                }
-            )
+            stocks_live.append({
+                "symbol": sym,
+                "entry_price": entry,
+                "current_price": current,
+                "return_pct": ret,
+            })
 
         portfolio_return = round(total_return_pct / 5, 4)
 
@@ -517,7 +457,9 @@ class DailyContestService:
             nifty_return = None
 
         excess_return = (
-            round(portfolio_return - nifty_return, 4) if nifty_return is not None else None
+            round(portfolio_return - nifty_return, 4)
+            if nifty_return is not None
+            else None
         )
 
         vibe = self._compute_vibe(excess_return)
@@ -534,9 +476,7 @@ class DailyContestService:
             "refreshed_at": datetime.now(IST).isoformat(),
         }
 
-    async def get_live_performance_anon(
-        self, anon_id: str, contest_date: Optional[date] = None
-    ) -> Optional[dict]:
+    async def get_live_performance_anon(self, anon_id: str, contest_date: Optional[date] = None) -> Optional[dict]:
         """Same as get_live_performance but looks up pick by anon_id."""
         await self.auto_settle_if_needed()
         d = contest_date or self._today_ist()
@@ -550,9 +490,7 @@ class DailyContestService:
         # We pass the pick directly to the shared helper
         return await self._live_performance_from_pick(pick, contest)
 
-    async def get_live_performance(
-        self, user_id: UUID, contest_date: Optional[date] = None
-    ) -> Optional[dict]:
+    async def get_live_performance(self, user_id: UUID, contest_date: Optional[date] = None) -> Optional[dict]:
         """Return real-time portfolio P&L for the user's picks."""
         await self.auto_settle_if_needed()
         d = contest_date or self._today_ist()
@@ -572,66 +510,23 @@ class DailyContestService:
         history = []
         for pick, contest in rows:
             stocks = self._pick_stocks(pick)
-            history.append(
-                {
-                    "contest_date": contest.contest_date,
-                    "is_settled": contest.is_settled,
-                    "stocks": [
-                        {
-                            "symbol": stocks[i],
-                            "entry_price": getattr(pick, f"stock_{i+1}_entry_price"),
-                            "return_pct": getattr(pick, f"stock_{i+1}_return_pct"),
-                        }
-                        for i in range(5)
-                    ],
-                    "portfolio_return_pct": pick.portfolio_return_pct,
-                    "nifty_return_pct": contest.nifty_return_pct,
-                    "excess_return_pct": pick.excess_return_pct,
-                    "rank": pick.rank,
-                }
-            )
+            history.append({
+                "contest_date": contest.contest_date,
+                "is_settled": contest.is_settled,
+                "stocks": [
+                    {
+                        "symbol": stocks[i],
+                        "entry_price": getattr(pick, f"stock_{i+1}_entry_price"),
+                        "return_pct": getattr(pick, f"stock_{i+1}_return_pct"),
+                    }
+                    for i in range(5)
+                ],
+                "portfolio_return_pct": pick.portfolio_return_pct,
+                "nifty_return_pct": contest.nifty_return_pct,
+                "excess_return_pct": pick.excess_return_pct,
+                "rank": pick.rank,
+            })
         return history
-
-    async def get_user_profile(self, user_id: UUID, limit: int = 30) -> dict | None:
-        """Return public profile data for a user. Returns None if user not found."""
-        from src.repositories.user_repo import UserRepository
-
-        user = await UserRepository(self._session).by_id(user_id)
-        if user is None:
-            return None
-
-        rows = await self._repo.get_user_picks_history_with_counts(user_id, limit=limit)
-
-        total_games = 0
-        wins = 0
-        history = []
-        for pick, contest, total_participants in rows:
-            stocks = self._pick_stocks(pick)
-            if contest.is_settled:
-                total_games += 1
-                if pick.excess_return_pct is not None and pick.excess_return_pct > 0:
-                    wins += 1
-            history.append(
-                {
-                    "contest_date": contest.contest_date,
-                    "is_settled": contest.is_settled,
-                    "stocks": stocks,
-                    "portfolio_return_pct": pick.portfolio_return_pct,
-                    "nifty_return_pct": contest.nifty_return_pct,
-                    "excess_return_pct": pick.excess_return_pct,
-                    "rank": pick.rank,
-                    "total_participants": total_participants,
-                }
-            )
-
-        return {
-            "user_id": str(user.user_id),
-            "username": user.username,
-            "full_name": user.full_name or None,
-            "total_games": total_games,
-            "wins": wins,
-            "history": history,
-        }
 
     # ── Settlement (called after market close) ──────────────────────────
 

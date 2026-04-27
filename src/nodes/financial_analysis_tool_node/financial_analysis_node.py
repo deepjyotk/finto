@@ -27,7 +27,7 @@ from src.nodes.financial_analysis_tool_node.financial_analysis_utils import (
 )
 from src.schemas.agent_state import AgentContext, AgentState
 from src.services.holdings import HoldingsService
-from src.tools.get_symbol_name import get_symbol_names
+from src.tools.get_symbol_name import get_equity_id_for_symbol
 
 logger = logger_for(__name__)
 
@@ -268,7 +268,7 @@ class PortfolioNode:
                     SymbolExtractionResult
                 )
                 result = symbol_chain.invoke({"user_query": user_request})
-                extracted_symbols = get_symbol_names(result.symbol_names)
+                extracted_symbols = [r["symbol"] for r in get_equity_id_for_symbol(result.symbol_names)]
                 logger.info("Extracted symbols: %s", extracted_symbols)
                 summary = (
                     f"Identified symbols: {', '.join(extracted_symbols)}"

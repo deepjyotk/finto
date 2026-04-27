@@ -233,9 +233,13 @@ Output ONLY the JSON object:"""
             )
             ai_msg = AIMessage(content=final_rendered_ui_answer, name="final_response_generation")
 
-            pruned_messages = self._prune_iteration_messages(
-                context.get("history_message_length"), messages
-            )
+            history_message_length = context.get("history_message_length")
+            if history_message_length is None:
+                pruned_messages = [ai_msg]
+            else:
+                pruned_messages = self._prune_iteration_messages(
+                    history_message_length, messages
+                )
             return {
                 **state,
                 "messages": pruned_messages,

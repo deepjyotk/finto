@@ -40,22 +40,31 @@ def init_pinecone(index_name: str | None = None, dimension: int | None = None):
 def upsert_symbols_from_iterable(
     index,
     embeddings: OpenAIEmbeddings,
-    items: Iterable[Tuple[str, str]],
+    items: Iterable[Tuple],
     batch_size: int = 64,
 ):
     """
-    Upsert symbol/company pairs.
-    items: iterable of tuples (symbol, company_name)
-    Uses id = symbol (safe unique id). Metadata includes company_name.
+    Upsert symbol/company pairs (optionally with equity_id).
+
+    items: iterable of 2-tuples (symbol, company_name)
+           OR 3-tuples (symbol, company_name, equity_id)
+
+    Pinecone metadata stored: {symbol, company, equity_id (if provided)}
+    The vector id is the NSE symbol (e.g. "RELIANCE").
     """
     ids = []
     texts = []
     metas = []
-    for symbol, company in items:
-        text = f"{symbol} {company}"
+    for item in items:
+        symbol, company = item[0], item[1]
+        equity_id = item[2] if len(item) > 2 else None
+        embed_text = f"{symbol} {company}"
         ids.append(symbol)
-        texts.append(text)
-        metas.append({"symbol": symbol, "company": company})
+        texts.append(embed_text)
+        meta: dict = {"symbol": symbol, "company": company}
+        if equity_id:
+            meta["equity_id"] = str(equity_id)
+        metas.append(meta)
         if len(ids) >= batch_size:
             vectors = embeddings.embed_documents(texts)
             to_upsert = [
@@ -81,12 +90,22 @@ def upsert_from_portfolio_excel(
     symbol_col: str = "Symbol",
     name_col: str = "Name",
 ):
-    """Load symbols from Excel and upsert to Pinecone."""
+    """Load symbols from Excel and upsert to Pinecone (no equity_id)."""
     df = pd.read_excel(excel_path)
     if symbol_col not in df.columns or name_col not in df.columns:
         raise ValueError(f"Expected columns {symbol_col} and {name_col} in {excel_path}")
     items = ((str(row[symbol_col]).strip(), str(row[name_col]).strip()) for _, row in df.iterrows())
     upsert_symbols_from_iterable(index, embeddings, items)
+
+
+def upsert_from_db(
+    index,
+    embeddings: OpenAIEmbeddings,
+    rows: list[Tuple[str, str, str]],
+    batch_size: int = 64,
+) -> None:
+    """Upsert (symbol, company_name, equity_id) triples sourced from in_equities DB table."""
+    upsert_symbols_from_iterable(index, embeddings, rows, batch_size=batch_size)
 
 
 def query_symbols(index, embeddings: OpenAIEmbeddings, query_text: str, top_k: int = 5):

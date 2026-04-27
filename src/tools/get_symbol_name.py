@@ -18,6 +18,23 @@ def _get_symbol_for_query(query: str) -> str:
     return matches[0]["metadata"].get("symbol", "")
 
 
+def get_equity_id_for_symbol(queries: List[str]) -> List[dict]:
+    """Return the best-matching symbol and its equity_id from Pinecone for each query.
+
+    Returns:
+        [{"symbol": "RELIANCE", "equity_id": "uuid-string-or-None"}, ...]
+    """
+    results = []
+    for query in queries:
+        matches = query_symbols(index, embeddings, query, top_k=1)
+        if not matches:
+            results.append({"symbol": "", "equity_id": None})
+        else:
+            meta = matches[0]["metadata"]
+            results.append({"symbol": meta.get("symbol", ""), "equity_id": meta.get("equity_id")})
+    return results
+
+
 def get_symbol_names(symbol_list: List[str]) -> List[str]:
     """Extracts the stock symbols from the list of stocks using vector similarity search.
 
@@ -37,3 +54,4 @@ def get_symbol_names(symbol_list: List[str]) -> List[str]:
         final_list.append(unnormalized_symbol)
 
     return final_list
+

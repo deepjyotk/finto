@@ -184,9 +184,9 @@ def build_portfolio_scope_message(task: str, llm) -> tuple[AIMessage, List[str]]
                 SymbolExtractionResult
             )
             sym_result = symbol_chain.invoke({"user_query": task})
-            from src.tools.get_symbol_name import get_symbol_names
+            from src.tools.get_symbol_name import get_equity_id_for_symbol
 
-            extracted_symbols = get_symbol_names(sym_result.symbol_names)
+            extracted_symbols = [r["symbol"] for r in get_equity_id_for_symbol(sym_result.symbol_names)]
             logger.info("financial_analysis_tool extracted symbols: %s", extracted_symbols)
     except Exception as exc:
         logger.warning("Symbol extraction failed in financial_analysis_tool: %s", exc)

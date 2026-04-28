@@ -15,7 +15,7 @@ from src.core.db import SessionLocal
 from src.core.json_logging import logger_for
 from src.core.llm import LLMFactory
 from src.nodes.screener_analysis_tool_node.screener_hitl_form_builder import (
-    build_screener_hitl_a2ui_form,
+    build_screener_hitl_a2ui_messages,
 )
 from src.schemas.agent_state import AgentState
 from src.tools.screener_tool import (
@@ -89,12 +89,12 @@ class ScreenerNode:
                 return "ERROR: No equities found in in_equities table."
 
             enabled_fields = enabled_medium_hitl_param_names()
-            form_json = build_screener_hitl_a2ui_form(
+            form_messages = build_screener_hitl_a2ui_messages(
                 defaults=dict(_MEDIUM_DEFAULTS), enabled_fields=enabled_fields
             )
             payload = {
                 "kind": "hitl_screener",
-                "a2ui_form": form_json,
+                "a2ui_messages": form_messages,
                 "all_equities_count": len(all_equities),
                 "task": task,
                 "defaults": dict(_MEDIUM_DEFAULTS),

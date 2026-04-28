@@ -1,10 +1,10 @@
 """A2UI event schemas.
 
-All events follow the A2UI v0.8 adjacency-list / flat-component philosophy:
-each SSE frame carries one self-contained event JSON object.  The frontend
-renderer consumes the stream and builds a live step-timeline UI.
+Each SSE frame carries one self-contained event JSON object. The frontend
+consumes a mix of app-specific progress events and official A2UI v0.9
+server-to-client messages.
 
-No raw prompt text or chain-of-thought is ever included — only
+No raw prompt text or chain-of-thought is ever included - only
 user-visible summaries of what the agent is doing.
 """
 
@@ -27,6 +27,7 @@ class A2UIEventType(str, Enum):
     STEP_COMPLETE = "step_complete"
     TOOL_CALL = "tool_call"
     TOOL_RESULT = "tool_result"
+    A2UI_MESSAGE = "a2ui_message"
     MESSAGE_CHUNK = "message_chunk"
     MESSAGE_COMPLETE = "message_complete"
     HITL_FORM = "hitl_form"
@@ -74,6 +75,10 @@ class MessageChunkPayload(BaseModel):
     chunk: str = Field(description="Incremental text token from the final answer")
 
 
+class A2UIMessagePayload(BaseModel):
+    message: dict[str, Any] = Field(description="A2UI v0.9 server-to-client message")
+
+
 class MessageCompletePayload(BaseModel):
     content: str = Field(description="Full assembled final answer")
 
@@ -87,9 +92,8 @@ class HITLFormPayload(BaseModel):
     """Payload when the graph pauses for human input (LangGraph interrupt)."""
 
     thread_id: str = Field(description="Chat session / LangGraph thread id")
-    interrupt_value: dict[str, Any] = Field(
-        description="JSON from interrupt(); includes a2ui_form, candidate_symbols, task, defaults",
-    )
+    surface_id: str = Field(description="Surface id to render in the side panel")
+    task: Optional[str] = Field(default=None, description="Optional user-facing task summary")
 
 
 # ---------------------------------------------------------------------------
@@ -140,6 +144,13 @@ class MessageChunkEvent(BaseModel):
     payload: MessageChunkPayload
 
 
+class A2UIMessageEvent(BaseModel):
+    event: Literal[A2UIEventType.A2UI_MESSAGE] = A2UIEventType.A2UI_MESSAGE
+    id: str = Field(default_factory=_new_id)
+    timestamp: str = Field(default_factory=_now_iso)
+    payload: A2UIMessagePayload
+
+
 class MessageCompleteEvent(BaseModel):
     event: Literal[A2UIEventType.MESSAGE_COMPLETE] = A2UIEventType.MESSAGE_COMPLETE
     id: str = Field(default_factory=_new_id)
@@ -168,6 +179,7 @@ A2UIEvent = Annotated[
         StepCompleteEvent,
         ToolCallEvent,
         ToolResultEvent,
+        A2UIMessageEvent,
         MessageChunkEvent,
         MessageCompleteEvent,
         HITLFormEvent,
@@ -232,6 +244,10 @@ def make_message_chunk(chunk: str) -> MessageChunkEvent:
     return MessageChunkEvent(payload=MessageChunkPayload(chunk=chunk))
 
 
+def make_a2ui_message(message: dict[str, Any]) -> A2UIMessageEvent:
+    return A2UIMessageEvent(payload=A2UIMessagePayload(message=message))
+
+
 def make_message_complete(content: str) -> MessageCompleteEvent:
     return MessageCompleteEvent(payload=MessageCompletePayload(content=content))
 
@@ -240,7 +256,9 @@ def make_error(message: str, code: str | None = None) -> ErrorEvent:
     return ErrorEvent(payload=ErrorPayload(message=message, code=code))
 
 
-def make_hitl_form(interrupt_value: dict[str, Any], thread_id: str) -> HITLFormEvent:
+def make_hitl_form(
+    *, thread_id: str, surface_id: str, task: str | None = None
+) -> HITLFormEvent:
     return HITLFormEvent(
-        payload=HITLFormPayload(thread_id=thread_id, interrupt_value=interrupt_value)
+        payload=HITLFormPayload(thread_id=thread_id, surface_id=surface_id, task=task)
     )

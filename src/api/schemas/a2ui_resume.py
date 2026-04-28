@@ -12,7 +12,7 @@ class A2UIResumeRequest(BaseModel):
 
     session_id: str = Field(description="Same as chat thread_id / session UUID string.")
     form_values: dict[str, Any] = Field(
-        description="Field name → value map from a2ui-form-submit (aligned with form props names).",
+        description="Field name → value map from the official A2UI v0.9 client action context.",
     )
     broker_id: Optional[str] = Field(
         default=None,

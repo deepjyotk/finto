@@ -1,9 +1,12 @@
-"""Dynamic A2UI form builder for screener HITL fields."""
+"""Dynamic A2UI v0.9 form builder for screener HITL fields."""
 
 from __future__ import annotations
 
 from copy import deepcopy
 from typing import Any, TypedDict
+
+from src.a2ui.catalog import A2UI_HITL_SURFACE_ID
+from src.a2ui.v0_9 import build_surface_messages
 
 
 class _FieldSpec(TypedDict):
@@ -107,74 +110,120 @@ _FIELD_SPECS: dict[str, _FieldSpec] = {
         "placeholder": None,
     },
 }
-
-
-def _as_default_value(value: Any) -> str | None:
-    if value is None:
-        return None
-    return str(value)
-
-
-def build_screener_hitl_a2ui_form(
+def build_screener_hitl_a2ui_messages(
     *, defaults: dict[str, Any], enabled_fields: tuple[str, ...]
-) -> dict[str, Any]:
-    """Build an A2UI form payload dynamically from enabled screener fields."""
+) -> list[dict[str, Any]]:
+    """Build an A2UI v0.9 form surface from enabled screener fields."""
     missing = [field for field in enabled_fields if field not in _FIELD_SPECS]
     if missing:
         raise ValueError(f"Missing form field spec(s): {', '.join(missing)}")
 
-    components: dict[str, Any] = {
-        "page_title": {
-            "type": "heading",
-            "props": {"text": "Stock screener - medium risk / medium return", "level": 1},
+    components: list[dict[str, Any]] = [
+        {
+            "id": "root",
+            "component": "Column",
+            "children": ["page_title", "note_box", "form_card"],
         },
-        "note": {
-            "type": "info-box",
-            "props": {
-                "text": (
-                    "Edit thresholds below, then submit. "
-                    "The client dispatches window event a2ui-form-submit with detail: { formId, values } "
-                    "for HITL resume."
-                ),
-                "variant": "info",
-            },
+        {
+            "id": "page_title",
+            "component": "Text",
+            "text": "Stock screener - medium risk / medium return",
+            "variant": "h1",
         },
-    }
+        {
+            "id": "note_box",
+            "component": "InfoBox",
+            "text": "Review the screening thresholds below, then submit to continue.",
+            "variant": "info",
+        },
+        {
+            "id": "form_card",
+            "component": "Card",
+            "child": "form_column",
+        },
+    ]
 
-    child_ids: list[str] = []
+    field_group_ids: list[str] = []
+    action_context: dict[str, Any] = {}
     for field_name in enabled_fields:
         spec = deepcopy(_FIELD_SPECS[field_name])
-        component_id = f"fld_{field_name}"
-        child_ids.append(component_id)
+        field_input_id = f"fld_{field_name}"
+        field_group_id = f"grp_{field_name}"
+        field_group_ids.append(field_group_id)
+        action_context[field_name] = {"path": f"/fields/{field_name}"}
 
-        props: dict[str, Any] = {
-            "name": field_name,
-            "label": spec["label"],
-            "input_type": spec["input_type"],
-            "help_text": spec["help_text"],
-        }
-        default_value = _as_default_value(defaults.get(field_name))
-        if default_value is not None:
-            props["default"] = default_value
-        if spec["step"] is not None:
-            props["step"] = spec["step"]
-        if spec["placeholder"] is not None:
-            props["placeholder"] = spec["placeholder"]
+        components.append(
+            {
+                "id": field_group_id,
+                "component": "Column",
+                "children": [field_input_id]
+                + ([f"help_{field_name}"] if spec["help_text"] else []),
+            }
+        )
 
-        components[component_id] = {"type": "form-field", "props": props}
+        components.append(
+            {
+                "id": field_input_id,
+                "component": "TextField",
+                "label": spec["label"],
+                "value": {"path": f"/fields/{field_name}"},
+                "variant": "number" if spec["input_type"] == "number" else "shortText",
+            }
+        )
 
-    components["screener_form"] = {
-        "type": "form",
-        "props": {
-            "form_id": "hitl_screener_params",
-            "title": "Screening parameters",
-            "submit_label": "Run screening",
-            "children": child_ids,
-        },
+        if spec["help_text"]:
+            components.append(
+                {
+                    "id": f"help_{field_name}",
+                    "component": "Text",
+                    "text": spec["help_text"],
+                    "variant": "caption",
+                }
+            )
+
+    components.extend(
+        [
+            {
+                "id": "form_column",
+                "component": "Column",
+                "children": [*field_group_ids, "submit_button"],
+            },
+            {
+                "id": "submit_button",
+                "component": "Button",
+                "child": "submit_button_text",
+                "variant": "primary",
+                "action": {
+                    "event": {
+                        "name": "submit_hitl_form",
+                        "context": action_context,
+                    }
+                },
+            },
+            {
+                "id": "submit_button_text",
+                "component": "Text",
+                "text": "Run screening",
+                "variant": "body",
+            },
+        ]
+    )
+
+    field_values: dict[str, Any] = {}
+    for field_name in enabled_fields:
+        default_value = defaults.get(field_name)
+        if default_value is None:
+            field_values[field_name] = ""
+        else:
+            field_values[field_name] = str(default_value)
+
+    data_model = {
+        "fields": field_values,
     }
 
-    return {
-        "type": "a2ui_response",
-        "root": ["page_title", "note", "screener_form"],
-        "components": components,
-    }
+    return build_surface_messages(
+        surface_id=A2UI_HITL_SURFACE_ID,
+        components=components,
+        data_model=data_model,
+        send_data_model=False,
+    )

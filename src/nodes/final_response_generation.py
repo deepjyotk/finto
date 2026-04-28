@@ -116,64 +116,126 @@ Without editing, changing, or tweaking anything in the final answer, your job is
     )
 
     # Used when thesys_enabled=False (A2UI path).
-    # The LLM generates a declarative A2UI component JSON payload that the React
-    # client renders using its pre-approved catalog of native UI components.
+    # The LLM generates official A2UI v0.9 server-to-client messages. The React
+    # client processes them with MessageProcessor and renders A2uiSurface.
     # Output must be ONLY valid JSON — no markdown fences, no explanations.
     _PROMPT_TEMPLATE_A2UI = ChatPromptTemplate.from_template(
         """You are a UI generation assistant for a financial portfolio application.
-Given the data below, output ONLY a valid JSON object in the A2UI format described here.
+Given the data below, output ONLY a valid JSON object containing official A2UI v0.9 server-to-client messages.
 Do NOT wrap the JSON in code fences. Do NOT add any explanation or text outside the JSON.
 
-─── A2UI FORMAT ───
+─── OUTPUT FORMAT ───
 {{
-  "type": "a2ui_response",
-  "root": ["<id1>", "<id2>", ...],
-  "components": {{
-    "<id>": {{
-      "type": "<component_type>",
-      "props": {{ ... }},
-      "children": ["<child_id>", ...]
+  "messages": [
+    {{
+      "version": "v0.9",
+      "createSurface": {{
+        "surfaceId": "main",
+        "catalogId": "https://explainly.ai/catalogs/finance-chat-v1.json",
+        "sendDataModel": false
+      }}
+    }},
+    {{
+      "version": "v0.9",
+      "updateComponents": {{
+        "surfaceId": "main",
+        "components": [
+          {{
+            "id": "root",
+            "component": "Column",
+            "children": ["child-1"]
+          }},
+          {{
+            "id": "child-1",
+            "component": "Text",
+            "text": {{"path": "/title"}},
+            "variant": "h1"
+          }}
+        ]
+      }}
+    }},
+    {{
+      "version": "v0.9",
+      "updateDataModel": {{
+        "surfaceId": "main",
+        "path": "/",
+        "value": {{
+          "title": "Example"
+        }}
+      }}
     }}
-  }}
+  ]
 }}
 
-─── AVAILABLE COMPONENT TYPES ───
-• "heading"      props: {{ "text": string, "level": 1|2|3 }}
-• "badge"        props: {{ "text": string, "variant": "success"|"warning"|"error"|"info"|"neutral" }}
-• "data-table"   props: {{
-                   "columns": [{{"key": string, "label": string, "format": "text"|"currency_inr"|"number"|"percentage"}}],
-                   "rows": [[...values in column order]]
-                 }}
-• "metric-card"  props: {{ "label": string, "value": string, "change": string (optional) }}
-• "info-box"     props: {{ "text": string, "variant": "info"|"warning"|"success"|"error" }}
-• "text"         props: {{ "content": string }}
-• "divider"      props: {{}}
-• "chart"        props: {{
-                   "chart_type": "pie"|"bar"|"line"|"area",
-                   "title": string (optional),
-                   "data": [{{"name": string, "<value_key>": number, ...}}],
-                   "data_keys": [string, ...] (keys to plot; omit to auto-detect),
-                   "x_key": string (x-axis key for bar/line/area; default "name"),
-                   "unit": string (prefix for tooltip values, e.g. "₹" or "%"; optional)
-                 }}
+─── AVAILABLE COMPONENTS ───
+Built-in:
+• Text       props: {{ "text": string | {{"path": "/json/pointer"}}, "variant": "h1"|"h2"|"h3"|"body"|"caption" }}
+• Column     props: {{ "children": ["child-id", ...] }}
+• Row        props: {{ "children": ["child-id", ...] }}
+• Card       props: {{ "child": "child-id" }}
+• Divider    props: {{ }}
+
+Custom finance catalog:
+• Badge      props: {{ "text": string | {{"path": "/json/pointer"}}, "variant": "success"|"warning"|"error"|"info"|"neutral" }}
+• MetricCard props: {{
+                  "label": string | {{"path": "/json/pointer"}},
+                  "value": string | {{"path": "/json/pointer"}},
+                  "change": string | {{"path": "/json/pointer"}} (optional)
+                }}
+• InfoBox    props: {{ "text": string | {{"path": "/json/pointer"}}, "variant": "info"|"warning"|"success"|"error" }}
+• DataTable  props: {{
+                  "columns": [{{"key": string, "label": string, "format": "text"|"currency_inr"|"number"|"percentage"}}] | {{"path": "/json/pointer"}},
+                  "rows": [{{"<column_key>": value, ...}}] | {{"path": "/json/pointer"}}
+                }}
+• SourceList props: {{
+                  "sources": [{{"source": string, "title": string, "url": string (optional)}}] | {{"path": "/json/pointer"}},
+                  "title": string | {{"path": "/json/pointer"}} (optional)
+                }}
+• Chart      props: {{
+                  "chartType": "pie"|"bar"|"line"|"area",
+                  "title": string | {{"path": "/json/pointer"}} (optional),
+                  "data": [{{"name": string, "<value_key>": number, ...}}] | {{"path": "/json/pointer"}},
+                  "series": [{{"key": string, "label": string (optional)}}] | {{"path": "/json/pointer"}} (optional),
+                  "xKey": string | {{"path": "/json/pointer"}} (optional),
+                  "unit": string | {{"path": "/json/pointer"}} (optional)
+                }}
 
 ─── RULES ───
-• Use short unique IDs: "h1", "badge1", "table1", "chart1", "info1", etc.
-• Format all INR monetary values as "₹X,XXX.XX" (comma-separated, 2 decimal places).
-• Mark money columns with "format": "currency_inr" in data-table columns.
+• Use official A2UI v0.9 messages: `createSurface`, `updateComponents`, and optionally `updateDataModel`.
+• Use surfaceId "main" and catalogId "https://explainly.ai/catalogs/finance-chat-v1.json".
+• The root component MUST have id "root".
+• Every UI component must be a flat object inside the `updateComponents.components` array.
+• Use short unique IDs: "title", "summary_row", "table1", "chart1", "info1", etc.
+• Prefer putting repeated, tabular, or chart data inside `dataModel` and bind with `{{"path": "/..."}}`.
+• For DataTable rows, use objects keyed by each column.key. Do not use positional row arrays unless the source data is already positional.
+• Do NOT put an entire markdown report into one Text component. Split content into structured A2UI components.
+• Do NOT include markdown heading markers like "##" or emphasis wrappers like "*More:*" in Text values.
+  Use Text variants (`h1`, `h2`, `h3`, `body`, `caption`) and separate components instead.
+• For news or research summaries, create one Card per company/news item:
+  - Card -> Column
+  - Text h3 for the company/title
+  - Text body for a concise 1-2 sentence summary
+  - SourceList for sources, bound to dataModel whenever possible
+  - InfoBox variant "warning" or "info" for missing/unavailable data
+• Preserve source hyperlinks exactly when URLs are present in the data. Do not drop URLs into plain source text.
+• Do NOT render news sources as several separate Text caption components. Use SourceList instead.
+• SourceList source objects must use this shape: {{"source": "Reuters", "title": "Article title", "url": "https://..."}}.
+  If the data has a source/title but no URL, include source and title without inventing a URL.
+• Format all INR monetary values as "₹X,XXX.XX" (comma-separated, 2 decimal places) before placing them in the UI.
+• Mark money columns with "format": "currency_inr" in DataTable columns.
 • Mark quantity/count columns with "format": "number".
 • Do NOT invent or modify data — use only the values provided below.
-• Keep the hierarchy flat: prefer root-level components over deep nesting.
-• For a success/error status in the data, add a badge component.
-• If the data contains tabular data, use "data-table" — never render tables as plain text.
-• If the user asks for a chart, pie, graph, or visualization → use "chart".
+• Keep the hierarchy shallow and readable.
+• For a success/error status in the data, add a Badge component.
+• If the data contains tabular data, use DataTable — never render tables as plain text.
+• If the user asks for a chart, pie, graph, or visualization → use Chart.
   - Use "pie" for distribution/breakdown by category (e.g. sector allocation).
   - Use "bar" for comparing values across categories.
   - Use "line" or "area" for trends over time.
-  - For pie charts: data must have "name" and one numeric value key (e.g. "value").
+  - For pie charts: the chart data must have "name" and one numeric value key (e.g. "value").
   - For INR pie/bar charts, set "unit": "₹".
-• You can include both a chart AND a data-table when both are useful.
-• NEVER generate interactive input UI in final responses: no "form", no "form-field", no inputs, no selectors, and no buttons.
+• You can include both a Chart and a DataTable when both are useful.
+• NEVER generate interactive input UI in final responses: no Button, TextField, CheckBox, ChoicePicker, Slider, DateTimeInput, or Modal.
 • HITL parameter collection is handled by a deterministic server-side flow; final responses must be display-only components.
 
 ─── USER QUERY ───
@@ -213,7 +275,14 @@ Output ONLY the JSON object:"""
             if not execution_result:
                 fallback = "No code execution output was available to generate a final response."
                 ai_msg = AIMessage(content=fallback, name="final_response_generation")
-                pruned_messages = self._prune_iteration_messages(messages, ai_msg)
+                history_message_length = context.get("history_message_length")
+                if history_message_length is None:
+                    pruned_messages = [ai_msg]
+                else:
+                    pruned_messages = self._prune_iteration_messages(
+                        history_message_length,
+                        [*messages, ai_msg],
+                    )
                 return {
                     **state,
                     "messages": pruned_messages,

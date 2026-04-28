@@ -19,15 +19,18 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.errors import GraphBubbleUp
 from langgraph.types import Command
 
+from src.a2ui.catalog import A2UI_HITL_SURFACE_ID
 from src.a2ui.event_builder import build_a2ui_event
 from src.a2ui.schemas import (
     A2UIEvent,
+    make_a2ui_message,
     make_error,
     make_hitl_form,
     make_message_complete,
     make_step_complete,
     make_tool_result,
 )
+from src.a2ui.v0_9 import parse_llm_surface_document
 from src.api.schemas.a2ui_resume import A2UIResumeRequest
 from src.api.schemas.thesys_chat import C1ChatRequest
 from src.core.enums import LLMModel
@@ -242,18 +245,26 @@ class A2UIChatService:
                 for evt in _iter_screener_hitl_ui_closure():
                     yield evt
                 for intr in snapshot.interrupts:
-                    iv = intr.value
-                    payload = iv if isinstance(iv, dict) else {"value": iv}
-                    yield make_hitl_form(payload, thread_id)
+                    iv = intr.value if isinstance(intr.value, dict) else {"value": intr.value}
+                    for message in iv.get("a2ui_messages", []):
+                        if isinstance(message, dict):
+                            yield make_a2ui_message(message)
+                    yield make_hitl_form(
+                        thread_id=thread_id,
+                        surface_id=A2UI_HITL_SURFACE_ID,
+                        task=iv.get("task") if isinstance(iv.get("task"), str) else None,
+                    )
                 logger.info(f"[A2UI] HITL interrupt emitted for session {thread_id}")
                 return
 
-            # Emit the final assembled message
-            final_content = "".join(final_content_parts)
-            yield make_message_complete(final_content)
+            raw_final_content = "".join(final_content_parts)
+            surface_messages, persisted_content = parse_llm_surface_document(raw_final_content)
+            for message in surface_messages:
+                yield make_a2ui_message(message)
+            yield make_message_complete(persisted_content)
 
             # Persist the AI message
-            await self.chat_repo.create_ai_message(session_id=session_id, content=final_content)
+            await self.chat_repo.create_ai_message(session_id=session_id, content=persisted_content)
             await self.chat_repo.session.commit()
 
             logger.info(f"[A2UI] Stream complete for session {thread_id}")
@@ -317,15 +328,33 @@ class A2UIChatService:
                 for evt in _iter_screener_hitl_ui_closure():
                     yield evt
                 for intr in snapshot.interrupts:
-                    iv = intr.value
-                    payload = iv if isinstance(iv, dict) else {"value": iv}
-                    yield make_hitl_form(payload, thread_id)
+                    iv = intr.value if isinstance(intr.value, dict) else {"value": intr.value}
+                    for message in iv.get("a2ui_messages", []):
+                        if isinstance(message, dict):
+                            yield make_a2ui_message(message)
+                    yield make_hitl_form(
+                        thread_id=thread_id,
+                        surface_id=A2UI_HITL_SURFACE_ID,
+                        task=iv.get("task") if isinstance(iv.get("task"), str) else None,
+                    )
                 return
 
-            final_content = "".join(final_content_parts)
-            yield make_message_complete(final_content)
+            yield make_a2ui_message(
+                {
+                    "version": "v0.9",
+                    "deleteSurface": {
+                        "surfaceId": A2UI_HITL_SURFACE_ID,
+                    },
+                }
+            )
 
-            await self.chat_repo.create_ai_message(session_id=session_id, content=final_content)
+            raw_final_content = "".join(final_content_parts)
+            surface_messages, persisted_content = parse_llm_surface_document(raw_final_content)
+            for message in surface_messages:
+                yield make_a2ui_message(message)
+            yield make_message_complete(persisted_content)
+
+            await self.chat_repo.create_ai_message(session_id=session_id, content=persisted_content)
             await self.chat_repo.session.commit()
 
             logger.info("[A2UI] Resume stream complete for session %s", thread_id)

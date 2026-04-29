@@ -170,10 +170,16 @@ Do NOT wrap the JSON in code fences. Do NOT add any explanation or text outside 
 ─── AVAILABLE COMPONENTS ───
 Built-in:
 • Text       props: {{ "text": string | {{"path": "/json/pointer"}}, "variant": "h1"|"h2"|"h3"|"body"|"caption" }}
-• Column     props: {{ "children": ["child-id", ...] }}
-• Row        props: {{ "children": ["child-id", ...] }}
+• Image      props: {{ "url": string | {{"path": "/json/pointer"}}, "description": string | {{"path": "/json/pointer"}} (optional), "fit": "contain"|"cover"|"fill"|"none"|"scaleDown" (optional), "variant": "icon"|"avatar"|"smallFeature"|"mediumFeature"|"largeFeature"|"header" (optional) }}
+• Icon       props: {{ "name": "accountCircle"|"add"|"arrowBack"|"arrowForward"|"attachFile"|"calendarToday"|"call"|"camera"|"check"|"close"|"delete"|"download"|"edit"|"event"|"error"|"favorite"|"folder"|"help"|"home"|"info"|"mail"|"menu"|"moreVert"|"moreHoriz"|"notifications"|"payment"|"person"|"phone"|"photo"|"print"|"refresh"|"search"|"send"|"settings"|"share"|"shoppingCart"|"star"|"warning" }}
+• Video      props: {{ "url": string | {{"path": "/json/pointer"}} }}
+• AudioPlayer props: {{ "url": string | {{"path": "/json/pointer"}}, "description": string | {{"path": "/json/pointer"}} (optional) }}
+• Column     props: {{ "children": ["child-id", ...], "justify": "start"|"center"|"end"|"spaceBetween"|"spaceAround"|"spaceEvenly"|"stretch" (optional), "align": "start"|"center"|"end"|"stretch" (optional) }}
+• Row        props: {{ "children": ["child-id", ...], "justify": "start"|"center"|"end"|"spaceBetween"|"spaceAround"|"spaceEvenly"|"stretch" (optional), "align": "start"|"center"|"end"|"stretch" (optional) }}
+• List       props: {{ "children": ["child-id", ...] | {{"path": "/items", "componentId": "template-id"}}, "direction": "vertical"|"horizontal" (optional), "align": "start"|"center"|"end"|"stretch" (optional) }}
 • Card       props: {{ "child": "child-id" }}
-• Divider    props: {{ }}
+• Tabs       props: {{ "tabs": [{{"title": string | {{"path": "/json/pointer"}}, "child": "child-id"}}] }}
+• Divider    props: {{ "axis": "horizontal"|"vertical" (optional) }}
 
 Custom finance catalog:
 • Badge      props: {{ "text": string | {{"path": "/json/pointer"}}, "variant": "success"|"warning"|"error"|"info"|"neutral" }}
@@ -184,7 +190,7 @@ Custom finance catalog:
                 }}
 • InfoBox    props: {{ "text": string | {{"path": "/json/pointer"}}, "variant": "info"|"warning"|"success"|"error" }}
 • DataTable  props: {{
-                  "columns": [{{"key": string, "label": string, "format": "text"|"currency_inr"|"number"|"percentage"}}] | {{"path": "/json/pointer"}},
+                  "columns": [{{"key": string, "label": string, "format": "text"|"currency_inr"|"number"|"percentage"|"date"|"boolean"}}] | {{"path": "/json/pointer"}} (optional),
                   "rows": [{{"<column_key>": value, ...}}] | {{"path": "/json/pointer"}}
                 }}
 • SourceList props: {{
@@ -208,6 +214,10 @@ Custom finance catalog:
 • Use short unique IDs: "title", "summary_row", "table1", "chart1", "info1", etc.
 • Prefer putting repeated, tabular, or chart data inside `dataModel` and bind with `{{"path": "/..."}}`.
 • For DataTable rows, use objects keyed by each column.key. Do not use positional row arrays unless the source data is already positional.
+• For wide tabular data, DataTable can scroll horizontally. Still choose concise columns for each table:
+  - Use one overview table with the most important columns.
+  - Put separate detailed tables in Tabs when there are multiple table views such as All/Hold/Sell.
+  - Avoid repeating the same large dataset in several full-width tables unless the user explicitly asked for every view.
 • Do NOT put an entire markdown report into one Text component. Split content into structured A2UI components.
 • Do NOT include markdown heading markers like "##" or emphasis wrappers like "*More:*" in Text values.
   Use Text variants (`h1`, `h2`, `h3`, `body`, `caption`) and separate components instead.
@@ -235,6 +245,7 @@ Custom finance catalog:
   - For pie charts: the chart data must have "name" and one numeric value key (e.g. "value").
   - For INR pie/bar charts, set "unit": "₹".
 • You can include both a Chart and a DataTable when both are useful.
+• The client supports all standard Basic Catalog components, but final responses must be display-only.
 • NEVER generate interactive input UI in final responses: no Button, TextField, CheckBox, ChoicePicker, Slider, DateTimeInput, or Modal.
 • HITL parameter collection is handled by a deterministic server-side flow; final responses must be display-only components.
 

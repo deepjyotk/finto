@@ -22,6 +22,7 @@ Live snapshot from `gcloud` (project `finto-477904`). Regenerate when the stack 
 | **Secret Manager** | Used by Cloud Run for env at runtime (**secret names only** — see below). |
 | **Observability** | **Cloud Logging**, **Cloud Monitoring**, **Cloud Trace** APIs are enabled (standard for Run / Build). |
 | **Cloud Scheduler** | Job **`daily-price-bars-1d`** in **`us-central1`**. Triggers a **public HTTP `POST`** to [`/api/v1/cron-jobs/daily/`](https://finto-service-yn3hkiazaq-uc.a.run.app/api/v1/cron-jobs/daily/) (daily price-bars refresh). **No OIDC / OAuth** on the HTTP target — this matches a **public** Cloud Run route (the service allows unauthenticated ingress). **Permissions:** a plain HTTPS request does not use `roles/run.invoker`; only **authenticated** (IAM) or **OIDC** targets need a caller identity. |
+| **Cloud Storage** | Bucket **`finto-logos`** in **`us-central1`**. Stores company logo images (SVG from Multibagg, PNG fallback from FMP). Populated by `scripts/logos-to-cdn-bucket/logos-to-cdn-bucket.py`. Uniform bucket-level access enabled. Logos are also mirrored to Cloudflare R2 for free-tier CDN delivery. |
 
 CI/CD pipeline behavior is defined in-repo at [`finto/cloudbuild.yaml`](../../cloudbuild.yaml) (Docker build → push to Artifact Registry → `gcloud run deploy` with `--set-secrets` / env).
 
@@ -31,7 +32,7 @@ CI/CD pipeline behavior is defined in-repo at [`finto/cloudbuild.yaml`](../../cl
 
 **Checked, not present or not applicable for this doc:**
 
-- **Cloud Storage (buckets)**: `gcloud storage buckets list` returned **no buckets** for this project (empty list).
+- **Cloud Storage (buckets)**: Bucket **`finto-logos`** (`us-central1`) — see Primary workloads table above.
 - **Cloud SQL**: Admin API not enabled; no instances listed via `gcloud sql instances list`.
 
 ### Cloud Scheduler (verified via `gcloud` MCP / `gcloud scheduler jobs describe`)

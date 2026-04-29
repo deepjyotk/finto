@@ -164,15 +164,18 @@ def _database_url_sync() -> str:
     return raw.replace("postgresql+asyncpg://", "postgresql://")
 
 
-async def fetch_symbols_from_in_equities(limit: int) -> list[str]:
-    """First `limit` symbols from in_equities, same ordering as other tools (ORDER BY symbol)."""
+async def fetch_symbols_from_in_equities(limit: int | None = None) -> list[str]:
+    """All symbols from in_equities (ORDER BY symbol); pass limit to cap the result set."""
     url = _database_url_sync()
     conn = await asyncpg.connect(url)
     try:
-        rows = await conn.fetch(
-            "SELECT symbol FROM in_equities ORDER BY symbol LIMIT $1",
-            limit,
-        )
+        if limit is None:
+            rows = await conn.fetch("SELECT symbol FROM in_equities ORDER BY symbol")
+        else:
+            rows = await conn.fetch(
+                "SELECT symbol FROM in_equities ORDER BY symbol LIMIT $1",
+                limit,
+            )
         return [r["symbol"] for r in rows]
     finally:
         await conn.close()
@@ -199,8 +202,8 @@ def main() -> None:
     parser.add_argument(
         "--limit",
         type=int,
-        default=10,
-        help="With --from-in-equities: max rows (default: 10)",
+        default=None,
+        help="With --from-in-equities: max rows to process (default: all)",
     )
     parser.add_argument(
         "-o",

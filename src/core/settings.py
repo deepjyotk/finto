@@ -244,6 +244,59 @@ class SendGridSettings(BaseSettings):
     )
 
 
+class GCSSettings(BaseSettings):
+    """Google Cloud Storage settings for the company-logo bucket."""
+
+    bucket_name: str = Field(
+        default="finto-logos",
+        description="GCS bucket name for company logos",
+        validation_alias="GCS_BUCKET_NAME",
+    )
+    project_id: str = Field(
+        default="finto-477904",
+        description="GCP project ID",
+        validation_alias="GCS_PROJECT_ID",
+    )
+
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
+    )
+
+
+class CloudflareR2Settings(BaseSettings):
+    """Cloudflare R2 (S3-compatible, free-tier CDN) settings for company logos."""
+
+    account_id: str = Field(
+        default="",
+        description="Cloudflare account ID",
+        validation_alias="CLOUDFLARE_R2_ACCOUNT_ID",
+    )
+    access_key_id: str = Field(
+        default="",
+        description="R2 API token access key ID",
+        validation_alias="CLOUDFLARE_R2_ACCESS_KEY_ID",
+    )
+    secret_access_key: str = Field(
+        default="",
+        description="R2 API token secret access key",
+        validation_alias="CLOUDFLARE_R2_SECRET_ACCESS_KEY",
+    )
+    bucket_name: str = Field(
+        default="finto-logos",
+        description="R2 bucket name for company logos",
+        validation_alias="CLOUDFLARE_R2_BUCKET_NAME",
+    )
+    public_domain: Optional[str] = Field(
+        default=None,
+        description="Optional public domain for R2 (e.g. your-bucket.r2.dev or custom domain)",
+        validation_alias="CLOUDFLARE_R2_PUBLIC_DOMAIN",
+    )
+
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
+    )
+
+
 settings = Settings()
 llm_settings = LLMSettings()
 tavily_settings = TavilySettings()
@@ -252,3 +305,5 @@ pinecone_settings = PineconeSettings()
 thesys_settings = ThesysSettings()
 sendgrid_settings = SendGridSettings()
 smallcase_gateway_settings = SmallcaseGatewaySettings()
+gcs_settings = GCSSettings()
+cloudflare_r2_settings = CloudflareR2Settings()

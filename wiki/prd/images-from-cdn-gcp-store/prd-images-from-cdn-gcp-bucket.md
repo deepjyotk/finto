@@ -18,3 +18,12 @@ Now, what I want:
 * Research how to upload to Cloudflare CDN and implement it. Add the required environment variables to `.env` and `settings.py`.
 
 Keep the script simple, modular, and easy to understand. Install any required dependencies (e.g., for Cloudflare CDN or GCP, use the official `google-cloud` libraries).
+
+
+
+Okay, so to write the script for: scripts/logos-to-cdn-bucket/logos-to-cdn-bucket.py,
+
+Follow:
+- fetch_symbols_from_in_equities, make the limit as optional argument, and default to all symbols.
+- now, follow the same pattern as fetch_multibagg_company_logo_svg.py, But the only change is you have to not save the logs in the folder, but you
+have to save the logo in the GCP bucket and also in the Cloudflare CDN.

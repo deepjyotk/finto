@@ -167,6 +167,46 @@ class TickerService:
         raw = await self._price_bars_repo.list_bars_for_equity_since(in_equity_id, start)
         return [self._price_point_from_db_row(r) for r in raw]
 
+    async def _fetch_financial_statement_sets(
+        self,
+        in_equity_id: UUID,
+        annual_periods: int,
+        quarterly_periods: int,
+    ) -> tuple[list[dict], list[dict], list[dict], list[dict], list[dict], list[dict]]:
+        """
+        Load all statement tables in legacy {period, data} format.
+
+        NOTE:
+        - Typed tables normalize statement_type to 'annual' | 'quarterly'
+        - Keep calls sequential because one AsyncSession is reused.
+        """
+        annual_rows = await self._fin_repo.get_income_statements(
+            in_equity_id, "annual", annual_periods
+        )
+        quarterly_rows = await self._fin_repo.get_income_statements(
+            in_equity_id, "quarterly", quarterly_periods
+        )
+        annual_balance_rows = await self._fin_repo.get_balance_sheets(
+            in_equity_id, "annual", annual_periods
+        )
+        quarterly_balance_rows = await self._fin_repo.get_balance_sheets(
+            in_equity_id, "quarterly", quarterly_periods
+        )
+        annual_cashflow_rows = await self._fin_repo.get_cash_flows(
+            in_equity_id, "annual", annual_periods
+        )
+        quarterly_cashflow_rows = await self._fin_repo.get_cash_flows(
+            in_equity_id, "quarterly", quarterly_periods
+        )
+        return (
+            annual_rows,
+            quarterly_rows,
+            annual_balance_rows,
+            quarterly_balance_rows,
+            annual_cashflow_rows,
+            quarterly_cashflow_rows,
+        )
+
     @staticmethod
     def _build_statements(rows: list[dict], preferred_order: list[str]) -> dict:
         """
@@ -301,35 +341,16 @@ class TickerService:
         if not info and not price_history:
             return None
 
-        if settings.ticker_include_financial_statements:
-            # Fetch all statement types sequentially — asyncio Sessions are not safe
-            # for concurrent use; two gather'd coroutines on the same session
-            # cause IllegalStateChangeError.
-            annual_rows = await self._fin_repo.get_statements(
-                in_equity_id, "annual", annual_periods
-            )
-            quarterly_rows = await self._fin_repo.get_statements(
-                in_equity_id, "quarterly", quarterly_periods
-            )
-            annual_balance_rows = await self._fin_repo.get_statements(
-                in_equity_id, "annual_balance", annual_periods
-            )
-            quarterly_balance_rows = await self._fin_repo.get_statements(
-                in_equity_id, "quarterly_balance", quarterly_periods
-            )
-            annual_cashflow_rows = await self._fin_repo.get_statements(
-                in_equity_id, "annual_cashflow", annual_periods
-            )
-            quarterly_cashflow_rows = await self._fin_repo.get_statements(
-                in_equity_id, "quarterly_cashflow", quarterly_periods
-            )
-        else:
-            annual_rows = []
-            quarterly_rows = []
-            annual_balance_rows = []
-            quarterly_balance_rows = []
-            annual_cashflow_rows = []
-            quarterly_cashflow_rows = []
+        (
+            annual_rows,
+            quarterly_rows,
+            annual_balance_rows,
+            quarterly_balance_rows,
+            annual_cashflow_rows,
+            quarterly_cashflow_rows,
+        ) = await self._fetch_financial_statement_sets(
+            in_equity_id, annual_periods, quarterly_periods
+        )
 
         if settings.ticker_use_yfinance_for_prices:
             ticker_info = await self._info_repo.get_info(symbol_ns)

@@ -373,3 +373,17 @@ Most investors **combine categories**, for example:
 
 If you want, I can map these categories to **how you should pick stocks using metrics like PE < 15, PEG < 1 (what you asked earlier)**—that’s where this becomes actually useful.
 
+
+
+
+value: float | int | None
+dirty: bool = False
+is_advanced_filter: bool = False
+enabled: bool
+Now, the expectation is I want to create a Dynamic Form for each of the above category in screener_tool_schemas folder,
+
+for e.g.: large-cap-form.py, medium-cap-form.py, small-cap-form.py, growth-form.py, value-form.py, dividend-form.py, sector-form.py, economic-sensitivity-form.py, ownership-form.py, investment-style-form.py, volatility-risk-form.py
+
+
+Now, each of these forms will have some default values, and is_advanced_filter will change based on the category, and enabled will be true by default for all the forms. Basically, I want to build a dynamic input form for the user to select the values for the form. can you do a deep research and categorize it.
+

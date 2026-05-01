@@ -10,39 +10,41 @@ from pydantic import BaseModel, Field
 class ScreenerParamConfig(BaseModel):
     """UI/runtime config for a single screener parameter."""
 
-    default: float | int | None
+    value: float | int | None
+    dirty: bool = False
+    is_advanced_filter: bool = False
     enabled: bool
 
 
 class MediumScreenerParamConfig(BaseModel):
     """Single source of truth for medium profile defaults and HITL visibility."""
 
-    pe_min: ScreenerParamConfig = ScreenerParamConfig(default=12.0, enabled=True)
-    pe_max: ScreenerParamConfig = ScreenerParamConfig(default=25.0, enabled=True)
-    peg_min: ScreenerParamConfig = ScreenerParamConfig(default=0.8, enabled=True)
-    peg_max: ScreenerParamConfig = ScreenerParamConfig(default=1.5, enabled=True)
-    pb_max: ScreenerParamConfig = ScreenerParamConfig(default=5.0, enabled=True)
-    ps_max: ScreenerParamConfig = ScreenerParamConfig(default=8.0, enabled=True)
-    ev_ebitda_max: ScreenerParamConfig = ScreenerParamConfig(default=18.0, enabled=True)
-    roe_min_pct: ScreenerParamConfig = ScreenerParamConfig(default=12.0, enabled=True)
-    roic_min_pct: ScreenerParamConfig = ScreenerParamConfig(default=10.0, enabled=True)
-    operating_margin_min_pct: ScreenerParamConfig = ScreenerParamConfig(default=None, enabled=True)
-    revenue_growth_yoy_min_pct: ScreenerParamConfig = ScreenerParamConfig(default=8.0, enabled=True)
-    eps_growth_yoy_min_pct: ScreenerParamConfig = ScreenerParamConfig(default=8.0, enabled=True)
-    debt_to_equity_max: ScreenerParamConfig = ScreenerParamConfig(default=1.0, enabled=True)
-    interest_coverage_min: ScreenerParamConfig = ScreenerParamConfig(default=4.0, enabled=False)
-    current_ratio_min: ScreenerParamConfig = ScreenerParamConfig(default=1.2, enabled=False)
+    pe_min: ScreenerParamConfig = ScreenerParamConfig(value=12.0, enabled=True)
+    pe_max: ScreenerParamConfig = ScreenerParamConfig(value=25.0, enabled=True)
+    peg_min: ScreenerParamConfig = ScreenerParamConfig(value=0.8, enabled=True)
+    peg_max: ScreenerParamConfig = ScreenerParamConfig(value=1.5, enabled=True)
+    pb_max: ScreenerParamConfig = ScreenerParamConfig(value=5.0, enabled=True)
+    ps_max: ScreenerParamConfig = ScreenerParamConfig(value=8.0, enabled=True)
+    ev_ebitda_max: ScreenerParamConfig = ScreenerParamConfig(value=18.0, enabled=True)
+    roe_min_pct: ScreenerParamConfig = ScreenerParamConfig(value=12.0, enabled=True)
+    roic_min_pct: ScreenerParamConfig = ScreenerParamConfig(value=10.0, enabled=True)
+    operating_margin_min_pct: ScreenerParamConfig = ScreenerParamConfig(value=None, enabled=True)
+    revenue_growth_yoy_min_pct: ScreenerParamConfig = ScreenerParamConfig(value=8.0, enabled=True)
+    eps_growth_yoy_min_pct: ScreenerParamConfig = ScreenerParamConfig(value=8.0, enabled=True)
+    debt_to_equity_max: ScreenerParamConfig = ScreenerParamConfig(value=1.0, enabled=True)
+    interest_coverage_min: ScreenerParamConfig = ScreenerParamConfig(value=4.0, enabled=False)
+    current_ratio_min: ScreenerParamConfig = ScreenerParamConfig(value=1.2, enabled=False)
     market_cap_min_usd: ScreenerParamConfig = ScreenerParamConfig(
-        default=1_000_000_000.0, enabled=False
+        value=1_000_000_000.0, enabled=False
     )
-    beta_min: ScreenerParamConfig = ScreenerParamConfig(default=0.9, enabled=False)
-    beta_max: ScreenerParamConfig = ScreenerParamConfig(default=1.2, enabled=False)
-    dividend_yield_min_pct: ScreenerParamConfig = ScreenerParamConfig(default=0.0, enabled=False)
-    payout_ratio_max_pct: ScreenerParamConfig = ScreenerParamConfig(default=70.0, enabled=False)
-    max_results: ScreenerParamConfig = ScreenerParamConfig(default=25, enabled=False)
+    beta_min: ScreenerParamConfig = ScreenerParamConfig(value=0.9, enabled=False)
+    beta_max: ScreenerParamConfig = ScreenerParamConfig(value=1.2, enabled=False)
+    dividend_yield_min_pct: ScreenerParamConfig = ScreenerParamConfig(value=0.0, enabled=False)
+    payout_ratio_max_pct: ScreenerParamConfig = ScreenerParamConfig(value=70.0, enabled=False)
+    max_results: ScreenerParamConfig = ScreenerParamConfig(value=25, enabled=False)
 
     def default_values(self) -> dict[str, Any]:
-        return {name: getattr(self, name).default for name in self.__class__.model_fields}
+        return {name: getattr(self, name).value for name in self.__class__.model_fields}
 
     def enabled_fields(self) -> tuple[str, ...]:
         return tuple(name for name in self.__class__.model_fields if getattr(self, name).enabled)

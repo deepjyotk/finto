@@ -21,7 +21,7 @@ from langchain_core.tools import tool
 
 from src.core.db import SessionLocal
 from src.repositories.screener_repo import ScreenerRepo
-from src.schemas.screener_tool_schemas import (
+from src.schemas.screener_tool_schemas.screener_tool_schema_medium import (
     MediumScreenerParamConfig,
     ScreenOneResult,
     ScreenerCriteria,

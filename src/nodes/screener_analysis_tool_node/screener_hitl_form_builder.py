@@ -110,6 +110,63 @@ _FIELD_SPECS: dict[str, _FieldSpec] = {
         "placeholder": None,
     },
 }
+
+_FIELD_GROUPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
+    (
+        "Valuation",
+        "Price and multiple filters",
+        (
+            "pe_min",
+            "pe_max",
+            "peg_min",
+            "peg_max",
+            "pb_max",
+            "ps_max",
+            "ev_ebitda_max",
+        ),
+    ),
+    (
+        "Quality",
+        "Profitability and capital efficiency",
+        (
+            "roe_min_pct",
+            "roic_min_pct",
+            "operating_margin_min_pct",
+        ),
+    ),
+    (
+        "Growth",
+        "Revenue and earnings growth",
+        (
+            "revenue_growth_yoy_min_pct",
+            "eps_growth_yoy_min_pct",
+        ),
+    ),
+    (
+        "Balance",
+        "Leverage and financial strength",
+        (
+            "debt_to_equity_max",
+        ),
+    ),
+)
+
+
+def _field_component_ids(field_name: str) -> tuple[str, str, str | None]:
+    spec = _FIELD_SPECS[field_name]
+    return (
+        f"fld_{field_name}",
+        f"grp_{field_name}",
+        f"help_{field_name}" if spec["help_text"] else None,
+    )
+
+
+def _number_validation_regex(spec: _FieldSpec) -> str | None:
+    if spec["input_type"] != "number":
+        return None
+    return r"^-?\d*(\.\d+)?$"
+
+
 def build_screener_hitl_a2ui_messages(
     *, defaults: dict[str, Any], enabled_fields: tuple[str, ...]
 ) -> list[dict[str, Any]]:
@@ -122,7 +179,7 @@ def build_screener_hitl_a2ui_messages(
         {
             "id": "root",
             "component": "Column",
-            "children": ["page_title", "note_box", "form_card"],
+            "children": ["page_title", "note_box", "threshold_tabs", "submit_row"],
         },
         {
             "id": "page_title",
@@ -136,57 +193,98 @@ def build_screener_hitl_a2ui_messages(
             "text": "Review the screening thresholds below, then submit to continue.",
             "variant": "info",
         },
-        {
-            "id": "form_card",
-            "component": "Card",
-            "child": "form_column",
-        },
     ]
 
-    field_group_ids: list[str] = []
+    enabled_set = set(enabled_fields)
     action_context: dict[str, Any] = {}
     for field_name in enabled_fields:
         spec = deepcopy(_FIELD_SPECS[field_name])
-        field_input_id = f"fld_{field_name}"
-        field_group_id = f"grp_{field_name}"
-        field_group_ids.append(field_group_id)
+        field_input_id, field_group_id, help_id = _field_component_ids(field_name)
         action_context[field_name] = {"path": f"/fields/{field_name}"}
 
         components.append(
             {
                 "id": field_group_id,
                 "component": "Column",
-                "children": [field_input_id]
-                + ([f"help_{field_name}"] if spec["help_text"] else []),
+                "children": [field_input_id] + ([help_id] if help_id else []),
             }
         )
 
-        components.append(
-            {
-                "id": field_input_id,
-                "component": "TextField",
-                "label": spec["label"],
-                "value": {"path": f"/fields/{field_name}"},
-                "variant": "number" if spec["input_type"] == "number" else "shortText",
-            }
-        )
+        field_component: dict[str, Any] = {
+            "id": field_input_id,
+            "component": "TextField",
+            "label": spec["label"],
+            "value": {"path": f"/fields/{field_name}"},
+            "variant": "number" if spec["input_type"] == "number" else "shortText",
+        }
+        validation_regexp = _number_validation_regex(spec)
+        if validation_regexp:
+            field_component["validationRegexp"] = validation_regexp
+        components.append(field_component)
 
-        if spec["help_text"]:
+        if help_id and spec["help_text"]:
             components.append(
                 {
-                    "id": f"help_{field_name}",
+                    "id": help_id,
                     "component": "Text",
                     "text": spec["help_text"],
                     "variant": "caption",
                 }
             )
 
+    tabs: list[dict[str, str]] = []
+    for group_index, (group_title, group_caption, group_fields) in enumerate(_FIELD_GROUPS, start=1):
+        visible_fields = [field for field in group_fields if field in enabled_set]
+        if not visible_fields:
+            continue
+
+        card_id = f"group_card_{group_index}"
+        column_id = f"group_column_{group_index}"
+        title_id = f"group_title_{group_index}"
+        caption_id = f"group_caption_{group_index}"
+        field_ids = [_field_component_ids(field)[1] for field in visible_fields]
+
+        tabs.append({"title": group_title, "child": card_id})
+        components.extend(
+            [
+                {
+                    "id": card_id,
+                    "component": "Card",
+                    "child": column_id,
+                },
+                {
+                    "id": column_id,
+                    "component": "Column",
+                    "children": [title_id, caption_id, *field_ids],
+                },
+                {
+                    "id": title_id,
+                    "component": "Text",
+                    "text": group_title,
+                    "variant": "h3",
+                },
+                {
+                    "id": caption_id,
+                    "component": "Text",
+                    "text": group_caption,
+                    "variant": "caption",
+                },
+            ]
+        )
+
     components.extend(
         [
             {
-                "id": "form_column",
-                "component": "Column",
-                "children": [*field_group_ids, "submit_button"],
+                "id": "threshold_tabs",
+                "component": "Tabs",
+                "tabs": tabs,
+            },
+            {
+                "id": "submit_row",
+                "component": "Row",
+                "children": ["submit_button"],
+                "justify": "end",
+                "align": "center",
             },
             {
                 "id": "submit_button",
@@ -225,5 +323,5 @@ def build_screener_hitl_a2ui_messages(
         surface_id=A2UI_HITL_SURFACE_ID,
         components=components,
         data_model=data_model,
-        send_data_model=False,
+        send_data_model=True,
     )

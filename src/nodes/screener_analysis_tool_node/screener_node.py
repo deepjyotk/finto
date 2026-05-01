@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
-from functools import partial
 from typing import Any
 
 from langchain_core.runnables import RunnableLambda
@@ -11,6 +9,7 @@ from langchain_core.tools import BaseTool, tool
 from langgraph.types import interrupt
 from sqlalchemy import text
 
+from src.a2ui.catalog import A2UI_HITL_SURFACE_ID
 from src.core.db import SessionLocal
 from src.core.json_logging import logger_for
 from src.core.llm import LLMFactory
@@ -22,10 +21,25 @@ from src.tools.screener_tool import (
     _MEDIUM_DEFAULTS,
     ScreenerRunRequest,
     enabled_medium_hitl_param_names,
-    run_get_screened_stocks_sync,
+    run_get_screened_stocks_async,
 )
 
 logger = logger_for(__name__)
+
+
+def _extract_resume_form_values(resume_values: dict[str, Any]) -> dict[str, Any]:
+    """Return flat field values from either action context or synced A2UI data model."""
+    fields = resume_values.get("fields")
+    if isinstance(fields, dict):
+        return dict(fields)
+
+    surfaces = resume_values.get("surfaces")
+    if isinstance(surfaces, dict):
+        hitl_surface = surfaces.get(A2UI_HITL_SURFACE_ID)
+        if isinstance(hitl_surface, dict) and isinstance(hitl_surface.get("fields"), dict):
+            return dict(hitl_surface["fields"])
+
+    return dict(resume_values)
 
 
 async def _load_all_equity_symbols() -> list[str]:
@@ -71,8 +85,6 @@ class ScreenerNode:
     def create_worker_tool(self) -> BaseTool:
         """Build screener_analysis_tool for the orchestrator (HITL + deterministic screen)."""
 
-        node = self
-
         @tool
         async def screener_analysis_tool(task: str) -> str:
             """Screen the broader market for stocks matching specific criteria.
@@ -104,12 +116,10 @@ class ScreenerNode:
             if not isinstance(resume_values, dict):
                 return "ERROR: HITL resume payload must be a dict of form field values."
 
-            merged = {**resume_values}
+            merged = _extract_resume_form_values(resume_values)
             request = _parse_form_values_to_request(merged)
 
-            return await asyncio.to_thread(
-                partial(run_get_screened_stocks_sync, all_equities, request)
-            )
+            return await run_get_screened_stocks_async(request)
 
         return screener_analysis_tool
 

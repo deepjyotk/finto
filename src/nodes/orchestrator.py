@@ -48,7 +48,7 @@ class OrchestratorNode:
     _SUPERVISOR_PROMPT_TEMPLATE: Final[
         str
     ] = f"""
-You are the Finance Assistant Orchestrator.
+You are the Finance Assistant Orchestrator. You are only working on Indian stocks.
 
 Your role is to intelligently decide which tools to use, construct complete and well-scoped tasks for them, and produce a final answer that is comprehensive, accurate, and context-rich.
 

@@ -1,15 +1,26 @@
-"""Deterministic stock screen using only BOTH_FUNCTIONS ∪ SCREENER_FUNCTIONS from yfinance_wrappers."""
+"""Deterministic stock screen using data from the database.
+
+All financial data (ticker info, income statements, balance sheets) is loaded
+in bulk from the database rather than fetched per-symbol via yfinance.
+
+Data sources
+------------
+  in_equities.company_metadata  — yfinance-style info snapshot (PE, beta, etc.)
+  f_income_statements            — typed annual rows (revenue, EBITDA, EPS, …)
+  f_balance_sheets               — typed annual rows (debt, equity, cash, …)
+"""
 
 from __future__ import annotations
 
-import asyncio
 import math
+from dataclasses import dataclass, field
 from typing import Any
+from uuid import UUID
 
 from langchain_core.tools import tool
-from sqlalchemy import text
 
 from src.core.db import SessionLocal
+from src.repositories.screener_repo import ScreenerRepo
 from src.schemas.screener_tool_schemas import (
     MediumScreenerParamConfig,
     ScreenOneResult,
@@ -17,24 +28,6 @@ from src.schemas.screener_tool_schemas import (
     ScreenerRunRequest,
     ScreenerToolInput,
 )
-from src.tools.yfinance_wrappers import BOTH_FUNCTIONS, SCREENER_FUNCTIONS
-from src.tools.yfinance_wrappers import (
-    get_balance_sheet,
-    get_earnings_estimate,
-    get_income_statement,
-    get_revenue_estimate,
-    get_ticker_info,
-)
-
-# Allowed API surface for this tool: wrappers in BOTH_FUNCTIONS | SCREENER_FUNCTIONS only.
-_ALLOWED_WRAPPERS = BOTH_FUNCTIONS | SCREENER_FUNCTIONS
-assert {
-    "get_ticker_info",
-    "get_balance_sheet",
-    "get_income_statement",
-    "get_earnings_estimate",
-    "get_revenue_estimate",
-} <= _ALLOWED_WRAPPERS
 
 _MEDIUM_PARAM_CONFIG = MediumScreenerParamConfig()
 _MEDIUM_DEFAULTS: dict[str, Any] = _MEDIUM_PARAM_CONFIG.default_values()
@@ -51,6 +44,28 @@ def _build_screener_request_from_values(values: dict[str, Any]) -> ScreenerRunRe
         values,
         enabled_fields=enabled_fields,
     )
+
+
+# ---------------------------------------------------------------------------
+# Per-symbol data bundle (pre-loaded from DB before screening loop)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class EquityScreenData:
+    """All data needed to screen one equity, loaded from DB in bulk."""
+
+    symbol_ns: str
+    info: dict = field(default_factory=dict)
+    income_rows: list[dict] = field(default_factory=list)
+    """Latest 2 annual income rows, newest first. Each row: {"data": {display_name: float}}."""
+    balance_rows: list[dict] = field(default_factory=list)
+    """Latest 1 annual balance row. Each row: {"data": {display_name: float}}."""
+
+
+# ---------------------------------------------------------------------------
+# Scalar helpers
+# ---------------------------------------------------------------------------
 
 
 def _f(x: Any) -> float | None:
@@ -75,77 +90,65 @@ def _growth_to_pct(raw: Any) -> float | None:
     return g
 
 
-def _latest_period_row(statement: dict[str, Any]) -> dict[str, Any]:
-    if not statement:
-        return {}
-    for key in sorted(statement.keys(), reverse=True):
-        row = statement[key]
-        if isinstance(row, dict) and row:
-            return row
-    return {}
-
-
-def _dict_only(x: Any) -> dict[str, Any]:
-    """Avoid ``x or {}`` when *x* may be a pandas DataFrame (ambiguous truth value)."""
-    return x if isinstance(x, dict) else {}
-
-
-def _estimate_growth_pct(estimate_blob: dict[str, Any]) -> float | None:
-    if not estimate_blob:
+def _yoy_growth_pct(new_val: float | None, old_val: float | None) -> float | None:
+    """Compute year-over-year growth % from two consecutive period values."""
+    if new_val is None or old_val is None or old_val == 0:
         return None
-    # yfinance as_dict shape: top-level "growth" -> { "0y": 0.11, "+1y": ... }
-    g_top = estimate_blob.get("growth")
-    if isinstance(g_top, dict):
-        for v in g_top.values():
-            if v is not None:
-                return _growth_to_pct(v)
-        return None
-    for _k, v in estimate_blob.items():
-        if isinstance(v, dict):
-            g = v.get("growth")
-            if g is not None:
-                return _growth_to_pct(g)
-    return None
+    return ((new_val - old_val) / abs(old_val)) * 100.0
 
 
-async def _load_all_equity_symbols() -> list[str]:
-    """Load all equities from `in_equities` and map to Yahoo `.NS` symbols."""
-    async with SessionLocal() as session:
-        result = await session.execute(text("SELECT symbol FROM in_equities ORDER BY symbol"))
-        symbols: list[str] = []
-        for row in result:
-            raw = row[0]
-            if not raw or not isinstance(raw, str):
-                continue
-            sym = raw.strip().upper()
-            if not sym:
-                continue
-            symbols.append(sym if sym.endswith(".NS") else f"{sym}.NS")
-    return list(dict.fromkeys(symbols))
+# ---------------------------------------------------------------------------
+# Statement context extraction (from pre-loaded DB rows)
+# ---------------------------------------------------------------------------
+
+
+def _extract_statement_context(data: EquityScreenData) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Return the latest income and balance-sheet data dicts from pre-loaded DB rows.
+
+    The dicts use display names matching _INCOME_DISPLAY / _BALANCE_DISPLAY
+    (e.g. "Operating Income", "Total Debt") — NOT yfinance camelCase.
+    """
+    latest_i = data.income_rows[0]["data"] if data.income_rows else {}
+    latest_b = data.balance_rows[0]["data"] if data.balance_rows else {}
+    return latest_i, latest_b
+
+
+# ---------------------------------------------------------------------------
+# Filter helpers — each mutates `snap` and appends to `reasons`
+# ---------------------------------------------------------------------------
 
 
 def _apply_growth_filters(
-    symbol: str,
-    info: dict[str, Any],
+    data: EquityScreenData,
     criteria: ScreenerCriteria,
     snap: dict[str, Any],
     reasons: list[str],
 ) -> tuple[float | None, float | None]:
-    """Populate growth metrics and apply growth thresholds."""
+    """Populate growth metrics and apply growth thresholds.
+
+    Priority:
+    1. company_metadata.revenueGrowth / earningsGrowth (pre-computed by yfinance)
+    2. Fallback: compute YoY from the latest 2 annual DB income rows
+    """
+    info = data.info
+    income_rows = data.income_rows
+
     rev_g = _growth_to_pct(info.get("revenueGrowth"))
-    eps_g_info = _growth_to_pct(info.get("earningsGrowth"))
+    eps_g = _growth_to_pct(info.get("earningsGrowth"))
+
+    # Fallback: compute YoY from DB income rows when metadata lacks the value
+    if rev_g is None and len(income_rows) >= 2:
+        r1 = _f(income_rows[0]["data"].get("Total Revenue"))
+        r0 = _f(income_rows[1]["data"].get("Total Revenue"))
+        rev_g = _yoy_growth_pct(r1, r0)
+
+    if eps_g is None and len(income_rows) >= 2:
+        e1 = _f(income_rows[0]["data"].get("Basic EPS"))
+        e0 = _f(income_rows[1]["data"].get("Basic EPS"))
+        eps_g = _yoy_growth_pct(e1, e0)
+
     snap["revenue_growth_pct"] = rev_g
-    snap["eps_growth_pct"] = eps_g_info
-
-    if rev_g is None:
-        rev_est = _dict_only(get_revenue_estimate(symbol).get("revenue_estimate"))
-        rev_g = _estimate_growth_pct(rev_est)
-        snap["revenue_growth_pct"] = rev_g
-
-    if eps_g_info is None:
-        earn_est = _dict_only(get_earnings_estimate(symbol).get("earnings_estimate"))
-        eps_g_info = _estimate_growth_pct(earn_est)
-        snap["eps_growth_pct"] = eps_g_info
+    snap["eps_growth_pct"] = eps_g
 
     if criteria.revenue_growth_yoy_min_pct is not None:
         if rev_g is None:
@@ -154,12 +157,12 @@ def _apply_growth_filters(
             reasons.append(f"revenue_growth<{criteria.revenue_growth_yoy_min_pct}")
 
     if criteria.eps_growth_yoy_min_pct is not None:
-        if eps_g_info is None:
+        if eps_g is None:
             reasons.append("eps_growth_missing")
-        elif eps_g_info < criteria.eps_growth_yoy_min_pct:
+        elif eps_g < criteria.eps_growth_yoy_min_pct:
             reasons.append(f"eps_growth<{criteria.eps_growth_yoy_min_pct}")
 
-    return rev_g, eps_g_info
+    return rev_g, eps_g
 
 
 def _apply_valuation_filters(
@@ -167,7 +170,7 @@ def _apply_valuation_filters(
     criteria: ScreenerCriteria,
     snap: dict[str, Any],
     reasons: list[str],
-    eps_g_info: float | None,
+    eps_g: float | None,
 ) -> None:
     """Populate valuation metrics and apply valuation thresholds."""
     pe = _f(info.get("trailingPE"))
@@ -180,8 +183,8 @@ def _apply_valuation_filters(
         reasons.append(f"pe>{criteria.pe_max}")
 
     peg: float | None = None
-    if pe is not None and eps_g_info is not None and eps_g_info > 0:
-        peg = pe / eps_g_info
+    if pe is not None and eps_g is not None and eps_g > 0:
+        peg = pe / eps_g
     snap["peg"] = peg
     if criteria.peg_min is not None or criteria.peg_max is not None:
         if peg is None:
@@ -203,13 +206,6 @@ def _apply_valuation_filters(
         reasons.append(f"ps>{criteria.ps_max}")
 
 
-def _load_statement_context(symbol: str) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Load latest income/balance-sheet rows for statement-derived metrics."""
-    inc = _dict_only(get_income_statement(symbol, freq="yearly").get("income_statement"))
-    bs = _dict_only(get_balance_sheet(symbol, freq="yearly").get("balance_sheet"))
-    return _latest_period_row(inc), _latest_period_row(bs)
-
-
 def _apply_profitability_filters(
     info: dict[str, Any],
     criteria: ScreenerCriteria,
@@ -218,7 +214,10 @@ def _apply_profitability_filters(
     latest_i: dict[str, Any],
     latest_b: dict[str, Any],
 ) -> tuple[float | None, float | None]:
-    """Apply EV/EBITDA, ROE, ROIC and operating-margin filters."""
+    """Apply EV/EBITDA, ROE, ROIC and operating-margin filters.
+
+    Statement keys use display names (e.g. "Operating Income", not "OperatingIncome").
+    """
     ev = _f(info.get("enterpriseValue"))
     ebitda = _f(latest_i.get("EBITDA"))
     ev_ebitda: float | None = None
@@ -241,13 +240,14 @@ def _apply_profitability_filters(
         elif roe < criteria.roe_min_pct:
             reasons.append(f"roe<{criteria.roe_min_pct}")
 
-    td = _f(latest_b.get("TotalDebt"))
-    eq = _f(latest_b.get("StockholdersEquity"))
-    cash = _f(latest_b.get("CashAndCashEquivalents"))
-    oi = _f(latest_i.get("OperatingIncome"))
-    interest = _f(latest_i.get("InterestExpense"))
+    # ROIC: operating_income / (total_debt + stockholders_equity - cash)
+    td = _f(latest_b.get("Total Debt"))
+    eq = _f(latest_b.get("Stockholders Equity"))
+    cash = _f(latest_b.get("Cash And Cash Equivalents"))
+    oi = _f(latest_i.get("Operating Income"))
+    interest = _f(latest_i.get("Interest Expense"))
 
-    invested = None
+    invested: float | None = None
     if td is not None and eq is not None:
         invested = td + eq - (cash or 0.0)
     roic_pct: float | None = None
@@ -356,27 +356,37 @@ def _apply_market_filters(
             reasons.append(f"payout_ratio>{criteria.payout_ratio_max_pct}")
 
 
-def _screen_one(symbol: str, criteria: ScreenerCriteria) -> ScreenOneResult:
-    """Screen one symbol and return a typed screening result."""
-    reasons: list[str] = []
-    snap: dict[str, Any] = {"symbol": symbol}
+# ---------------------------------------------------------------------------
+# Per-symbol screening
+# ---------------------------------------------------------------------------
 
-    info = get_ticker_info(symbol)
-    if info.get("error"):
+
+def _screen_one(data: EquityScreenData, criteria: ScreenerCriteria) -> ScreenOneResult:
+    """Screen one equity using pre-loaded DB data and return a typed result."""
+    reasons: list[str] = []
+    snap: dict[str, Any] = {"symbol": data.symbol_ns}
+    info = data.info
+
+    if not info:
         return ScreenOneResult(
             passed=False,
             snapshot=snap,
-            reasons=[f"ticker_info_error:{info.get('error')}"],
+            reasons=["no_company_metadata"],
         )
 
-    _, eps_g_info = _apply_growth_filters(symbol, info, criteria, snap, reasons)
-    _apply_valuation_filters(info, criteria, snap, reasons, eps_g_info)
-    latest_i, latest_b = _load_statement_context(symbol)
+    _, eps_g = _apply_growth_filters(data, criteria, snap, reasons)
+    _apply_valuation_filters(info, criteria, snap, reasons, eps_g)
+    latest_i, latest_b = _extract_statement_context(data)
     oi, interest = _apply_profitability_filters(info, criteria, snap, reasons, latest_i, latest_b)
     _apply_balance_sheet_filters(info, criteria, snap, reasons, oi, interest)
     _apply_market_filters(info, criteria, snap, reasons)
 
     return ScreenOneResult(passed=(len(reasons) == 0), snapshot=snap, reasons=reasons)
+
+
+# ---------------------------------------------------------------------------
+# Result formatting
+# ---------------------------------------------------------------------------
 
 
 def _format_result(
@@ -399,25 +409,57 @@ def _format_result(
     return "\n".join(lines)
 
 
-def run_get_screened_stocks_sync(
-    symbols: list[str],
-    request: ScreenerRunRequest,
-) -> str:
-    notes: list[str] = []
-    if not symbols:
-        return "ERROR: No symbols available to screen."
+# ---------------------------------------------------------------------------
+# Main async screener entry point
+# ---------------------------------------------------------------------------
 
+
+async def run_get_screened_stocks_async(request: ScreenerRunRequest) -> str:
+    """Run the deterministic screen against the DB universe.
+
+    Loads all equity data (metadata + statements) in three bulk SQL queries,
+    then screens each symbol in Python — no per-symbol network calls.
+    """
+    async with SessionLocal() as session:
+        repo = ScreenerRepo(session)
+
+        equities = await repo.load_equities_with_metadata()
+        if not equities:
+            return "ERROR: No equities found in in_equities table."
+
+        equity_ids: list[UUID] = [e["id"] for e in equities]
+        income_map = await repo.load_latest_income_rows(equity_ids, n_periods=2)
+        balance_map = await repo.load_latest_balance_rows(equity_ids, n_periods=1)
+
+    notes: list[str] = []
     passed: list[dict[str, Any]] = []
-    for sym in symbols:
+
+    for equity in equities:
         if len(passed) >= request.max_results:
             break
-        result = _screen_one(sym.strip(), request.criteria)
+
+        eid: UUID = equity["id"]
+        symbol_ns = equity["symbol"] + ".NS"
+
+        screen_data = EquityScreenData(
+            symbol_ns=symbol_ns,
+            info=equity["info"],
+            income_rows=income_map.get(eid, []),
+            balance_rows=balance_map.get(eid, []),
+        )
+
+        result = _screen_one(screen_data, request.criteria)
         if result.passed:
             passed.append(result.snapshot)
-        elif result.reasons and "ticker_info_error" not in result.reasons[0]:
-            notes.append(f"{sym}: {', '.join(result.reasons[:3])}")
+        elif result.reasons and result.reasons[0] != "no_company_metadata":
+            notes.append(f"{symbol_ns}: {', '.join(result.reasons[:3])}")
 
     return _format_result(passed, request.universe_hint, notes[:50])
+
+
+# ---------------------------------------------------------------------------
+# LangChain tool definition
+# ---------------------------------------------------------------------------
 
 
 @tool("get_screened_stocks", args_schema=ScreenerToolInput)
@@ -428,14 +470,8 @@ async def get_screened_stocks(**kwargs: Any) -> str:
     style screen. There is **no** risk-profile parameter — adjust any numeric arg to tune.
     Symbols are loaded from `in_equities` and screened against current thresholds.
 
-    Uses only yfinance wrapper functions in ``BOTH_FUNCTIONS | SCREENER_FUNCTIONS``.
+    Uses financial data stored in the database (company_metadata, f_income_statements,
+    f_balance_sheets) — no live yfinance calls during screening.
     """
-    symbols = await _load_all_equity_symbols()
-    if not symbols:
-        return "ERROR: No equities found in in_equities table."
     request = _build_screener_request_from_values(kwargs)
-    return await asyncio.to_thread(
-        run_get_screened_stocks_sync,
-        symbols,
-        request,
-    )
+    return await run_get_screened_stocks_async(request)

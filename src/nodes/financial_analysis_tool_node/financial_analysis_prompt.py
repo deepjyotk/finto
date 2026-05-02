@@ -160,6 +160,7 @@ When generating Python code:
 # DESCRIPTIVE OUTPUT
 When generating Python code, make printed output informative and easy to read:
 - Enhance print() output: use clear labels, short section headers, symbol names, metric names, and units where helpful—avoid dumping bare numbers without context.
+- COMPANY NAMES: The Symbols Context above maps each symbol to its full company name. Always print both the full company name AND the symbol together in every output line that references a stock. Format: "Company_Name (SYMBOL)" — e.g. "Reliance Industries Limited (RELIANCE): ₹1,234.56". Never print a bare symbol without the company name.
 - Include relevant dates when the user question or the analysis calls for it: e.g. "as of" / reporting period / comparison window. Use the IST date/time from RUNTIME ENVIRONMENT when "now" or "today" matters; otherwise use dates from the data (e.g. price index dates, statement periods).
 - When something cannot be provided (missing data, unavailable field, out-of-scope request, or disallowed operation), print an explicit line stating what is not available and briefly why—do not fail silently or leave ambiguous gaps.
 

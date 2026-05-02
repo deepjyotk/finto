@@ -23,6 +23,7 @@ from src.nodes.financial_analysis_tool_node.financial_analysis_utils import (
     build_execution_env,
     build_partial_price_retry_user_message,
     build_portfolio_scope_message,
+    fetch_company_names,
     parse_portfolio_price_meta_from_tool_output,
 )
 from src.schemas.agent_state import AgentContext, AgentState
@@ -117,11 +118,13 @@ class PortfolioNode:
             llm_with_tools = llm.bind_tools([execute_code_tool], tool_choice="required")
 
             scope_msg, extracted_symbols = build_portfolio_scope_message(task, llm)
+            company_info = await fetch_company_names(extracted_symbols)
 
             invoke_args = build_code_gen_invoke_args(
                 messages=[scope_msg],
                 user_request=task,
                 symbol_names=extracted_symbols,
+                company_info=company_info,
             )
             ai_response = _invoke_code_generation_llm(llm_with_tools, invoke_args)
 
@@ -157,6 +160,7 @@ class PortfolioNode:
                             messages=messages_ctx,
                             user_request=task,
                             symbol_names=extracted_symbols,
+                            company_info=company_info,
                         )
                         ai_response = _invoke_code_generation_llm(llm_with_tools, invoke_args)
                         messages_ctx = messages_ctx + [ai_response]
@@ -177,6 +181,7 @@ class PortfolioNode:
                     messages=messages_ctx,
                     user_request=task,
                     symbol_names=extracted_symbols,
+                    company_info=company_info,
                 )
                 ai_response = _invoke_code_generation_llm(llm_with_tools, invoke_args)
                 messages_ctx = messages_ctx + [ai_response]
@@ -231,6 +236,7 @@ class PortfolioNode:
                     messages=messages,
                     user_request=user_request,
                     symbol_names=state.get("symbol_names", []),
+                    company_info=state.get("symbol_company_info", []),
                 )
                 ai_response = _invoke_code_generation_llm(llm_with_tools, invoke_args)
                 return {
@@ -279,11 +285,13 @@ class PortfolioNode:
                 summary = "User is asking about the entire portfolio"
 
             symbol_message = AIMessage(content=summary, name="portfolio_symbol_extractor")
+            company_info = await fetch_company_names(extracted_symbols)
 
             invoke_args = build_code_gen_invoke_args(
                 messages=messages + [symbol_message],
                 user_request=user_request,
                 symbol_names=extracted_symbols,
+                company_info=company_info,
             )
             ai_response = _invoke_code_generation_llm(llm_with_tools, invoke_args)
 
@@ -291,6 +299,7 @@ class PortfolioNode:
                 **state,
                 "messages": messages + [symbol_message, ai_response],
                 "symbol_names": extracted_symbols,
+                "symbol_company_info": company_info,
                 "attempts": 0,
             }
 

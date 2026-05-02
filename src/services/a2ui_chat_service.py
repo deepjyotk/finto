@@ -30,7 +30,7 @@ from src.a2ui.schemas import (
     make_step_complete,
     make_tool_result,
 )
-from src.a2ui.v0_9 import parse_llm_surface_document
+from src.a2ui.v0_9 import parse_llm_surface_document, serialize_stored_document
 from src.api.schemas.a2ui_resume import A2UIResumeRequest
 from src.api.schemas.thesys_chat import C1ChatRequest
 from src.core.enums import LLMModel
@@ -244,16 +244,27 @@ class A2UIChatService:
             if snapshot and snapshot.interrupts:
                 for evt in _iter_screener_hitl_ui_closure():
                     yield evt
+                hitl_messages: list[dict[str, Any]] = []
                 for intr in snapshot.interrupts:
                     iv = intr.value if isinstance(intr.value, dict) else {"value": intr.value}
                     for message in iv.get("a2ui_messages", []):
                         if isinstance(message, dict):
+                            hitl_messages.append(message)
                             yield make_a2ui_message(message)
                     yield make_hitl_form(
                         thread_id=thread_id,
                         surface_id=A2UI_HITL_SURFACE_ID,
                         task=iv.get("task") if isinstance(iv.get("task"), str) else None,
                     )
+                if hitl_messages:
+                    persisted_hitl = serialize_stored_document(
+                        hitl_messages, main_surface_id=A2UI_HITL_SURFACE_ID
+                    )
+                    yield make_message_complete(persisted_hitl)
+                    await self.chat_repo.create_ai_message(
+                        session_id=session_id, content=persisted_hitl
+                    )
+                    await self.chat_repo.session.commit()
                 logger.info(f"[A2UI] HITL interrupt emitted for session {thread_id}")
                 return
 
@@ -327,16 +338,27 @@ class A2UIChatService:
             if snapshot and snapshot.interrupts:
                 for evt in _iter_screener_hitl_ui_closure():
                     yield evt
+                resume_hitl_messages: list[dict[str, Any]] = []
                 for intr in snapshot.interrupts:
                     iv = intr.value if isinstance(intr.value, dict) else {"value": intr.value}
                     for message in iv.get("a2ui_messages", []):
                         if isinstance(message, dict):
+                            resume_hitl_messages.append(message)
                             yield make_a2ui_message(message)
                     yield make_hitl_form(
                         thread_id=thread_id,
                         surface_id=A2UI_HITL_SURFACE_ID,
                         task=iv.get("task") if isinstance(iv.get("task"), str) else None,
                     )
+                if resume_hitl_messages:
+                    persisted_resume_hitl = serialize_stored_document(
+                        resume_hitl_messages, main_surface_id=A2UI_HITL_SURFACE_ID
+                    )
+                    yield make_message_complete(persisted_resume_hitl)
+                    await self.chat_repo.create_ai_message(
+                        session_id=session_id, content=persisted_resume_hitl
+                    )
+                    await self.chat_repo.session.commit()
                 return
 
             yield make_a2ui_message(

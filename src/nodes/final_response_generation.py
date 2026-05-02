@@ -17,7 +17,7 @@ from langgraph.runtime import get_runtime
 from src.core.enums import LLMModel
 from src.core.json_logging import logger_for
 from src.core.llm import LLMFactory, ThesysChatOpenAI
-from src.core.settings import thesys_settings
+from src.core.settings import cloudflare_r2_settings, thesys_settings
 from src.schemas.agent_state import AgentContext, AgentState
 
 logger = logger_for(__name__)
@@ -71,6 +71,14 @@ class FinalResponseGenerationNode:
 
         # remove all the messages: tool messages, ai messages with tool_calls, ai messages without tool_calls, system messages after first_human_msg_id and last_ai_msg
         messages_to_remove: List[RemoveMessage] = []
+
+        for msg in past_messages:
+          if (
+              isinstance(msg, AIMessage)
+              and getattr(msg, "tool_calls", None)
+              and getattr(msg, "id", None)
+          ):
+              messages_to_remove.append(RemoveMessage(id=msg.id))
         for msg in current_iteration_messages:
             if msg.id != first_human_msg_id and msg.id != last_ai_msg_id:
                 messages_to_remove.append(RemoveMessage(id=msg.id))
@@ -190,9 +198,11 @@ Custom finance catalog:
                 }}
 • InfoBox    props: {{ "text": string | {{"path": "/json/pointer"}}, "variant": "info"|"warning"|"success"|"error" }}
 • DataTable  props: {{
-                  "columns": [{{"key": string, "label": string, "format": "text"|"currency_inr"|"number"|"percentage"|"date"|"boolean"}}] | {{"path": "/json/pointer"}} (optional),
+                  "columns": [{{"key": string, "label": string, "format": "text"|"currency_inr"|"number"|"percentage"|"date"|"boolean"|"company_identity"}}] | {{"path": "/json/pointer"}} (optional),
                   "rows": [{{"<column_key>": value, ...}}] | {{"path": "/json/pointer"}}
                 }}
+                Note: "company_identity" format renders a logo image + "Company Name - SYMBOL" text inline in the cell.
+                      Use it for every column that identifies a company (key = "company", "stock", etc.).
 • SourceList props: {{
                   "sources": [{{"source": string, "title": string, "url": string (optional)}}] | {{"path": "/json/pointer"}},
                   "title": string | {{"path": "/json/pointer"}} (optional)
@@ -205,6 +215,39 @@ Custom finance catalog:
                   "xKey": string | {{"path": "/json/pointer"}} (optional),
                   "unit": string | {{"path": "/json/pointer"}} (optional)
                 }}
+
+─── COMPANY IDENTITY FORMAT (MANDATORY) ───
+The company logo CDN base URL is: {logo_cdn_base}
+Logo URL pattern: {{logo_cdn_base}}/{{SYMBOL}}.svg  (e.g. {logo_cdn_base}/RELIANCE.svg)
+
+NEVER display a bare stock symbol (e.g. "RELIANCE") as a standalone label, column header, or Text value.
+Whenever a company must be identified in the UI, apply the following rules:
+
+1. In layout contexts (Card headers, List item headers, section titles, MetricCard labels):
+   Use a Row with align "center" containing:
+   • Image — url = "{logo_cdn_base}/{{SYMBOL}}.svg", variant = "icon", description = "{{company_name}}"
+   • Text  — text = "{{company_name}} - {{SYMBOL}}"
+
+   Example for RELIANCE in a card header:
+   {{"id": "reliance_header", "component": "Row", "children": ["reliance_logo", "reliance_title"], "align": "center"}},
+   {{"id": "reliance_logo", "component": "Image", "url": "{logo_cdn_base}/RELIANCE.svg", "variant": "icon", "description": "Reliance Industries Limited"}},
+   {{"id": "reliance_title", "component": "Text", "text": "Reliance Industries Limited - RELIANCE"}}
+
+2. In DataTable:
+   • The column that identifies a company MUST use label = "Company" and format = "company_identity".
+   • Row values for that column MUST be formatted as "{{company_name}} - {{SYMBOL}}" (e.g. "Reliance Industries Limited - RELIANCE").
+   • The renderer extracts the symbol from that string to fetch and display the logo automatically.
+   • Do NOT use label = "Symbol" or any bare symbol as a row value for the company column.
+
+3. In List templates (using data model binding):
+   Use the formatString function to compose logo URLs and labels dynamically:
+   {{"id": "item_logo", "component": "Image",
+     "url": {{"call": "formatString", "args": {{"value": "{logo_cdn_base}/${{symbol}}.svg"}}}},
+     "variant": "icon"}},
+   {{"id": "item_label", "component": "Text",
+     "text": {{"call": "formatString", "args": {{"value": "${{company_name}} - ${{symbol}}"}}}}}}
+
+   where `symbol` and `company_name` are relative paths in the collection scope.
 
 ─── RULES ───
 • Use official A2UI v0.9 messages: `createSurface`, `updateComponents`, and optionally `updateDataModel`.
@@ -223,7 +266,7 @@ Custom finance catalog:
   Use Text variants (`h1`, `h2`, `h3`, `body`, `caption`) and separate components instead.
 • For news or research summaries, create one Card per company/news item:
   - Card -> Column
-  - Text h3 for the company/title
+  - Company identity Row (logo + name) as the card header — see COMPANY IDENTITY FORMAT above
   - Text body for a concise 1-2 sentence summary
   - SourceList for sources, bound to dataModel whenever possible
   - InfoBox variant "warning" or "info" for missing/unavailable data
@@ -302,12 +345,19 @@ Output ONLY the JSON object:"""
                 }
 
             chain = prompt_template | llm
-            ai_response = chain.invoke(
-                {
-                    "user_request": user_request,
-                    "execution_result": execution_result,
-                }
-            )
+            invoke_kwargs: dict = {
+                "user_request": user_request,
+                "execution_result": execution_result,
+            }
+            if prompt_template is self._PROMPT_TEMPLATE_A2UI:
+                cdn = (
+                    cloudflare_r2_settings.public_domain
+                    or "https://pub-02ae21b71a13498f94e99ef653d36c8a.r2.dev"
+                ).rstrip("/")
+                if not cdn.startswith("http"):
+                    cdn = f"https://{cdn}"
+                invoke_kwargs["logo_cdn_base"] = cdn
+            ai_response = chain.invoke(invoke_kwargs)
             final_rendered_ui_answer = (
                 ai_response.content if hasattr(ai_response, "content") else str(ai_response)
             )

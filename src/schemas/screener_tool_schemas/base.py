@@ -21,10 +21,13 @@ def field(
     is_advanced_filter: bool = True,
     enabled: bool = True,
 ):
+    # Basic filters (shown on the main tab) default to dirty=True so defaults apply;
+    # advanced filters stay dirty=False until the user edits them.
+    initial_dirty = not is_advanced_filter
     return Field(
         default_factory=lambda: ScreenerFormField(
             value=value,
-            dirty=False,
+            dirty=initial_dirty,
             is_advanced_filter=is_advanced_filter,
             enabled=enabled,
         )

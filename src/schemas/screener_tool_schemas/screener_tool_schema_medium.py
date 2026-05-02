@@ -7,49 +7,6 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
-class ScreenerParamConfig(BaseModel):
-    """UI/runtime config for a single screener parameter."""
-
-    value: float | int | None
-    dirty: bool = False
-    is_advanced_filter: bool = False
-    enabled: bool
-
-
-class MediumScreenerParamConfig(BaseModel):
-    """Single source of truth for medium profile defaults and HITL visibility."""
-
-    pe_min: ScreenerParamConfig = ScreenerParamConfig(value=12.0, enabled=True)
-    pe_max: ScreenerParamConfig = ScreenerParamConfig(value=25.0, enabled=True)
-    peg_min: ScreenerParamConfig = ScreenerParamConfig(value=0.8, enabled=True)
-    peg_max: ScreenerParamConfig = ScreenerParamConfig(value=1.5, enabled=True)
-    pb_max: ScreenerParamConfig = ScreenerParamConfig(value=5.0, enabled=True)
-    ps_max: ScreenerParamConfig = ScreenerParamConfig(value=8.0, enabled=True)
-    ev_ebitda_max: ScreenerParamConfig = ScreenerParamConfig(value=18.0, enabled=True)
-    roe_min_pct: ScreenerParamConfig = ScreenerParamConfig(value=12.0, enabled=True)
-    roic_min_pct: ScreenerParamConfig = ScreenerParamConfig(value=10.0, enabled=True)
-    operating_margin_min_pct: ScreenerParamConfig = ScreenerParamConfig(value=None, enabled=True)
-    revenue_growth_yoy_min_pct: ScreenerParamConfig = ScreenerParamConfig(value=8.0, enabled=True)
-    eps_growth_yoy_min_pct: ScreenerParamConfig = ScreenerParamConfig(value=8.0, enabled=True)
-    debt_to_equity_max: ScreenerParamConfig = ScreenerParamConfig(value=1.0, enabled=True)
-    interest_coverage_min: ScreenerParamConfig = ScreenerParamConfig(value=4.0, enabled=False)
-    current_ratio_min: ScreenerParamConfig = ScreenerParamConfig(value=1.2, enabled=False)
-    market_cap_min_usd: ScreenerParamConfig = ScreenerParamConfig(
-        value=1_000_000_000.0, enabled=False
-    )
-    beta_min: ScreenerParamConfig = ScreenerParamConfig(value=0.9, enabled=False)
-    beta_max: ScreenerParamConfig = ScreenerParamConfig(value=1.2, enabled=False)
-    dividend_yield_min_pct: ScreenerParamConfig = ScreenerParamConfig(value=0.0, enabled=False)
-    payout_ratio_max_pct: ScreenerParamConfig = ScreenerParamConfig(value=70.0, enabled=False)
-    max_results: ScreenerParamConfig = ScreenerParamConfig(value=25, enabled=False)
-
-    def default_values(self) -> dict[str, Any]:
-        return {name: getattr(self, name).value for name in self.__class__.model_fields}
-
-    def enabled_fields(self) -> tuple[str, ...]:
-        return tuple(name for name in self.__class__.model_fields if getattr(self, name).enabled)
-
-
 class ScreenerCriteria(BaseModel):
     """Normalized quantitative thresholds used by the screener engine."""
 
@@ -69,6 +26,8 @@ class ScreenerCriteria(BaseModel):
     interest_coverage_min: float | None
     current_ratio_min: float | None
     market_cap_min_usd: float | None
+    market_cap_min_inr: float | None
+    market_cap_max_inr: float | None
     beta_min: float | None
     beta_max: float | None
     dividend_yield_min_pct: float | None
@@ -100,6 +59,8 @@ class ScreenerCriteria(BaseModel):
             interest_coverage_min=_get("interest_coverage_min"),
             current_ratio_min=_get("current_ratio_min"),
             market_cap_min_usd=_get("market_cap_min_usd"),
+            market_cap_min_inr=_get("market_cap_min_inr"),
+            market_cap_max_inr=_get("market_cap_max_inr"),
             beta_min=_get("beta_min"),
             beta_max=_get("beta_max"),
             dividend_yield_min_pct=_get("dividend_yield_min_pct"),

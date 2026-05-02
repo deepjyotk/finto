@@ -12,6 +12,7 @@ class AgentState(TypedDict):
 
     messages: Annotated[List[BaseMessage], add_messages]
     symbol_names: List[str]
+    symbol_company_info: List[dict]
     user_request: str
     attempts: int
     last_code_success: bool

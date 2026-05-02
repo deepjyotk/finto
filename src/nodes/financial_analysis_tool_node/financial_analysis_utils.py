@@ -6,6 +6,9 @@ from datetime import datetime
 from typing import Callable, Dict, List, Literal
 from zoneinfo import ZoneInfo
 
+from src.core.db import SessionLocal
+from src.utils.cache import in_equities_cache
+
 from langchain_core.messages import AIMessage, BaseMessage
 from pydantic import BaseModel
 
@@ -202,10 +205,48 @@ def build_portfolio_scope_message(task: str, llm) -> tuple[AIMessage, List[str]]
     return scope_msg, extracted_symbols
 
 
-def build_symbols_context(symbols: List[str]) -> str:
-    if symbols:
-        return f"Focus only on these symbols: {', '.join(symbols)}"
-    return "Scope: Analyze the entire portfolio (no specific symbol filter)."
+async def fetch_company_names(symbols: List[str]) -> List[dict]:
+    """Resolve company names for *symbols* via the in-service cache (cache-aside).
+
+    Opens a short-lived DB session only for cache misses; subsequent calls for
+    the same symbols are fully in-memory (TTL = 1 day).
+
+    Returns
+    -------
+    List of ``{"symbol_name": str, "company_name": str}`` dicts.
+    Empty list when *symbols* is empty or no rows are found.
+    """
+    if not symbols:
+        return []
+    async with SessionLocal() as session:
+        return await in_equities_cache.get_company_info_batch(symbols, session)
+
+
+def build_symbols_context(
+    symbols: List[str],
+    company_info: List[dict] | None = None,
+) -> str:
+    """Build the symbols context string for the code-generation prompt.
+
+    When *company_info* is provided it enriches each symbol line with the full
+    company name so the LLM can output human-readable results.
+    """
+    if not symbols:
+        return "Scope: Analyze the entire portfolio (no specific symbol filter)."
+
+    if company_info:
+        name_map = {row["symbol_name"]: row["company_name"] for row in company_info}
+        lines = [
+            f"- {sym} ({name_map[sym]})" if sym in name_map else f"- {sym}"
+            for sym in symbols
+        ]
+        return (
+            "Focus only on these symbols (symbol — full company name):\n"
+            + "\n".join(lines)
+            + "\nAlways print the full company name alongside the symbol in output."
+        )
+
+    return f"Focus only on these symbols: {', '.join(symbols)}"
 
 
 def build_execution_env() -> Dict[str, object]:
@@ -265,6 +306,7 @@ def build_code_gen_invoke_args(
     messages: List[BaseMessage],
     user_request: str,
     symbol_names: List[str],
+    company_info: List[dict] | None = None,
 ) -> dict:
     """Assemble all template variables needed by CODE_GENERATION_PROMPT.
 
@@ -279,7 +321,7 @@ def build_code_gen_invoke_args(
         "messages": messages,
         "user_request": user_request,
         "portfolio_df_schema": EquityHoldingSchema.get_holdings_schema(),
-        "symbols_context": build_symbols_context(symbol_names),
+        "symbols_context": build_symbols_context(symbol_names, company_info),
         "current_date_time": datetime.now(ZoneInfo("Asia/Kolkata")).strftime("%Y-%m-%d %H:%M:%S"),
         # ── NEW: single routed block (migrate prompt to use this) ───────
         "routed_function_signatures": get_routed_function_signatures(user_request),

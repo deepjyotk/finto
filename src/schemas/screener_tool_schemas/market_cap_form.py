@@ -1,12 +1,12 @@
-"""Market-cap tier form: one category with configurable large / mid / small USD breakpoints.
+"""Market-cap category form.
 
-Tier semantics match the PRD (size buckets):
-  large-cap: market cap >= large_cap_min_usd
-  mid-cap:    mid_cap_min_usd <= market cap <= mid_cap_max_usd (typically below large floor)
-  small-cap: market cap <= small_cap_max_usd (typically aligned with mid floor)
+Important fields for cap-based screening
+----------------------------------------
+- ``market_category``: qualitative bucket — ``large_cap``, ``medium_cap``, or ``small_cap``.
+- ``min_inr`` / ``max_inr``: optional explicit floors/ceilings in INR against
+  ``company_metadata.marketCap`` from the Yahoo snapshot (typically INR for NSE ``.NS``).
 
-Defaults align with ``stocks-interpretation.md``: large >$10B, mid $2B–$10B, small <$2B.
-Adjust module-level constants or form field values to change breakpoints globally or per-user.
+Additional rows filter on valuation and fundamentals (P/E, ROE, margins, …).
 """
 
 from __future__ import annotations
@@ -15,63 +15,22 @@ from typing import Literal
 
 from .base import BaseScreenerForm, ScreenerFormField, field
 
-MarketCapSegment = Literal["large_cap", "mid_cap", "small_cap"]
-
-# Single source of truth for tier boundaries (USD). Import these without instantiating the form.
-DEFAULT_LARGE_CAP_MIN_USD: int = 10_000_000_000
-DEFAULT_MID_CAP_MIN_USD: int = 2_000_000_000
-DEFAULT_MID_CAP_MAX_USD: int = 10_000_000_000
-DEFAULT_SMALL_CAP_MAX_USD: int = 2_000_000_000
-
-
-def resolved_market_cap_bounds(
-    segment: MarketCapSegment | str | None,
-    *,
-    large_cap_min_usd: int | None,
-    mid_cap_min_usd: int | None,
-    mid_cap_max_usd: int | None,
-    small_cap_max_usd: int | None,
-) -> tuple[int | None, int | None]:
-    """Map segment + tier boundaries to ``(market_cap_min, market_cap_max)`` for screening."""
-    if segment == "large_cap":
-        return large_cap_min_usd, None
-    if segment == "mid_cap":
-        return mid_cap_min_usd, mid_cap_max_usd
-    if segment == "small_cap":
-        return None, small_cap_max_usd
-    return None, None
+MarketCapCategory = Literal["large_cap", "medium_cap", "small_cap"]
 
 
 class MarketCapForm(BaseScreenerForm):
     category: str = "market_cap"
     description: str = (
-        "Screen by market-cap tier (large / mid / small). Tier USD boundaries are configurable."
+        "Screen by market-cap tier and/or INR range, aligned with NSE listings."
     )
 
-    segment: ScreenerFormField[MarketCapSegment | None] = field(
+    market_category: ScreenerFormField[MarketCapCategory] = field(
         "large_cap",
         is_advanced_filter=False,
     )
 
-    large_cap_min_usd: ScreenerFormField[int] = field(
-        DEFAULT_LARGE_CAP_MIN_USD,
-        is_advanced_filter=True,
-    )
-    mid_cap_min_usd: ScreenerFormField[int] = field(
-        DEFAULT_MID_CAP_MIN_USD,
-        is_advanced_filter=True,
-    )
-    mid_cap_max_usd: ScreenerFormField[int] = field(
-        DEFAULT_MID_CAP_MAX_USD,
-        is_advanced_filter=True,
-    )
-    small_cap_max_usd: ScreenerFormField[int] = field(
-        DEFAULT_SMALL_CAP_MAX_USD,
-        is_advanced_filter=True,
-    )
-
-    market_cap_min: ScreenerFormField[int] = field(None)
-    market_cap_max: ScreenerFormField[int] = field(None)
+    min_inr: ScreenerFormField[int | None] = field(None, is_advanced_filter=False)
+    max_inr: ScreenerFormField[int | None] = field(None, is_advanced_filter=False)
 
     pe_min: ScreenerFormField[float] = field(None)
     pe_max: ScreenerFormField[float] = field(40)

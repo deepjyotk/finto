@@ -12,6 +12,7 @@ Data sources
 
 from __future__ import annotations
 
+import asyncio
 import math
 from dataclasses import dataclass, field
 from typing import Any
@@ -21,29 +22,83 @@ from langchain_core.tools import tool
 
 from src.core.db import SessionLocal
 from src.repositories.screener_repo import ScreenerRepo
+from src.schemas.screener_tool_schemas.base import BaseScreenerForm, ScreenerFormField
 from src.schemas.screener_tool_schemas.screener_tool_schema_medium import (
-    MediumScreenerParamConfig,
     ScreenOneResult,
     ScreenerCriteria,
     ScreenerRunRequest,
     ScreenerToolInput,
 )
 
-_MEDIUM_PARAM_CONFIG = MediumScreenerParamConfig()
-_MEDIUM_DEFAULTS: dict[str, Any] = _MEDIUM_PARAM_CONFIG.default_values()
+# ---------------------------------------------------------------------------
+# Category form → normalized criteria mapping
+# ---------------------------------------------------------------------------
 
+_CATEGORY_TO_CRITERIA: dict[str, str] = {
+    "roe_pct_min": "roe_min_pct",
+    "roic_pct_min": "roic_min_pct",
+    "operating_margin_pct_min": "operating_margin_min_pct",
+    "revenue_growth_pct_min": "revenue_growth_yoy_min_pct",
+    "market_cap_min": "market_cap_min_usd",
+    "min_inr": "market_cap_min_inr",
+    "max_inr": "market_cap_max_inr",
+    "dividend_yield_pct_min": "dividend_yield_min_pct",
+    "payout_ratio_pct_max": "payout_ratio_max_pct",
+}
 
-def enabled_medium_hitl_param_names() -> tuple[str, ...]:
-    """Screener params that should be rendered in the HITL form."""
-    return _MEDIUM_PARAM_CONFIG.enabled_fields()
+_CRITERIA_SKIP_FIELDS = frozenset(
+    {
+        "roe_pct_max",
+        "roic_pct_max",
+        "operating_margin_pct_max",
+        "revenue_growth_pct_max",
+        "debt_to_equity_min",
+        "interest_coverage_max",
+        "current_ratio_max",
+        "dividend_yield_pct_max",
+        "payout_ratio_pct_min",
+        "market_cap_max",
+        "pb_min",
+        "ps_min",
+        "sectors",
+        "industry",
+        "country",
+        "exchange",
+        "market_region",
+        "style",
+        "sensitivity_type",
+        "market_category",
+        "_intent",
+    }
+)
+
+_SCREEN_CONCURRENCY = 32
+
+StatementRowsByEquity = dict[UUID, list[dict[str, Any]]]
 
 
 def _build_screener_request_from_values(values: dict[str, Any]) -> ScreenerRunRequest:
-    enabled_fields = set(enabled_medium_hitl_param_names())
-    return ScreenerRunRequest.from_values(
-        values,
-        enabled_fields=enabled_fields,
-    )
+    return ScreenerRunRequest.from_values(values)
+
+
+def build_screener_request_from_form(form: BaseScreenerForm) -> ScreenerRunRequest:
+    """Convert a typed HITL category form into the normalized screener request."""
+    values: dict[str, Any] = {}
+
+    for field_name in form.__class__.model_fields:
+        if field_name in _CRITERIA_SKIP_FIELDS:
+            continue
+
+        field_model = getattr(form, field_name, None)
+        if not isinstance(field_model, ScreenerFormField):
+            continue
+        if field_model.value is None:
+            continue
+
+        criteria_key = _CATEGORY_TO_CRITERIA.get(field_name, field_name)
+        values[criteria_key] = field_model.value
+
+    return ScreenerRunRequest.from_values(values)
 
 
 # ---------------------------------------------------------------------------
@@ -56,10 +111,10 @@ class EquityScreenData:
     """All data needed to screen one equity, loaded from DB in bulk."""
 
     symbol_ns: str
-    info: dict = field(default_factory=dict)
-    income_rows: list[dict] = field(default_factory=list)
+    info: dict[str, Any] = field(default_factory=dict)
+    income_rows: list[dict[str, Any]] = field(default_factory=list)
     """Latest 2 annual income rows, newest first. Each row: {"data": {display_name: float}}."""
-    balance_rows: list[dict] = field(default_factory=list)
+    balance_rows: list[dict[str, Any]] = field(default_factory=list)
     """Latest 1 annual balance row. Each row: {"data": {display_name: float}}."""
 
 
@@ -323,6 +378,16 @@ def _apply_market_filters(
             reasons.append("market_cap_missing")
         elif mcap < criteria.market_cap_min_usd:
             reasons.append(f"market_cap<{criteria.market_cap_min_usd}")
+    if criteria.market_cap_min_inr is not None:
+        if mcap is None:
+            reasons.append("market_cap_missing")
+        elif mcap < criteria.market_cap_min_inr:
+            reasons.append(f"market_cap_inr<{criteria.market_cap_min_inr}")
+    if criteria.market_cap_max_inr is not None:
+        if mcap is None:
+            reasons.append("market_cap_missing")
+        elif mcap > criteria.market_cap_max_inr:
+            reasons.append(f"market_cap_inr>{criteria.market_cap_max_inr}")
 
     beta = _f(info.get("beta"))
     snap["beta"] = beta
@@ -409,16 +474,81 @@ def _format_result(
     return "\n".join(lines)
 
 
+def _needs_income_rows(criteria: ScreenerCriteria) -> bool:
+    return any(
+        value is not None
+        for value in (
+            criteria.revenue_growth_yoy_min_pct,
+            criteria.eps_growth_yoy_min_pct,
+            criteria.ev_ebitda_max,
+            criteria.roic_min_pct,
+            criteria.interest_coverage_min,
+        )
+    )
+
+
+def _needs_balance_rows(criteria: ScreenerCriteria) -> bool:
+    return criteria.roic_min_pct is not None
+
+
+async def _load_income_rows(equity_ids: list[UUID]) -> StatementRowsByEquity:
+    async with SessionLocal() as session:
+        return await ScreenerRepo(session).load_latest_income_rows(equity_ids, n_periods=2)
+
+
+async def _load_balance_rows(equity_ids: list[UUID]) -> StatementRowsByEquity:
+    async with SessionLocal() as session:
+        return await ScreenerRepo(session).load_latest_balance_rows(equity_ids, n_periods=1)
+
+
+async def _load_required_statement_rows(
+    equity_ids: list[UUID],
+    criteria: ScreenerCriteria,
+) -> tuple[StatementRowsByEquity, StatementRowsByEquity]:
+    load_income = _needs_income_rows(criteria)
+    load_balance = _needs_balance_rows(criteria)
+
+    if load_income and load_balance:
+        income_map, balance_map = await asyncio.gather(
+            _load_income_rows(equity_ids),
+            _load_balance_rows(equity_ids),
+        )
+        return income_map, balance_map
+
+    income_map = await _load_income_rows(equity_ids) if load_income else {}
+    balance_map = await _load_balance_rows(equity_ids) if load_balance else {}
+    return income_map, balance_map
+
+
+async def _screen_equity_async(
+    equity: dict[str, Any],
+    request: ScreenerRunRequest,
+    income_map: StatementRowsByEquity,
+    balance_map: StatementRowsByEquity,
+    semaphore: asyncio.Semaphore,
+) -> ScreenOneResult:
+    async with semaphore:
+        eid: UUID = equity["id"]
+        screen_data = EquityScreenData(
+            symbol_ns=f"{equity['symbol']}.NS",
+            info=equity["info"],
+            income_rows=income_map.get(eid, []),
+            balance_rows=balance_map.get(eid, []),
+        )
+        return await asyncio.to_thread(_screen_one, screen_data, request.criteria)
+
+
 # ---------------------------------------------------------------------------
 # Main async screener entry point
 # ---------------------------------------------------------------------------
 
 
-async def run_get_screened_stocks_async(request: ScreenerRunRequest) -> str:
+async def _run_get_screened_stocks_request_async(request: ScreenerRunRequest) -> str:
     """Run the deterministic screen against the DB universe.
 
-    Loads all equity data (metadata + statements) in three bulk SQL queries,
-    then screens each symbol in Python — no per-symbol network calls.
+    Loads equity metadata first, then fetches only statement tables required by
+    the active criteria. Independent statement queries and per-equity screening
+    are run concurrently with bounded fan-out.
     """
     async with SessionLocal() as session:
         repo = ScreenerRepo(session)
@@ -427,34 +557,36 @@ async def run_get_screened_stocks_async(request: ScreenerRunRequest) -> str:
         if not equities:
             return "ERROR: No equities found in in_equities table."
 
-        equity_ids: list[UUID] = [e["id"] for e in equities]
-        income_map = await repo.load_latest_income_rows(equity_ids, n_periods=2)
-        balance_map = await repo.load_latest_balance_rows(equity_ids, n_periods=1)
+    equity_ids: list[UUID] = [e["id"] for e in equities]
+    income_map, balance_map = await _load_required_statement_rows(equity_ids, request.criteria)
 
     notes: list[str] = []
     passed: list[dict[str, Any]] = []
+    semaphore = asyncio.Semaphore(_SCREEN_CONCURRENCY)
+    results = await asyncio.gather(
+        *(
+            _screen_equity_async(equity, request, income_map, balance_map, semaphore)
+            for equity in equities
+        )
+    )
 
-    for equity in equities:
+    for result in results:
         if len(passed) >= request.max_results:
             break
 
-        eid: UUID = equity["id"]
-        symbol_ns = equity["symbol"] + ".NS"
-
-        screen_data = EquityScreenData(
-            symbol_ns=symbol_ns,
-            info=equity["info"],
-            income_rows=income_map.get(eid, []),
-            balance_rows=balance_map.get(eid, []),
-        )
-
-        result = _screen_one(screen_data, request.criteria)
         if result.passed:
             passed.append(result.snapshot)
         elif result.reasons and result.reasons[0] != "no_company_metadata":
+            symbol_ns = result.snapshot.get("symbol", "(unknown)")
             notes.append(f"{symbol_ns}: {', '.join(result.reasons[:3])}")
 
     return _format_result(passed, request.universe_hint, notes[:50])
+
+
+async def run_get_screened_stocks_async(form: BaseScreenerForm) -> str:
+    """Run the deterministic screen from a typed HITL category form."""
+    request = build_screener_request_from_form(form)
+    return await _run_get_screened_stocks_request_async(request)
 
 
 # ---------------------------------------------------------------------------
@@ -474,4 +606,4 @@ async def get_screened_stocks(**kwargs: Any) -> str:
     f_balance_sheets) — no live yfinance calls during screening.
     """
     request = _build_screener_request_from_values(kwargs)
-    return await run_get_screened_stocks_async(request)
+    return await _run_get_screened_stocks_request_async(request)

@@ -25,13 +25,13 @@ class InvestmentStyleForm(BaseScreenerForm):
     ps_min: ScreenerFormField[float] = field(None)
     ps_max: ScreenerFormField[float] = field(None)
 
-    roe_pct_min: ScreenerFormField[float] = field(10)
+    roe_pct_min: ScreenerFormField[float] = field(None)
     roe_pct_max: ScreenerFormField[float] = field(None)
 
-    roic_pct_min: ScreenerFormField[float] = field(8)
+    roic_pct_min: ScreenerFormField[float] = field(None)
     roic_pct_max: ScreenerFormField[float] = field(None)
 
-    operating_margin_pct_min: ScreenerFormField[float] = field(5)
+    operating_margin_pct_min: ScreenerFormField[float] = field(None)
     operating_margin_pct_max: ScreenerFormField[float] = field(None)
 
     revenue_growth_pct_min: ScreenerFormField[float] = field(None)
@@ -55,7 +55,7 @@ class InvestmentStyleForm(BaseScreenerForm):
     beta_min: ScreenerFormField[float] = field(None)
     beta_max: ScreenerFormField[float] = field(None)
 
-    sectors: ScreenerFormField[list[str]] = field([])
+    sectors: ScreenerFormField[list[str]] = field(None)
     industry: ScreenerFormField[str] = field(None)
     country: ScreenerFormField[str] = field(None)
     exchange: ScreenerFormField[str] = field(None)

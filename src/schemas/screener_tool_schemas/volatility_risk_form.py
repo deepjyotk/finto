@@ -64,7 +64,7 @@ class VolatilityRiskForm(BaseScreenerForm):
         is_advanced_filter=False,
     )
 
-    sectors: ScreenerFormField[list[str]] = field([])
+    sectors: ScreenerFormField[list[str]] = field(None)
     industry: ScreenerFormField[str] = field(None)
     country: ScreenerFormField[str] = field(None)
     exchange: ScreenerFormField[str] = field(None)

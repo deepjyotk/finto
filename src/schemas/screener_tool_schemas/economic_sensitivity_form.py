@@ -28,19 +28,19 @@ class EconomicSensitivityForm(BaseScreenerForm):
     roic_pct_min: ScreenerFormField[float] = field(None)
     roic_pct_max: ScreenerFormField[float] = field(None)
 
-    operating_margin_pct_min: ScreenerFormField[float] = field(5)
+    operating_margin_pct_min: ScreenerFormField[float] = field(None)
     operating_margin_pct_max: ScreenerFormField[float] = field(None)
 
     revenue_growth_pct_min: ScreenerFormField[float] = field(None)
     revenue_growth_pct_max: ScreenerFormField[float] = field(None)
 
     debt_to_equity_min: ScreenerFormField[float] = field(None)
-    debt_to_equity_max: ScreenerFormField[float] = field(150)
+    debt_to_equity_max: ScreenerFormField[float] = field(None)
 
-    interest_coverage_min: ScreenerFormField[float] = field(3)
+    interest_coverage_min: ScreenerFormField[float] = field(None)
     interest_coverage_max: ScreenerFormField[float] = field(None)
 
-    current_ratio_min: ScreenerFormField[float] = field(1)
+    current_ratio_min: ScreenerFormField[float] = field(None)
     current_ratio_max: ScreenerFormField[float] = field(None)
 
     dividend_yield_pct_min: ScreenerFormField[float] = field(None)
@@ -58,7 +58,7 @@ class EconomicSensitivityForm(BaseScreenerForm):
         is_advanced_filter=False,
     )
 
-    sectors: ScreenerFormField[list[str]] = field([])
+    sectors: ScreenerFormField[list[str]] = field(None)
     industry: ScreenerFormField[str] = field(None)
     country: ScreenerFormField[str] = field(None)
     exchange: ScreenerFormField[str] = field(None)

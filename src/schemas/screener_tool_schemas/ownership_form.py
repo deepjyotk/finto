@@ -52,7 +52,7 @@ class OwnershipForm(BaseScreenerForm):
     beta_min: ScreenerFormField[float] = field(None)
     beta_max: ScreenerFormField[float] = field(None)
 
-    sectors: ScreenerFormField[list[str]] = field([])
+    sectors: ScreenerFormField[list[str]] = field(None)
     industry: ScreenerFormField[str] = field(None)
 
     country: ScreenerFormField[str] = field(

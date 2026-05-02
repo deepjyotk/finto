@@ -31,25 +31,25 @@ class ValueForm(BaseScreenerForm):
     ps_min: ScreenerFormField[float] = field(None)
     ps_max: ScreenerFormField[float] = field(None)
 
-    roe_pct_min: ScreenerFormField[float] = field(8)
+    roe_pct_min: ScreenerFormField[float] = field(None)
     roe_pct_max: ScreenerFormField[float] = field(None)
 
-    roic_pct_min: ScreenerFormField[float] = field(8)
+    roic_pct_min: ScreenerFormField[float] = field(None)
     roic_pct_max: ScreenerFormField[float] = field(None)
 
-    operating_margin_pct_min: ScreenerFormField[float] = field(5)
+    operating_margin_pct_min: ScreenerFormField[float] = field(None)
     operating_margin_pct_max: ScreenerFormField[float] = field(None)
 
-    revenue_growth_pct_min: ScreenerFormField[float] = field(0)
+    revenue_growth_pct_min: ScreenerFormField[float] = field(None)
     revenue_growth_pct_max: ScreenerFormField[float] = field(None)
 
     debt_to_equity_min: ScreenerFormField[float] = field(None)
-    debt_to_equity_max: ScreenerFormField[float] = field(100)
+    debt_to_equity_max: ScreenerFormField[float] = field(None)
 
-    interest_coverage_min: ScreenerFormField[float] = field(3)
+    interest_coverage_min: ScreenerFormField[float] = field(None)
     interest_coverage_max: ScreenerFormField[float] = field(None)
 
-    current_ratio_min: ScreenerFormField[float] = field(1)
+    current_ratio_min: ScreenerFormField[float] = field(None)
     current_ratio_max: ScreenerFormField[float] = field(None)
 
     dividend_yield_pct_min: ScreenerFormField[float] = field(None)
@@ -61,7 +61,7 @@ class ValueForm(BaseScreenerForm):
     beta_min: ScreenerFormField[float] = field(None)
     beta_max: ScreenerFormField[float] = field(None)
 
-    sectors: ScreenerFormField[list[str]] = field([])
+    sectors: ScreenerFormField[list[str]] = field(None)
     industry: ScreenerFormField[str] = field(None)
     country: ScreenerFormField[str] = field(None)
     exchange: ScreenerFormField[str] = field(None)

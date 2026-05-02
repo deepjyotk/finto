@@ -53,16 +53,72 @@ def build_surface_messages(
     return messages
 
 
+def _is_dynamic_binding(value: Any) -> bool:
+    return (
+        isinstance(value, dict)
+        and isinstance(value.get("path"), str)
+        and set(value).issubset({"path", "componentId"})
+    )
+
+
+def _normalize_data_table_rows(component: dict[str, Any]) -> dict[str, Any]:
+    if component.get("component") != "DataTable":
+        return component
+
+    rows = component.get("rows")
+    if not isinstance(rows, dict) or _is_dynamic_binding(rows):
+        return component
+
+    return {
+        **component,
+        "rows": list(rows.values()),
+    }
+
+
+def normalize_a2ui_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Normalize tolerated LLM A2UI shapes into frontend-renderable v0.9 messages."""
+    normalized_messages: list[dict[str, Any]] = []
+
+    for message in messages:
+        update_components = message.get("updateComponents")
+        if not isinstance(update_components, dict):
+            normalized_messages.append(message)
+            continue
+
+        components = update_components.get("components")
+        if not isinstance(components, list):
+            normalized_messages.append(message)
+            continue
+
+        normalized_messages.append(
+            {
+                **message,
+                "updateComponents": {
+                    **update_components,
+                    "components": [
+                        _normalize_data_table_rows(component)
+                        if isinstance(component, dict)
+                        else component
+                        for component in components
+                    ],
+                },
+            }
+        )
+
+    return normalized_messages
+
+
 def serialize_stored_document(
     messages: list[dict[str, Any]],
     *,
     main_surface_id: str = A2UI_MAIN_SURFACE_ID,
 ) -> str:
+    normalized_messages = normalize_a2ui_messages(messages)
     return json.dumps(
         {
             "type": "a2ui_v0_9_document",
             "mainSurfaceId": main_surface_id,
-            "messages": messages,
+            "messages": normalized_messages,
         },
         ensure_ascii=False,
     )
@@ -101,7 +157,8 @@ def parse_llm_surface_document(raw: str) -> tuple[list[dict[str, Any]], str]:
     messages = parsed.get("messages")
     if isinstance(messages, list) and messages:
         if all(isinstance(message, dict) and message.get("version") == "v0.9" for message in messages):
-            return messages, serialize_stored_document(messages)
+            normalized_messages = normalize_a2ui_messages(messages)
+            return normalized_messages, serialize_stored_document(normalized_messages)
         return [], raw
 
     components = parsed.get("components")
@@ -128,4 +185,5 @@ def parse_llm_surface_document(raw: str) -> tuple[list[dict[str, Any]], str]:
         components=components,
         data_model=data_model or {},
     )
-    return messages, serialize_stored_document(messages)
+    normalized_messages = normalize_a2ui_messages(messages)
+    return normalized_messages, serialize_stored_document(normalized_messages)

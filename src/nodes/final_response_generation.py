@@ -256,7 +256,10 @@ Whenever a company must be identified in the UI, apply the following rules:
 • Every UI component must be a flat object inside the `updateComponents.components` array.
 • Use short unique IDs: "title", "summary_row", "table1", "chart1", "info1", etc.
 • Prefer putting repeated, tabular, or chart data inside `dataModel` and bind with `{{"path": "/..."}}`.
-• For DataTable rows, use objects keyed by each column.key. Do not use positional row arrays unless the source data is already positional.
+• For DataTable rows, the `rows` prop itself MUST be an array. Each row inside that array must be an object keyed by column.key.
+  Correct: `"rows": [{{"company": "Reliance Industries - RELIANCE", "profit": "₹1,000.00"}}]`.
+  Wrong: `"rows": {{"RELIANCE": {{"company": "Reliance Industries - RELIANCE", "profit": "₹1,000.00"}}}}`.
+  Do not use positional row arrays unless the source data is already positional.
 • For wide tabular data, DataTable can scroll horizontally. Still choose concise columns for each table:
   - Use one overview table with the most important columns.
   - Put separate detailed tables in Tabs when there are multiple table views such as All/Hold/Sell.

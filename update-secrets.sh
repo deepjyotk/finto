@@ -1,8 +1,12 @@
 #!/bin/bash
-set -e
+# Sync Google Secret Manager from local .env (ground truth).
+# Creates/updates each non-empty .env key and grants run-runtime secretAccessor.
+set -euo pipefail
 
 PROJECT_ID="finto-477904"
 RUNTIME_SA="run-runtime@finto-477904.iam.gserviceaccount.com"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$ROOT"
 
 if [ ! -f ".env" ]; then
   echo "Error: .env file not found"
@@ -10,67 +14,55 @@ if [ ! -f ".env" ]; then
 fi
 
 set -a
+# shellcheck disable=SC1091
 source .env
 set +a
 
-SECRETS=(
-  "SECRET_KEY"
-  "DATABASE_URL"
-  "OPENAI_API_KEY"
-  "TAVILY_API_KEY"
-  "WA_APP_SECRET"
-  "WA_VERIFY_TOKEN"
-  "WA_PHONE_NUMBER_ID"
-  "WA_USER_OR_SYSTEM_TOKEN"
-  "WA_SENDER_E164"
-  "LANGSMITH_TRACING"
-  "LANGSMITH_ENDPOINT"
-  "LANGSMITH_API_KEY"
-  "LANGSMITH_PROJECT"
-  "PINECONE_API_KEY"
-  "THESYS_API_KEY"
-  "THESYS_ENABLED"
-  "THESYS_BASE_URL"
-  "THESYS_MODEL"
-  "ROUTER_MODEL"
-  "PORTFOLIO_MODEL"
-  "NEWS_MODEL"
-  "SENDGRID_API_KEY"
-  "SENDGRID_FROM_EMAIL"
-  "SENDGRID_FROM_NAME"
-  "GOOGLE_API_KEY"
-  "GOOGLE_CLIENT_ID"
-  "ANTHROPIC_API_KEY"
-  "CLOUDFLARE_R2_ACCOUNT_ID"
-  "CLOUDFLARE_R2_PUBLIC_DOMAIN"
-  "CLOUDFLARE_R2_ACCESS_KEY_ID"
-  "CLOUDFLARE_R2_SECRET_ACCESS_KEY"
-  "CLOUDFLARE_R2_BUCKET_NAME"
-  "GCS_BUCKET_NAME"
-  "GCS_PROJECT_ID"
+# Collect keys from .env (same order as the file). Keep in sync with
+# cloudbuild.yaml --set-secrets= and fetch-secrets.sh KNOWN_SECRETS.
+SECRETS=()
+while IFS= read -r raw || [[ -n "$raw" ]]; do
+  [[ "$raw" =~ ^[[:space:]]*# ]] && continue
+  t="${raw#"${raw%%[![:space:]]*}"}"
+  t="${t%"${t##*[![:space:]]}"}"
+  [[ -z "$t" ]] && continue
+  t="${t#export }"
+  t="${t#"${t%%[![:space:]]*}"}"
+  [[ "$t" != *=* ]] && continue
+  key="${t%%=*}"
+  key="${key#"${key%%[![:space:]]*}"}"
+  key="${key%"${key##*[![:space:]]}"}"
+  [[ -z "$key" ]] && continue
+  SECRETS+=("$key")
+done < .env
 
-)
+if ((${#SECRETS[@]} == 0)); then
+  echo "Error: no keys found in .env"
+  exit 1
+fi
+
+echo "Syncing ${#SECRETS[@]} secrets from .env → Secret Manager (${PROJECT_ID})..."
 
 for secret_name in "${SECRETS[@]}"; do
-  secret_value="${!secret_name}"
-  
+  secret_value="${!secret_name-}"
+
   if [ -z "$secret_value" ]; then
     echo "Warning: $secret_name is empty in .env, skipping..."
     continue
   fi
-  
-  if gcloud secrets describe "$secret_name" --project=$PROJECT_ID &>/dev/null; then
+
+  if gcloud secrets describe "$secret_name" --project="$PROJECT_ID" &>/dev/null; then
     echo "Updating $secret_name..."
-    echo -n "$secret_value" | gcloud secrets versions add "$secret_name" --project=$PROJECT_ID --data-file=-
+    echo -n "$secret_value" | gcloud secrets versions add "$secret_name" --project="$PROJECT_ID" --data-file=-
   else
     echo "Creating $secret_name..."
-    echo -n "$secret_value" | gcloud secrets create "$secret_name" --project=$PROJECT_ID --replication-policy=automatic --data-file=-
+    echo -n "$secret_value" | gcloud secrets create "$secret_name" --project="$PROJECT_ID" --replication-policy=automatic --data-file=-
   fi
 
   # Ensure runtime SA can read every secret, including pre-existing ones.
   gcloud secrets add-iam-policy-binding "$secret_name" \
-    --project=$PROJECT_ID \
-    --member=serviceAccount:$RUNTIME_SA \
+    --project="$PROJECT_ID" \
+    --member="serviceAccount:$RUNTIME_SA" \
     --role=roles/secretmanager.secretAccessor >/dev/null
 done
 

@@ -25,8 +25,8 @@ if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   exit 1
 fi
 
-missing_in_secrets=()
 missing_in_cloudbuild=()
+extra_in_cloudbuild=()
 
 trim() {
   # Trim leading/trailing whitespace without external tooling (avoid xargs).
@@ -36,6 +36,7 @@ trim() {
   printf '%s' "$s"
 }
 
+env_keys=()
 while IFS= read -r raw || [[ -n "$raw" ]]; do
   [[ "$raw" =~ ^[[:space:]]*# ]] && continue
   t="$(trim "$raw")"
@@ -46,34 +47,50 @@ while IFS= read -r raw || [[ -n "$raw" ]]; do
   [[ "$t" != *=* ]] && continue
   key="$(trim "${t%%=*}")"
   [[ -z "$key" ]] && continue
+  env_keys+=("$key")
 
-  if ! grep -Fq "\"$key\"" "$SECRETS_FILE"; then
-    missing_in_secrets+=("$key")
-  fi
   if ! grep -Fq -- "--set-secrets=${key}=" "$CLOUD_BUILD"; then
     missing_in_cloudbuild+=("$key")
   fi
 done < "$ENV_FILE"
 
+# Flag Cloud Run secrets that are no longer in .env (stale deploy wiring).
+while IFS= read -r line; do
+  [[ "$line" == *"--set-secrets="* ]] || continue
+  part="${line#*--set-secrets=}"
+  part="$(trim "$part")"
+  key="${part%%=*}"
+  key="$(trim "$key")"
+  [[ -z "$key" ]] && continue
+  found=0
+  for ek in "${env_keys[@]}"; do
+    if [[ "$ek" == "$key" ]]; then found=1; break; fi
+  done
+  if ((found == 0)); then
+    extra_in_cloudbuild+=("$key")
+  fi
+done < "$CLOUD_BUILD"
+
 had_issue=0
-if ((${#missing_in_secrets[@]})); then
-  had_issue=1
-  echo "The following .env keys are missing from $SECRETS_FILE (SECRETS array):"
-  printf '  - %s\n' "${missing_in_secrets[@]}"
-  echo
-fi
 if ((${#missing_in_cloudbuild[@]})); then
   had_issue=1
   echo "The following .env keys are missing from $CLOUD_BUILD (--set-secrets=...):"
   printf '  - %s\n' "${missing_in_cloudbuild[@]}"
   echo
 fi
+if ((${#extra_in_cloudbuild[@]})); then
+  had_issue=1
+  echo "The following $CLOUD_BUILD secrets are not in .env (remove or add to .env):"
+  printf '  - %s\n' "${extra_in_cloudbuild[@]}"
+  echo
+fi
 if ((had_issue)); then
   echo "Fix the above before tagging. Aborting."
+  echo "Tip: .env is ground truth — sync SM with: make update-secrets"
   exit 1
 fi
 
-echo "All .env keys are present in $SECRETS_FILE and $CLOUD_BUILD."
+echo "All .env keys are present in $CLOUD_BUILD (update-secrets.sh reads .env dynamically)."
 
 if ! tags_out="$(gh api "repos/${REPO}/tags" --paginate -q '.[].name')"; then
   echo "Error: failed to list tags for ${REPO}. Run: gh auth login"

@@ -48,41 +48,42 @@ steps:
       - --memory=2Gi
       - --min-instances=0
       - --max-instances=1
-      # Secrets must exist in Secret Manager and the runtime SA must have secretAccessor
-      - --set-secrets=SECRET_KEY=SECRET_KEY:latest
+      # Secrets must exist in Secret Manager and the runtime SA must have secretAccessor.
+      # Ground truth: finto/.env — keep in sync via `make update-secrets` + deploy-tag checks.
+      - --set-secrets=ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest
       - --set-secrets=DATABASE_URL=DATABASE_URL:latest
-      - --set-secrets=OPENAI_API_KEY=OPENAI_API_KEY:latest
-      - --set-secrets=TAVILY_API_KEY=TAVILY_API_KEY:latest
-      - --set-secrets=WA_APP_SECRET=WA_APP_SECRET:latest
-      - --set-secrets=WA_VERIFY_TOKEN=WA_VERIFY_TOKEN:latest
-      - --set-secrets=WA_PHONE_NUMBER_ID=WA_PHONE_NUMBER_ID:latest
-      - --set-secrets=WA_USER_OR_SYSTEM_TOKEN=WA_USER_OR_SYSTEM_TOKEN:latest
-      - --set-secrets=WA_SENDER_E164=WA_SENDER_E164:latest
-      - --set-secrets=LANGSMITH_TRACING=LANGSMITH_TRACING:latest
-      - --set-secrets=LANGSMITH_ENDPOINT=LANGSMITH_ENDPOINT:latest
+      - --set-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY:latest
+      - --set-secrets=GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID:latest
+      - --set-secrets=HF_TOKEN=HF_TOKEN:latest
       - --set-secrets=LANGSMITH_API_KEY=LANGSMITH_API_KEY:latest
+      - --set-secrets=LANGSMITH_ENDPOINT=LANGSMITH_ENDPOINT:latest
       - --set-secrets=LANGSMITH_PROJECT=LANGSMITH_PROJECT:latest
-      - --set-secrets=PINECONE_API_KEY=PINECONE_API_KEY:latest
-      - --set-secrets=THESYS_API_KEY=THESYS_API_KEY:latest
-      - --set-secrets=THESYS_ENABLED=THESYS_ENABLED:latest
-      - --set-secrets=THESYS_BASE_URL=THESYS_BASE_URL:latest
-      - --set-secrets=THESYS_MODEL=THESYS_MODEL:latest
-      - --set-secrets=ROUTER_MODEL=ROUTER_MODEL:latest
-      - --set-secrets=PORTFOLIO_MODEL=PORTFOLIO_MODEL:latest
+      - --set-secrets=LANGSMITH_TRACING=LANGSMITH_TRACING:latest
       - --set-secrets=NEWS_MODEL=NEWS_MODEL:latest
+      - --set-secrets=OPENAI_API_KEY=OPENAI_API_KEY:latest
+      - --set-secrets=PINECONE_API_KEY=PINECONE_API_KEY:latest
+      - --set-secrets=PORTFOLIO_MODEL=PORTFOLIO_MODEL:latest
+      - --set-secrets=ROUTER_MODEL=ROUTER_MODEL:latest
+      - --set-secrets=SECRET_KEY=SECRET_KEY:latest
       - --set-secrets=SENDGRID_API_KEY=SENDGRID_API_KEY:latest
       - --set-secrets=SENDGRID_FROM_EMAIL=SENDGRID_FROM_EMAIL:latest
       - --set-secrets=SENDGRID_FROM_NAME=SENDGRID_FROM_NAME:latest
-      - --set-secrets=CLOUDFLARE_R2_ACCOUNT_ID=CLOUDFLARE_R2_ACCOUNT_ID:latest
-      - --set-secrets=CLOUDFLARE_R2_PUBLIC_DOMAIN=CLOUDFLARE_R2_PUBLIC_DOMAIN:latest
-      - --set-secrets=CLOUDFLARE_R2_ACCESS_KEY_ID=CLOUDFLARE_R2_ACCESS_KEY_ID:latest
-      - --set-secrets=CLOUDFLARE_R2_SECRET_ACCESS_KEY=CLOUDFLARE_R2_SECRET_ACCESS_KEY:latest
-      - --set-secrets=CLOUDFLARE_R2_BUCKET_NAME=CLOUDFLARE_R2_BUCKET_NAME:latest
-      - --set-secrets=GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID:latest
-      - --set-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY:latest
-      - --set-secrets=GCS_BUCKET_NAME=GCS_BUCKET_NAME:latest
-      - --set-secrets=GCS_PROJECT_ID=GCS_PROJECT_ID:latest
-      - --set-secrets=ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest
+      - --set-secrets=TAVILY_API_KEY=TAVILY_API_KEY:latest
+      - --set-secrets=TIMESCALE_DATABASE_URL=TIMESCALE_DATABASE_URL:latest
+      - --set-secrets=THESYS_API_KEY=THESYS_API_KEY:latest
+      - --set-secrets=THESYS_BASE_URL=THESYS_BASE_URL:latest
+      - --set-secrets=THESYS_ENABLED=THESYS_ENABLED:latest
+      - --set-secrets=THESYS_MODEL=THESYS_MODEL:latest
+      - --set-secrets=WA_APP_SECRET=WA_APP_SECRET:latest
+      - --set-secrets=WA_PHONE_NUMBER_ID=WA_PHONE_NUMBER_ID:latest
+      - --set-secrets=WA_SENDER_E164=WA_SENDER_E164:latest
+      - --set-secrets=WA_USER_OR_SYSTEM_TOKEN=WA_USER_OR_SYSTEM_TOKEN:latest
+      - --set-secrets=WA_VERIFY_TOKEN=WA_VERIFY_TOKEN:latest
+      - --set-secrets=ALPACA_API_KEY=ALPACA_API_KEY:latest
+      - --set-secrets=ALPACA_API_SECRET=ALPACA_API_SECRET:latest
+      - --set-secrets=ALPACA_STREAM_URL=ALPACA_STREAM_URL:latest
+      - --set-secrets=DEMO_US_STOCK_SIMULATE=DEMO_US_STOCK_SIMULATE:latest
+      - --set-secrets=DEMO_US_STOCK_SIMULATE_TICK_SECONDS=DEMO_US_STOCK_SIMULATE_TICK_SECONDS:latest
       # Cookie settings for cross-origin requests (allows localhost:3000)
       # NOTE: For cross-origin (localhost:3000 → Cloud Run), browsers REQUIRE:
       # - SameSite=None + Secure=True (minimum required, can't be less secure)

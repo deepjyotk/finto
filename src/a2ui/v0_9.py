@@ -96,9 +96,11 @@ def normalize_a2ui_messages(messages: list[dict[str, Any]]) -> list[dict[str, An
                 "updateComponents": {
                     **update_components,
                     "components": [
-                        _normalize_data_table_rows(component)
-                        if isinstance(component, dict)
-                        else component
+                        (
+                            _normalize_data_table_rows(component)
+                            if isinstance(component, dict)
+                            else component
+                        )
                         for component in components
                     ],
                 },
@@ -156,7 +158,9 @@ def parse_llm_surface_document(raw: str) -> tuple[list[dict[str, Any]], str]:
 
     messages = parsed.get("messages")
     if isinstance(messages, list) and messages:
-        if all(isinstance(message, dict) and message.get("version") == "v0.9" for message in messages):
+        if all(
+            isinstance(message, dict) and message.get("version") == "v0.9" for message in messages
+        ):
             normalized_messages = normalize_a2ui_messages(messages)
             return normalized_messages, serialize_stored_document(normalized_messages)
         return [], raw
@@ -165,11 +169,7 @@ def parse_llm_surface_document(raw: str) -> tuple[list[dict[str, Any]], str]:
     if not isinstance(components, list) or not components:
         return [], raw
 
-    component_ids = {
-        component.get("id")
-        for component in components
-        if isinstance(component, dict)
-    }
+    component_ids = {component.get("id") for component in components if isinstance(component, dict)}
     if "root" not in component_ids:
         return [], raw
 

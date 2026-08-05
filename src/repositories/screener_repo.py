@@ -26,25 +26,25 @@ from sqlalchemy.ext.asyncio import AsyncSession
 # ---------------------------------------------------------------------------
 
 _INCOME_DISPLAY: dict[str, str] = {
-    "total_revenue":    "Total Revenue",
+    "total_revenue": "Total Revenue",
     "operating_income": "Operating Income",
-    "ebitda":           "EBITDA",
+    "ebitda": "EBITDA",
     "interest_expense": "Interest Expense",
-    "net_income":       "Net Income",
-    "basic_eps":        "Basic EPS",
+    "net_income": "Net Income",
+    "basic_eps": "Basic EPS",
 }
 
 _BALANCE_DISPLAY: dict[str, str] = {
-    "total_assets":              "Total Assets",
-    "current_assets":            "Current Assets",
+    "total_assets": "Total Assets",
+    "current_assets": "Current Assets",
     "cash_and_cash_equivalents": "Cash And Cash Equivalents",
-    "total_liabilities":         "Total Liabilities Net Minority Interest",
-    "current_liabilities":       "Current Liabilities",
-    "current_debt":              "Current Debt",
-    "long_term_debt":            "Long Term Debt",
-    "total_debt":                "Total Debt",
-    "stockholders_equity":       "Stockholders Equity",
-    "working_capital":           "Working Capital",
+    "total_liabilities": "Total Liabilities Net Minority Interest",
+    "current_liabilities": "Current Liabilities",
+    "current_debt": "Current Debt",
+    "long_term_debt": "Long Term Debt",
+    "total_debt": "Total Debt",
+    "stockholders_equity": "Stockholders Equity",
+    "working_capital": "Working Capital",
 }
 
 _INCOME_COLS = ", ".join(_INCOME_DISPLAY.keys())

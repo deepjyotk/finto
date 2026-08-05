@@ -20,9 +20,7 @@ MarketCapCategory = Literal["large_cap", "medium_cap", "small_cap"]
 
 class MarketCapForm(BaseScreenerForm):
     category: str = "market_cap"
-    description: str = (
-        "Screen by market-cap tier and/or INR range, aligned with NSE listings."
-    )
+    description: str = "Screen by market-cap tier and/or INR range, aligned with NSE listings."
 
     market_category: ScreenerFormField[MarketCapCategory] = field(
         "large_cap",

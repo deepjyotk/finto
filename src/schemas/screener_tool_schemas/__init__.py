@@ -8,7 +8,6 @@ from .sector_form import SectorForm
 from .value_form import ValueForm
 from .volatility_risk_form import VolatilityRiskForm
 
-
 SCREENER_CATEGORY_FORMS = {
     "market_cap": MarketCapForm,
     "growth": GrowthForm,

@@ -28,15 +28,23 @@ fi
 missing_in_secrets=()
 missing_in_cloudbuild=()
 
+trim() {
+  # Trim leading/trailing whitespace without external tooling (avoid xargs).
+  local s="$1"
+  s="${s#"${s%%[![:space:]]*}"}"
+  s="${s%"${s##*[![:space:]]}"}"
+  printf '%s' "$s"
+}
+
 while IFS= read -r raw || [[ -n "$raw" ]]; do
   [[ "$raw" =~ ^[[:space:]]*# ]] && continue
-  t="$(echo "$raw" | xargs)"
+  t="$(trim "$raw")"
   [[ -z "$t" ]] && continue
   t="${t#export }"
-  t="$(echo "$t" | xargs)"
+  t="$(trim "$t")"
   [[ -z "$t" ]] && continue
   [[ "$t" != *=* ]] && continue
-  key="$(echo "${t%%=*}" | xargs)"
+  key="$(trim "${t%%=*}")"
   [[ -z "$key" ]] && continue
 
   if ! grep -Fq "\"$key\"" "$SECRETS_FILE"; then

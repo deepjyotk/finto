@@ -282,4 +282,6 @@ async def refresh_recent_daily(
     """Backward-compatible function wrapper used by the CLI script."""
     repo = PriceBars1DRepository(session)
     service = PriceBars1DIngestService(repo)
-    return await service.refresh_recent_daily(period=period, delay_seconds=delay_seconds, limit=limit)
+    return await service.refresh_recent_daily(
+        period=period, delay_seconds=delay_seconds, limit=limit
+    )

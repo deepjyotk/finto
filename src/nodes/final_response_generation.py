@@ -73,12 +73,12 @@ class FinalResponseGenerationNode:
         messages_to_remove: List[RemoveMessage] = []
 
         for msg in past_messages:
-          if (
-              isinstance(msg, AIMessage)
-              and getattr(msg, "tool_calls", None)
-              and getattr(msg, "id", None)
-          ):
-              messages_to_remove.append(RemoveMessage(id=msg.id))
+            if (
+                isinstance(msg, AIMessage)
+                and getattr(msg, "tool_calls", None)
+                and getattr(msg, "id", None)
+            ):
+                messages_to_remove.append(RemoveMessage(id=msg.id))
         for msg in current_iteration_messages:
             if msg.id != first_human_msg_id and msg.id != last_ai_msg_id:
                 messages_to_remove.append(RemoveMessage(id=msg.id))
@@ -198,39 +198,76 @@ Custom finance catalog:
                 }}
 • InfoBox    props: {{ "text": string | {{"path": "/json/pointer"}}, "variant": "info"|"warning"|"success"|"error" }}
 • DataTable  props: {{
-                  "columns": [{{"key": string, "label": string, "format": "text"|"currency_inr"|"number"|"percentage"|"date"|"boolean"|"company_identity"}}] | {{"path": "/json/pointer"}} (optional),
+                  "columns": [{{"key": string, "label": string, "format": "text"|"currency_inr"|"currency_usd"|"number"|"percentage"|"date"|"boolean"|"company_identity"}}] | {{"path": "/json/pointer"}} (optional),
                   "rows": [{{"<column_key>": value, ...}}] | {{"path": "/json/pointer"}}
                 }}
                 Note: "company_identity" format renders a logo image + "Company Name - SYMBOL" text inline in the cell.
                       Use it for every column that identifies a company (key = "company", "stock", etc.).
+                Note: money formats — Indian stocks use "currency_inr" (₹); US stocks use "currency_usd" ($). Never mix.
+                For large money values keep compact suffixes in the cell text (e.g. "$96.77B", "$409M") OR pass raw numbers;
+                the UI preserves K/M/B/T and must never drop the magnitude suffix.
 • SourceList props: {{
                   "sources": [{{"source": string, "title": string, "url": string (optional)}}] | {{"path": "/json/pointer"}},
                   "title": string | {{"path": "/json/pointer"}} (optional)
                 }}
 • Chart      props: {{
-                  "chartType": "pie"|"bar"|"line"|"area",
+                  "chartType": "pie"|"bar"|"line"|"area"|"histogram",
                   "title": string | {{"path": "/json/pointer"}} (optional),
-                  "data": [{{"name": string, "<value_key>": number, ...}}] | {{"path": "/json/pointer"}},
+                  "data": [{{"<xKey>": string|number, "<seriesKey>": number|null, ...}}] | {{"path": "/json/pointer"}},
                   "series": [{{"key": string, "label": string (optional)}}] | {{"path": "/json/pointer"}} (optional),
                   "xKey": string | {{"path": "/json/pointer"}} (optional),
-                  "unit": string | {{"path": "/json/pointer"}} (optional)
+                  "xAxisLabel": string | {{"path": "/json/pointer"}} (REQUIRED for bar/line/area/histogram),
+                  "yAxisLabel": string | {{"path": "/json/pointer"}} (REQUIRED for bar/line/area/histogram),
+                  "unit": string | {{"path": "/json/pointer"}} (optional — "$" or "₹")
                 }}
+  Axis labels (MANDATORY for non-pie charts): clearly say what each axis means.
+    Examples: xAxisLabel="Fiscal year end", yAxisLabel="Revenue (USD)"; xAxisLabel="Daily return bin", yAxisLabel="Number of days".
+  Money scale: pass RAW numeric values (e.g. 96773000000). The UI formats Y-axis/tooltips as K/M/B/T (e.g. $96.8B).
+    Do NOT expand money into long digit strings on the chart. Prefer keeping source K/M/B/T as numbers in the same scale, or full raw numbers.
+  Multi-series line/area/bar (MANDATORY wide format):
+    - One row per shared X value; each series is its own numeric key on that row.
+    - Declare every series in "series" with human labels.
+    - Prefer a shared category for X when comparing companies (e.g. "FY2023","FY2024") so lines connect cleanly.
+    - If a series has no value at an X point, omit the key or set null — NEVER invent 0 or fabricate a year.
+    - Fiscal calendars differ (e.g. NVDA FY ends ~Jan so "FY2026" can exist while TSLA calendar FY2026 is not filed yet).
+      For comparison charts, prefer the overlapping years present for ALL series (drop years missing for any company),
+      OR keep the union with nulls and state the gap in Text/InfoBox. Never invent Tesla/Nvidia values for a missing year.
+    Correct:
+      "xKey": "period",
+      "xAxisLabel": "Fiscal year",
+      "yAxisLabel": "Revenue (USD)",
+      "series": [{{"key": "Tesla", "label": "Tesla"}}, {{"key": "Nvidia", "label": "Nvidia"}}],
+      "data": [
+        {{"period": "FY2023", "Tesla": 96773000000, "Nvidia": 60922000000}},
+        {{"period": "FY2024", "Tesla": 97690000000, "Nvidia": 130497000000}}
+      ]
+    Wrong (interleaved single-series rows — lines look like disconnected dots):
+      [{{"period": "2023-12-31", "Tesla": 96773000000}}, {{"period": "2024-01-31", "Nvidia": 60922000000}}]
+  Histogram: use chartType "histogram" for distributions (returns, price bins, volume buckets).
+  Send pre-binned rows: xKey = bin label (e.g. "-2% to -1%"), series key = frequency count (e.g. "count").
+  Contiguous bins only — do not leave gaps in the bin axis. Example:
+  {{"id": "ret_hist", "component": "Chart", "chartType": "histogram",
+    "title": "Daily return distribution", "xKey": "bin",
+    "xAxisLabel": "Daily return bin", "yAxisLabel": "Number of trading days",
+    "series": [{{"key": "count", "label": "Days"}}],
+    "data": [{{"bin": "-3% to -2%", "count": 4}}, {{"bin": "-2% to -1%", "count": 11}}, {{"bin": "-1% to 0%", "count": 28}}]}}
 
 ─── COMPANY IDENTITY FORMAT (MANDATORY) ───
 The company logo CDN base URL is: {logo_cdn_base}
-Logo URL pattern: {{logo_cdn_base}}/{{SYMBOL}}.svg  (e.g. {logo_cdn_base}/RELIANCE.svg)
+Logo URL pattern: {{logo_cdn_base}}/{{SYMBOL}}.png  (e.g. {logo_cdn_base}/RELIANCE.png or {logo_cdn_base}/TSLA.png)
+Use the bare exchange ticker only (no ``.NS`` / ``.BO`` suffix). Prefer ``.png``; the UI also falls back to ``.svg`` / GCS if needed.
 
 NEVER display a bare stock symbol (e.g. "RELIANCE") as a standalone label, column header, or Text value.
 Whenever a company must be identified in the UI, apply the following rules:
 
 1. In layout contexts (Card headers, List item headers, section titles, MetricCard labels):
    Use a Row with align "center" containing:
-   • Image — url = "{logo_cdn_base}/{{SYMBOL}}.svg", variant = "icon", description = "{{company_name}}"
+   • Image — url = "{logo_cdn_base}/{{SYMBOL}}.png", variant = "icon", description = "{{company_name}}"
    • Text  — text = "{{company_name}} - {{SYMBOL}}"
 
    Example for RELIANCE in a card header:
    {{"id": "reliance_header", "component": "Row", "children": ["reliance_logo", "reliance_title"], "align": "center"}},
-   {{"id": "reliance_logo", "component": "Image", "url": "{logo_cdn_base}/RELIANCE.svg", "variant": "icon", "description": "Reliance Industries Limited"}},
+   {{"id": "reliance_logo", "component": "Image", "url": "{logo_cdn_base}/RELIANCE.png", "variant": "icon", "description": "Reliance Industries Limited"}},
    {{"id": "reliance_title", "component": "Text", "text": "Reliance Industries Limited - RELIANCE"}}
 
 2. In DataTable:
@@ -242,7 +279,7 @@ Whenever a company must be identified in the UI, apply the following rules:
 3. In List templates (using data model binding):
    Use the formatString function to compose logo URLs and labels dynamically:
    {{"id": "item_logo", "component": "Image",
-     "url": {{"call": "formatString", "args": {{"value": "{logo_cdn_base}/${{symbol}}.svg"}}}},
+     "url": {{"call": "formatString", "args": {{"value": "{logo_cdn_base}/${{symbol}}.png"}}}},
      "variant": "icon"}},
    {{"id": "item_label", "component": "Text",
      "text": {{"call": "formatString", "args": {{"value": "${{company_name}} - ${{symbol}}"}}}}}}
@@ -250,6 +287,7 @@ Whenever a company must be identified in the UI, apply the following rules:
    where `symbol` and `company_name` are relative paths in the collection scope.
 
 ─── RULES ───
+• FIDELITY: Present the execution data as-is. Do not rewrite, reinterpret, round, or "improve" answers. Keep compact suffixes like K/M/B/T unchanged (e.g. keep ``1M`` as ``1M`` — never expand to ``1,000,000``).
 • Use official A2UI v0.9 messages: `createSurface`, `updateComponents`, and optionally `updateDataModel`.
 • Use surfaceId "main" and catalogId "https://explainly.ai/catalogs/finance-chat-v1.json".
 • The root component MUST have id "root".
@@ -257,8 +295,10 @@ Whenever a company must be identified in the UI, apply the following rules:
 • Use short unique IDs: "title", "summary_row", "table1", "chart1", "info1", etc.
 • Prefer putting repeated, tabular, or chart data inside `dataModel` and bind with `{{"path": "/..."}}`.
 • For DataTable rows, the `rows` prop itself MUST be an array. Each row inside that array must be an object keyed by column.key.
-  Correct: `"rows": [{{"company": "Reliance Industries - RELIANCE", "profit": "₹1,000.00"}}]`.
+  Correct (India / INR): `"rows": [{{"company": "Reliance Industries - RELIANCE", "profit": "₹1,000.00"}}]`.
+  Correct (US / USD): `"rows": [{{"company": "Tesla, Inc. - TSLA", "profit": "$1,000.00"}}]`.
   Wrong: `"rows": {{"RELIANCE": {{"company": "Reliance Industries - RELIANCE", "profit": "₹1,000.00"}}}}`.
+  Wrong: using ``$`` for Indian stocks or ``₹`` for US stocks.
   Do not use positional row arrays unless the source data is already positional.
 • For wide tabular data, DataTable can scroll horizontally. Still choose concise columns for each table:
   - Use one overview table with the most important columns.
@@ -277,19 +317,22 @@ Whenever a company must be identified in the UI, apply the following rules:
 • Do NOT render news sources as several separate Text caption components. Use SourceList instead.
 • SourceList source objects must use this shape: {{"source": "Reuters", "title": "Article title", "url": "https://..."}}.
   If the data has a source/title but no URL, include source and title without inventing a URL.
-• Format all INR monetary values as "₹X,XXX.XX" (comma-separated, 2 decimal places) before placing them in the UI.
-• Mark money columns with "format": "currency_inr" in DataTable columns.
+• CURRENCY (MANDATORY — never mix):
+  - Indian stocks / INR amounts → mark DataTable money columns with "format": "currency_inr". Prefer compact "₹…" with K/M/B/T when large. Chart unit "₹".
+  - US stocks / USD amounts → mark DataTable money columns with "format": "currency_usd". Prefer compact forms like "$96.77B" / "$409M" (never drop B/M/K/T). Chart unit "$".
+  - Infer market from the data/symbols (e.g. TSLA/AAPL = USD; RELIANCE/TCS = INR). If a table mixes markets, either use pre-formatted money strings with the correct symbol per row, or split into separate INR and USD tables.
 • Mark quantity/count columns with "format": "number".
-• Do NOT invent or modify data — use only the values provided below.
+• Do NOT invent or modify data — use only the values provided below (same numbers/text, including K/M/B/T forms).
 • Keep the hierarchy shallow and readable.
 • For a success/error status in the data, add a Badge component.
 • If the data contains tabular data, use DataTable — never render tables as plain text.
-• If the user asks for a chart, pie, graph, or visualization → use Chart.
+• If the user asks for a chart, pie, graph, histogram, distribution, or visualization → use Chart (histogram for distributions).
   - Use "pie" for distribution/breakdown by category (e.g. sector allocation).
   - Use "bar" for comparing values across categories.
-  - Use "line" or "area" for trends over time.
+  - Use "line" or "area" for trends over time (multi-series wide format — see Chart props).
+  - Always set xAxisLabel and yAxisLabel so axes are self-explanatory (except pie).
   - For pie charts: the chart data must have "name" and one numeric value key (e.g. "value").
-  - For INR pie/bar charts, set "unit": "₹".
+  - For money charts: set "unit" to "₹" (INR) or "$" (USD); pass raw numbers — UI shows M/B.
 • You can include both a Chart and a DataTable when both are useful.
 • The client supports all standard Basic Catalog components, but final responses must be display-only.
 • NEVER generate interactive input UI in final responses: no Button, TextField, CheckBox, ChoicePicker, Slider, DateTimeInput, or Modal.
@@ -370,9 +413,7 @@ Output ONLY the JSON object:"""
             if history_message_length is None:
                 pruned_messages = [ai_msg]
             else:
-                pruned_messages = self._prune_iteration_messages(
-                    history_message_length, messages
-                )
+                pruned_messages = self._prune_iteration_messages(history_message_length, messages)
             return {
                 **state,
                 "messages": pruned_messages,

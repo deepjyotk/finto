@@ -33,7 +33,7 @@ from src.a2ui.schemas import (
 from src.a2ui.v0_9 import parse_llm_surface_document, serialize_stored_document
 from src.api.schemas.a2ui_resume import A2UIResumeRequest
 from src.api.schemas.thesys_chat import C1ChatRequest
-from src.core.enums import LLMModel
+from src.core.enums import ChatMode, LLMModel
 from src.core.json_logging import logger_for
 from src.core.settings import LLMSettings
 from src.graph import Graph
@@ -100,6 +100,7 @@ class A2UIChatService:
         broker_id: UUID | None,
         callbacks: Optional[List[BaseCallbackHandler]],
         chat_model: LLMModel,
+        chat_mode: ChatMode = ChatMode.OVERALL,
     ) -> tuple[RunnableConfig, dict[str, Any], dict[str, Any]]:
         config: RunnableConfig = {
             "configurable": {"thread_id": str(thread_id)},
@@ -132,6 +133,7 @@ class A2UIChatService:
             "screener_model": port,
             "web_search_model": web,
             "broker_id": broker_id,
+            "chat_mode": chat_mode,
             "history_message_length": history_message_length,
         }
 
@@ -218,6 +220,7 @@ class A2UIChatService:
                 broker_id=broker_id,
                 callbacks=callbacks,
                 chat_model=request.model_payload,
+                chat_mode=request.chat_mode or ChatMode.OVERALL,
             )
 
             logger.info(f"[A2UI] Starting stream for session {thread_id}")

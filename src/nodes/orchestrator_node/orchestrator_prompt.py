@@ -6,6 +6,7 @@ from typing import Final
 
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
+from src.core.enums import ChatMode
 from src.nodes.financial_analysis_tool_node.financial_analysis_utils import (
     financial_analysis_tool_sandbox_function_names,
 )
@@ -16,12 +17,22 @@ from src.nodes.screener_analysis_tool_node.screener_utils import (
 _FINANCIAL_TOOL_FUNCTIONS_CSV = ", ".join(financial_analysis_tool_sandbox_function_names())
 _SCREENER_TOOL_FUNCTIONS_CSV = ", ".join(screener_analysis_tool_sandbox_function_names())
 
-SUPERVISOR_PROMPT_TEMPLATE: Final[str] = f"""
-You are the Finance Assistant Orchestrator. You are only working on Indian stocks.
+# Doubled braces {{ }} survive the f-string and become LangChain template vars.
+SUPERVISOR_PROMPT_TEMPLATE: Final[
+    str
+] = f"""
+You are the Finance Assistant Orchestrator. You support Indian equities (NSE) and US equities. For Yahoo symbols: Indian tickers use the ``.NS`` suffix when needed (e.g. RELIANCE.NS); US tickers stay bare (e.g. TSLA, AAPL — never append ``.NS``). Currency: use ``₹`` (INR) for Indian stocks and ``$`` (USD) for US stocks — never mix.
 
 **Orchestrator rule — never ask the user for input:** Do not ask the user for clarification, confirmation, or missing details. Your job is to forward each request to the correct underlying tool with a complete, self-contained task description so the tool can execute without needing follow-up questions from you.
 
 Your role is to intelligently decide which tools to use, construct complete and well-scoped tasks for them, and produce a final answer that is comprehensive, accurate, and context-rich.
+
+---
+# UI CHAT MODE (HIGHEST PRIORITY)
+
+{{chat_mode_override}}
+
+When a forced-mode override is active above, it **overrides** the Decision Framework below. Obey the override first.
 
 ---
 # AVAILABLE TOOLS
@@ -181,8 +192,40 @@ BAD: "Apple cash flow statement last quarter" or "compare balance sheets" — th
 """
 
 
+def chat_mode_override_text(chat_mode: ChatMode | str | None) -> str:
+    """System-prompt section describing the UI mode override for this turn."""
+    mode = chat_mode or ChatMode.OVERALL
+    if isinstance(mode, str):
+        try:
+            mode = ChatMode(mode)
+        except ValueError:
+            mode = ChatMode.OVERALL
+
+    if mode == ChatMode.PORTFOLIO:
+        return (
+            "Active mode: **Financial Analysis** (user explicitly selected this in the UI).\n"
+            "- You MUST call `financial_analysis_tool` for this user request.\n"
+            "- Do NOT call `screener_analysis_tool` (it is not available in this mode).\n"
+            "- You may still use `web_search_tool` afterward for news/context if needed."
+        )
+    if mode == ChatMode.SCREENER:
+        return (
+            "Active mode: **Screener** (user explicitly selected this in the UI).\n"
+            "- You MUST call `screener_analysis_tool` for this user request.\n"
+            "- Do NOT call `financial_analysis_tool` (it is not available in this mode).\n"
+            "- You may still use `web_search_tool` afterward for news/context if needed."
+        )
+    return (
+        "Active mode: **Overall** (default).\n"
+        "- No forced tool. Use the Decision Framework below to choose tools normally."
+    )
+
+
 def supervisor_prompt_template() -> ChatPromptTemplate:
-    """LangChain chat prompt: system supervisor instructions + conversation messages."""
+    """LangChain chat prompt: system supervisor instructions + conversation messages.
+
+    Expects invoke vars: ``messages``, ``chat_mode_override``.
+    """
     return ChatPromptTemplate.from_messages(
         [
             ("system", SUPERVISOR_PROMPT_TEMPLATE),

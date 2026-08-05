@@ -24,10 +24,10 @@ from src.core.db import SessionLocal
 from src.repositories.screener_repo import ScreenerRepo
 from src.schemas.screener_tool_schemas.base import BaseScreenerForm, ScreenerFormField
 from src.schemas.screener_tool_schemas.screener_tool_schema_medium import (
-    ScreenOneResult,
     ScreenerCriteria,
     ScreenerRunRequest,
     ScreenerToolInput,
+    ScreenOneResult,
 )
 
 # ---------------------------------------------------------------------------

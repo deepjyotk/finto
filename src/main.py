@@ -15,13 +15,13 @@ import sys  # noqa: E402
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
+from contextlib import asynccontextmanager  # noqa: E402
+
 import uvicorn  # noqa: E402
 from fastapi import FastAPI, HTTPException, Request, status  # noqa: E402
 from fastapi.exceptions import RequestValidationError  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
-
-from contextlib import asynccontextmanager  # noqa: E402
 
 from src.api.routes import api_router  # noqa: E402
 from src.core.json_logging import logger_for, setup_json_logging  # noqa: E402
@@ -161,7 +161,7 @@ app.include_router(api_router)
 
 if __name__ == "__main__":
     if sys.platform == "win32":
-        import selectors
+        pass
 
         loop_factory = asyncio.SelectorEventLoop
         config = uvicorn.Config(app, host="0.0.0.0", port=8000)

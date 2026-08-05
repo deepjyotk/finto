@@ -1,6 +1,6 @@
 """Portfolio node: symbol extraction + code generation and execution."""
 
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 from langchain_core.runnables import RunnableLambda
@@ -23,7 +23,8 @@ from src.nodes.financial_analysis_tool_node.financial_analysis_utils import (
     build_execution_env,
     build_partial_price_retry_user_message,
     build_portfolio_scope_message,
-    fetch_company_names,
+    company_info_from_pinecone_matches,
+    resolve_company_info_for_symbols,
     parse_portfolio_price_meta_from_tool_output,
 )
 from src.schemas.agent_state import AgentContext, AgentState
@@ -33,11 +34,48 @@ from src.tools.get_symbol_name import get_equity_id_for_symbol
 logger = logger_for(__name__)
 
 
+def _tool_call_args(tool_call: Any) -> dict:
+    if isinstance(tool_call, dict):
+        args = tool_call.get("args") or tool_call.get("arguments") or {}
+    else:
+        args = getattr(tool_call, "args", None) or getattr(tool_call, "arguments", None) or {}
+    return args if isinstance(args, dict) else {}
+
+
+def _code_gen_retry_messages(
+    scope_msg: BaseMessage,
+    *,
+    failure_outputs: List[str] | None = None,
+    extra_human: HumanMessage | None = None,
+) -> List[BaseMessage]:
+    """Build code-gen history for retries without OpenAI tool-call transcripts.
+
+    ``CODE_GENERATION_PROMPT`` always appends a fresh HumanMessage(user_request)
+    after ``messages``. Re-sending assistant(tool_calls)+ToolMessage through that
+    template is fragile (id mismatches / unpaired tool_calls → OpenAI 400).
+    Instead, fold prior execution output into HumanMessage feedback.
+    """
+    msgs: List[BaseMessage] = [scope_msg]
+    for i, output in enumerate(failure_outputs or [], start=1):
+        msgs.append(
+            HumanMessage(
+                content=(
+                    f"Previous code execution attempt {i} failed. "
+                    "Generate corrected Python code that fixes the error.\n\n"
+                    f"Execution output:\n{output}"
+                )
+            )
+        )
+    if extra_human is not None:
+        msgs.append(extra_human)
+    return msgs
+
+
 def _invoke_code_generation_llm(llm_with_tools, invoke_args: dict) -> BaseMessage:
     """Format ``CODE_GENERATION_PROMPT``, log the exact chat messages, then call the model.
 
-    Uses the same ``ChatPromptValue`` the ``prompt | llm`` pipe would pass through, so
-    behaviour matches ``(CODE_GENERATION_PROMPT | llm_with_tools).invoke(invoke_args)``.
+    Invokes with the concrete message list (not the PromptValue) so ToolMessage /
+    AIMessage tool_calls are not lost during binding.
     """
     prompt_value = CODE_GENERATION_PROMPT.invoke(invoke_args)
     llm_messages = prompt_value.to_messages()
@@ -46,7 +84,7 @@ def _invoke_code_generation_llm(llm_with_tools, invoke_args: dict) -> BaseMessag
         len(llm_messages),
         llm_messages,
     )
-    return llm_with_tools.invoke(prompt_value)
+    return llm_with_tools.invoke(llm_messages)
 
 
 class PortfolioNode:
@@ -117,8 +155,12 @@ class PortfolioNode:
             llm = node._llm_factory(portfolio_model)
             llm_with_tools = llm.bind_tools([execute_code_tool], tool_choice="required")
 
-            scope_msg, extracted_symbols = build_portfolio_scope_message(task, llm)
-            company_info = await fetch_company_names(extracted_symbols)
+            scope_msg, extracted_symbols, pinecone_company_info = build_portfolio_scope_message(
+                task, llm
+            )
+            company_info = await resolve_company_info_for_symbols(
+                extracted_symbols, pinecone_company_info
+            )
 
             invoke_args = build_code_gen_invoke_args(
                 messages=[scope_msg],
@@ -128,14 +170,17 @@ class PortfolioNode:
             )
             ai_response = _invoke_code_generation_llm(llm_with_tools, invoke_args)
 
-            messages_ctx: List[BaseMessage] = [scope_msg, ai_response]
             attempts = 0
             partial_price_retries = 0
+            failure_outputs: List[str] = []
 
             while getattr(ai_response, "tool_calls", None) and attempts < node.max_attempts:
-                tool_call = ai_response.tool_calls[0]
-                code = tool_call["args"].get("code", "")
-                tool_call_id = tool_call.get("id", f"call_{attempts}")
+                tool_calls = list(ai_response.tool_calls or [])
+                # Prefer the first execute_python_code call; ignore extras.
+                primary = tool_calls[0]
+                code = _tool_call_args(primary).get("code", "")
+                if not isinstance(code, str):
+                    code = str(code or "")
 
                 tool_result: str = await execute_code_tool.ainvoke({"code": code})
                 attempts += 1
@@ -151,22 +196,28 @@ class PortfolioNode:
                             "(META_PRICE_FETCH_FAILED=%s)",
                             failed_n,
                         )
-                        tool_msg = ToolMessage(content=tool_result, tool_call_id=tool_call_id)
                         relax_msg = HumanMessage(
                             content=build_partial_price_retry_user_message(price_meta, task)
                         )
-                        messages_ctx = messages_ctx + [tool_msg, relax_msg]
+                        # Do NOT replay assistant(tool_calls)+ToolMessage into the prompt —
+                        # that path caused OpenAI 400 unpaired tool_call_id errors.
+                        retry_msgs = _code_gen_retry_messages(
+                            scope_msg,
+                            failure_outputs=failure_outputs,
+                            extra_human=relax_msg,
+                        )
                         invoke_args = build_code_gen_invoke_args(
-                            messages=messages_ctx,
+                            messages=retry_msgs,
                             user_request=task,
                             symbol_names=extracted_symbols,
                             company_info=company_info,
                         )
                         ai_response = _invoke_code_generation_llm(llm_with_tools, invoke_args)
-                        messages_ctx = messages_ctx + [ai_response]
                         continue
 
                     return tool_result
+
+                failure_outputs.append(tool_result)
 
                 if attempts >= node.max_attempts:
                     return tool_result
@@ -175,16 +226,16 @@ class PortfolioNode:
                     "financial_analysis_tool retrying code generation (attempt %d)",
                     attempts + 1,
                 )
-                tool_msg = ToolMessage(content=tool_result, tool_call_id=tool_call_id)
-                messages_ctx = messages_ctx + [tool_msg]
+                retry_msgs = _code_gen_retry_messages(
+                    scope_msg, failure_outputs=failure_outputs
+                )
                 invoke_args = build_code_gen_invoke_args(
-                    messages=messages_ctx,
+                    messages=retry_msgs,
                     user_request=task,
                     symbol_names=extracted_symbols,
                     company_info=company_info,
                 )
                 ai_response = _invoke_code_generation_llm(llm_with_tools, invoke_args)
-                messages_ctx = messages_ctx + [ai_response]
 
             return "Portfolio analysis completed with no output."
 
@@ -232,8 +283,24 @@ class PortfolioNode:
                     }
 
                 logger.info("Retrying code generation (attempt %d)", attempts + 1)
+                # Strip prior assistant(tool_calls) transcripts — only pass symbol
+                # context + failure feedback so OpenAI never sees unpaired tool_calls.
+                symbol_msgs = [
+                    m
+                    for m in messages
+                    if isinstance(m, AIMessage)
+                    and getattr(m, "name", None) == "portfolio_symbol_extractor"
+                    and not getattr(m, "tool_calls", None)
+                ]
+                scope_msg = symbol_msgs[-1] if symbol_msgs else AIMessage(
+                    content="Continue portfolio analysis.",
+                    name="portfolio_symbol_extractor",
+                )
+                retry_msgs = _code_gen_retry_messages(
+                    scope_msg, failure_outputs=[str(tool_output)]
+                )
                 invoke_args = build_code_gen_invoke_args(
-                    messages=messages,
+                    messages=retry_msgs,
                     user_request=user_request,
                     symbol_names=state.get("symbol_names", []),
                     company_info=state.get("symbol_company_info", []),
@@ -274,7 +341,11 @@ class PortfolioNode:
                     SymbolExtractionResult
                 )
                 result = symbol_chain.invoke({"user_query": user_request})
-                extracted_symbols = [r["symbol"] for r in get_equity_id_for_symbol(result.symbol_names)]
+                matches = [
+                    r for r in get_equity_id_for_symbol(result.symbol_names) if r.get("symbol")
+                ]
+                extracted_symbols = [r["symbol"] for r in matches]
+                pinecone_company_info = company_info_from_pinecone_matches(matches)
                 logger.info("Extracted symbols: %s", extracted_symbols)
                 summary = (
                     f"Identified symbols: {', '.join(extracted_symbols)}"
@@ -283,9 +354,12 @@ class PortfolioNode:
                 )
             else:
                 summary = "User is asking about the entire portfolio"
+                pinecone_company_info = []
 
             symbol_message = AIMessage(content=summary, name="portfolio_symbol_extractor")
-            company_info = await fetch_company_names(extracted_symbols)
+            company_info = await resolve_company_info_for_symbols(
+                extracted_symbols, pinecone_company_info
+            )
 
             invoke_args = build_code_gen_invoke_args(
                 messages=messages + [symbol_message],

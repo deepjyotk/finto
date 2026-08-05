@@ -13,7 +13,7 @@ from src.api.schemas.thesys_chat import (
     MessageItem,
     SessionMessageConfig,
 )
-from src.core.enums import LLMModel
+from src.core.enums import ChatMode, LLMModel
 from src.core.json_logging import logger_for
 from src.core.schema import AgentMessage
 from src.core.settings import LLMSettings
@@ -188,6 +188,7 @@ class ThesysChatService:
         broker_id: UUID | None,
         callbacks: Optional[List[BaseCallbackHandler]],
         chat_model: LLMModel,
+        chat_mode: ChatMode = ChatMode.OVERALL,
     ) -> tuple[RunnableConfig, dict[str, Any], dict[str, Any]]:
         """Build the config, initial state, and agent context for a graph invocation.
 
@@ -222,6 +223,7 @@ class ThesysChatService:
         logger.info(f"Orchestrator model: {orch.model_name}")
         logger.info(f"Portfolio model: {port.model_name}")
         logger.info(f"Web search model: {web.model_name}")
+        logger.info(f"Chat mode: {chat_mode.value}")
 
         context: dict[str, Any] = {
             "user_id": user_id,
@@ -229,6 +231,7 @@ class ThesysChatService:
             "portfolio_model": port,
             "web_search_model": web,
             "broker_id": broker_id,
+            "chat_mode": chat_mode,
             "history_message_length": history_message_length,
         }
 
@@ -284,6 +287,7 @@ class ThesysChatService:
                 broker_id=broker_id,
                 callbacks=callbacks,
                 chat_model=request.model_payload,
+                chat_mode=request.chat_mode or ChatMode.OVERALL,
             )
 
             out = await graph_runner.ainvoke(initial_state, config=config, context=context)

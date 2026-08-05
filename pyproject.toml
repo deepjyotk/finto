@@ -47,6 +47,8 @@ dependencies = [
     "langchain-google-genai>=2.0.0",
     "google-cloud-storage>=2.16.0", # GCS bucket upload for company logos
     "boto3>=1.34.0", # Cloudflare R2 (S3-compatible) for CDN logo delivery
+    "aiokafka>=0.14.0", # Redpanda producer for the US stocks data-engineering demo
+    "websockets>=15.0.1", # Alpaca market-data WebSocket client for the same demo
 ]
 
 [dependency-groups]

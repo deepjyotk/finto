@@ -6,7 +6,7 @@ from datetime import date
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models.daily_contest import ContestPick, DailyContest
@@ -72,9 +72,13 @@ class DailyContestRepo:
 
     async def count_picks_by_ip(self, contest_id: UUID, ip_address: str) -> int:
         """Count how many submissions have been made from an IP address for a contest day."""
-        stmt = select(func.count()).select_from(ContestPick).where(
-            ContestPick.contest_id == contest_id,
-            ContestPick.ip_address == ip_address,
+        stmt = (
+            select(func.count())
+            .select_from(ContestPick)
+            .where(
+                ContestPick.contest_id == contest_id,
+                ContestPick.ip_address == ip_address,
+            )
         )
         result = await self._s.execute(stmt)
         return result.scalar_one()
@@ -121,8 +125,10 @@ class DailyContestRepo:
         return list(result.scalars().all())
 
     async def count_participants(self, contest_id: UUID) -> int:
-        stmt = select(func.count()).select_from(ContestPick).where(
-            ContestPick.contest_id == contest_id
+        stmt = (
+            select(func.count())
+            .select_from(ContestPick)
+            .where(ContestPick.contest_id == contest_id)
         )
         result = await self._s.execute(stmt)
         return result.scalar_one()

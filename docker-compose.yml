@@ -12,6 +12,9 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       TAVILY_API_KEY: ${TAVILY_API_KEY}
       # Optional
+      # US stocks demo only. TimescaleDB runs in docker-compose.demo-us-stocks.yml,
+      # a separate compose project, so reach it through the host port it publishes.
+      TIMESCALE_DATABASE_URL: ${TIMESCALE_DATABASE_URL:-postgresql://arthik:arthik@host.docker.internal:5433/arthik_timeseries}
       ALGORITHM: ${ALGORITHM:-HS256}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
       COOKIE_NAME: ${COOKIE_NAME:-access_token}
@@ -32,3 +35,9 @@ services:
       PORT: ${PORT:-8000}
     ports:
       - "8000:8000"
+    # `.env` sets TIMESCALE_DATABASE_URL to localhost:5433 for host processes
+    # (make run-apis, the Spark job). Running the API in this container instead
+    # means overriding it with host.docker.internal:5433, which this mapping
+    # makes resolvable on Linux as well as macOS.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

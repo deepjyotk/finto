@@ -33,8 +33,8 @@ import yfinance as yf
 
 from src.tools.common_utils import normalize_symbol
 
-
 # ── DB helper ─────────────────────────────────────────────────────────────────
+
 
 def _get_db_url() -> str | None:
     """Return a psycopg-compatible sync DB URL, or None if DATABASE_URL is not set."""
@@ -142,6 +142,7 @@ def _resolve_metric_filter(requested: list[str], aliases: dict[str, str]) -> set
     """Resolve snake_case or CamelCase metric names to a set of CamelCase keys."""
     return {aliases[m] for m in requested if m in aliases}
 
+
 # ── Category sets (for runtime lookup by node utils) ──────────────────────────
 
 PORTFOLIO_FUNCTIONS: frozenset[str] = frozenset(
@@ -213,6 +214,7 @@ def get_balance_sheet(
     if db_url:
         try:
             import psycopg
+
             with psycopg.connect(db_url) as conn:
                 rows = conn.execute(
                     """
@@ -249,7 +251,10 @@ def get_balance_sheet(
                     counts[sym] = counts.get(sym, 0) + 1
                 if multi:
                     return {"balance_sheet": by_symbol}
-                return {"symbol": symbols_list[0], "balance_sheet": by_symbol.get(symbols_list[0], {})}
+                return {
+                    "symbol": symbols_list[0],
+                    "balance_sheet": by_symbol.get(symbols_list[0], {}),
+                }
         except Exception as e:
             print(f"[get_balance_sheet] DB fetch failed ({e}), falling back to yfinance")
 
@@ -260,10 +265,15 @@ def get_balance_sheet(
 
     def _yf_fetch(sym: str) -> dict:
         try:
-            data = yf.Ticker(normalize_symbol(sym)).get_balance_sheet(as_dict=True, pretty=pretty, freq=freq)
+            data = yf.Ticker(normalize_symbol(sym)).get_balance_sheet(
+                as_dict=True, pretty=pretty, freq=freq
+            )
             if not isinstance(data, dict):
                 return {}
-            return {str(dk): {f: v for f, v in flds.items() if f in important_fields} for dk, flds in data.items()}
+            return {
+                str(dk): {f: v for f, v in flds.items() if f in important_fields}
+                for dk, flds in data.items()
+            }
         except Exception as e:
             print(f"ERROR: Failed to fetch balance sheet for {sym} - {e}")
             return {}
@@ -305,6 +315,7 @@ def get_income_statement(
     if db_url:
         try:
             import psycopg
+
             with psycopg.connect(db_url) as conn:
                 rows = conn.execute(
                     """
@@ -338,7 +349,10 @@ def get_income_statement(
                     counts[sym] = counts.get(sym, 0) + 1
                 if multi:
                     return {"income_statement": by_symbol}
-                return {"symbol": symbols_list[0], "income_statement": by_symbol.get(symbols_list[0], {})}
+                return {
+                    "symbol": symbols_list[0],
+                    "income_statement": by_symbol.get(symbols_list[0], {}),
+                }
         except Exception as e:
             print(f"[get_income_statement] DB fetch failed ({e}), falling back to yfinance")
 
@@ -349,10 +363,15 @@ def get_income_statement(
 
     def _yf_fetch(sym: str) -> dict:
         try:
-            data = yf.Ticker(normalize_symbol(sym)).get_income_stmt(as_dict=True, pretty=pretty, freq=freq)
+            data = yf.Ticker(normalize_symbol(sym)).get_income_stmt(
+                as_dict=True, pretty=pretty, freq=freq
+            )
             if not isinstance(data, dict):
                 return {}
-            return {str(dk): {f: v for f, v in flds.items() if f in important_fields} for dk, flds in data.items()}
+            return {
+                str(dk): {f: v for f, v in flds.items() if f in important_fields}
+                for dk, flds in data.items()
+            }
         except Exception as e:
             print(f"ERROR: Failed to fetch income statement for {sym} - {e}")
             return {}
@@ -394,6 +413,7 @@ def get_cash_flow(
     if db_url:
         try:
             import psycopg
+
             with psycopg.connect(db_url) as conn:
                 rows = conn.execute(
                     """
@@ -444,10 +464,15 @@ def get_cash_flow(
 
     def _yf_fetch(sym: str) -> dict:
         try:
-            data = yf.Ticker(normalize_symbol(sym)).get_cashflow(as_dict=True, pretty=pretty, freq=freq)
+            data = yf.Ticker(normalize_symbol(sym)).get_cashflow(
+                as_dict=True, pretty=pretty, freq=freq
+            )
             if not isinstance(data, dict):
                 return {}
-            return {str(dk): {f: v for f, v in flds.items() if f in important_fields} for dk, flds in data.items()}
+            return {
+                str(dk): {f: v for f, v in flds.items() if f in important_fields}
+                for dk, flds in data.items()
+            }
         except Exception as e:
             print(f"ERROR: Failed to fetch cash flow for {sym} - {e}")
             return {}
@@ -515,6 +540,7 @@ def get_financial_metric(
         try:
             import psycopg
             from psycopg import sql as pgsql
+
             # col and table come from the hardcoded _METRIC_LOOKUP — validated values
             query = pgsql.SQL(
                 """
@@ -1273,6 +1299,7 @@ def get_ticker_info(symbol: str) -> dict:
     if db_url:
         try:
             import psycopg
+
             with psycopg.connect(db_url) as conn:
                 row = conn.execute(
                     "SELECT company_metadata FROM in_equities WHERE symbol = %s",

@@ -13,6 +13,10 @@ from src.models.base import Base
 # Import all models here to ensure they're registered with Base
 from src.models.broker import Broker  # noqa: F401
 from src.models.chat_session import ChatSession  # noqa: F401
+
+# src.models.demo_us_stock is intentionally not imported: those tables live in
+# TimescaleDB (see finto/timescale/schema.sql) and must stay out of this
+# metadata, otherwise autogenerate would recreate them in Supabase.
 from src.models.equity_holding import EquityHolding  # noqa: F401
 from src.models.price_bar_1d import PriceBar1d  # noqa: F401
 from src.models.user import User  # noqa: F401

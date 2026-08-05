@@ -16,7 +16,7 @@ from src.api.schemas.thesys_chat import (
     UserBrokerItem,
 )
 from src.core.chat_errors import format_user_visible_chat_error
-from src.core.enums import CHAT_MODE_DESCRIPTIONS, ChatMode, LLMModel
+from src.core.enums import CHAT_MODE_DESCRIPTIONS, CHAT_MODE_LABELS, ChatMode, LLMModel
 from src.core.json_logging import logger_for
 from src.core.middleware import require_auth
 from src.dependencies import get_holdings_service, get_thesys_chat_service
@@ -248,7 +248,7 @@ async def get_chat_metadata(
     chat_modes = [
         ChatModeItem(
             id=mode.value,
-            label=mode.name.capitalize(),
+            label=CHAT_MODE_LABELS[mode],
             description=CHAT_MODE_DESCRIPTIONS[mode],
         )
         for mode in ChatMode

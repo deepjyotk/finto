@@ -13,6 +13,7 @@ from src.core.db import SessionLocal, get_session
 from src.core.enums import LLMModel, ThesysModel
 from src.core.llm import LLMFactory
 from src.core.settings import llm_settings, sendgrid_settings, settings
+from src.core.timescale_db import get_timescale_session
 from src.graph import Graph
 from src.nodes.final_response_generation import FinalResponseGenerationNode
 from src.nodes.financial_analysis_tool_node import PortfolioNode
@@ -21,7 +22,6 @@ from src.nodes.screener_analysis_tool_node import ScreenerNode
 from src.nodes.web_search import WebSearchNode
 from src.repositories.broker_repo import BrokerRepository
 from src.repositories.chat_repo import ChatRepository
-from src.repositories.daily_contest_repo import DailyContestRepo
 from src.repositories.holdings_repo import HoldingsRepository
 from src.repositories.pending_registration_repo import PendingRegistrationRepository
 from src.repositories.price_bars_1d_repo import PriceBars1DRepository
@@ -31,8 +31,9 @@ from src.services.a2ui_chat_service import A2UIChatService
 from src.services.auth import AuthService
 from src.services.broker import BrokerService
 from src.services.chat import ChatService
-from src.services.daily_contest import DailyContestService
 from src.services.chat_thesys_service import ThesysChatService
+from src.services.daily_contest import DailyContestService
+from src.services.demo_us_stock import DemoUsStockService
 from src.services.email import EmailService
 from src.services.holdings import HoldingsService
 from src.services.price_bars_1d_ingest import PriceBars1DIngestService
@@ -85,6 +86,17 @@ async def get_daily_contest_service(
 ) -> DailyContestService:
     """Provide DailyContestService with a DB session."""
     return DailyContestService(session=session)
+
+
+async def get_demo_us_stock_service(
+    session: Annotated[AsyncSession, Depends(get_timescale_session)],
+) -> DemoUsStockService:
+    """Provide DemoUsStockService with a TimescaleDB session.
+
+    The demo is the only feature that reads TimescaleDB; every other service
+    keeps using the Supabase session from ``get_session``.
+    """
+    return DemoUsStockService(session=session)
 
 
 def _get_price_bars_1d_repository(

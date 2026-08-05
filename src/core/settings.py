@@ -20,6 +20,15 @@ class Settings(BaseSettings):
     )
     db_pool_timeout: int = 30
 
+    # TimescaleDB — US stocks demo only (docker-compose.demo-us-stocks.yml).
+    # Separate database from `database_url`: the demo stores tick data,
+    # continuous aggregates and its alert tables here, and nothing else reads it.
+    timescale_database_url: str = Field(
+        default="postgresql://arthik:arthik@localhost:5433/arthik_timeseries",
+        description="Connection URL for the TimescaleDB instance backing the US stocks demo",
+        validation_alias="TIMESCALE_DATABASE_URL",
+    )
+
     # JWT Settings
     secret_key: str
     algorithm: str = "HS256"
@@ -291,6 +300,76 @@ class CloudflareR2Settings(BaseSettings):
     )
 
 
+class DemoUsStockSettings(BaseSettings):
+    """US stocks data-engineering demo — market-data ingestion and Redpanda topic.
+
+    Isolated from every other Arthik feature; only used by the demo router and
+    the standalone market-data producer process.
+    """
+
+    symbols: str = Field(
+        default="AAPL,TSLA,NVDA,MSFT,AMZN,GOOGL,META",
+        description="Comma-separated symbols the producer subscribes to; alert rules are "
+        "restricted to this list so a rule can never reference an unstreamed symbol",
+        validation_alias="DEMO_US_STOCK_SYMBOLS",
+    )
+    kafka_bootstrap_servers: str = Field(
+        default="localhost:19092",
+        description="Redpanda/Kafka bootstrap servers for the demo producer",
+        validation_alias="DEMO_US_STOCK_KAFKA_BOOTSTRAP_SERVERS",
+    )
+    kafka_topic: str = Field(
+        default="demo-market-prices",
+        description="Topic the normalized price events are published to",
+        validation_alias="DEMO_US_STOCK_KAFKA_TOPIC",
+    )
+    alpaca_api_key: Optional[str] = Field(
+        default=None,
+        description="Alpaca API key ID; when unset the producer falls back to simulated prices",
+        validation_alias="ALPACA_API_KEY",
+    )
+    alpaca_api_secret: Optional[str] = Field(
+        default=None,
+        description="Alpaca API secret key",
+        validation_alias="ALPACA_API_SECRET",
+    )
+    alpaca_stream_url: str = Field(
+        default="wss://stream.data.alpaca.markets/v2/iex",
+        description="Alpaca market-data WebSocket URL (iex feed is available on the free plan)",
+        validation_alias="ALPACA_STREAM_URL",
+    )
+    simulate: bool = Field(
+        default=False,
+        description="Force the simulated price stream even when Alpaca credentials are present",
+        validation_alias="DEMO_US_STOCK_SIMULATE",
+    )
+    simulate_tick_seconds: float = Field(
+        default=1.0,
+        gt=0,
+        description="Seconds between simulated ticks per symbol",
+        validation_alias="DEMO_US_STOCK_SIMULATE_TICK_SECONDS",
+    )
+
+    @property
+    def supported_symbols(self) -> list[str]:
+        """Uppercased, de-duplicated symbol list, order preserved."""
+        seen: dict[str, None] = {}
+        for raw in self.symbols.split(","):
+            symbol = raw.strip().upper()
+            if symbol:
+                seen.setdefault(symbol, None)
+        return list(seen)
+
+    @property
+    def use_alpaca(self) -> bool:
+        """True when the producer should connect to Alpaca instead of simulating."""
+        return not self.simulate and bool(self.alpaca_api_key and self.alpaca_api_secret)
+
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
+    )
+
+
 settings = Settings()
 llm_settings = LLMSettings()
 tavily_settings = TavilySettings()
@@ -301,3 +380,4 @@ sendgrid_settings = SendGridSettings()
 smallcase_gateway_settings = SmallcaseGatewaySettings()
 gcs_settings = GCSSettings()
 cloudflare_r2_settings = CloudflareR2Settings()
+demo_us_stock_settings = DemoUsStockSettings()

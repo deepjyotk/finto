@@ -6,12 +6,12 @@ from datetime import datetime
 from typing import Callable, Dict, List, Literal
 from zoneinfo import ZoneInfo
 
-from src.core.db import SessionLocal
-from src.utils.cache import in_equities_cache
-
 from langchain_core.messages import AIMessage, BaseMessage
 from pydantic import BaseModel
 
+# ── Tool Registry (populates on first import) ──────────────────────────────
+import src.tools.register_all  # noqa: F401  — side-effect: populates registry
+from src.core.db import SessionLocal
 from src.core.json_logging import logger_for
 from src.core.schema import EquityHoldingSchema
 from src.nodes.financial_analysis_tool_node.financial_analysis_prompt import (
@@ -42,6 +42,7 @@ from src.tools.portfolio_risk import (
     max_drawdown_asset,
     portfolio_volatility,
 )
+from src.tools.registry import registry as _tool_registry
 from src.tools.yfinance_wrappers import (
     get_balance_sheet,
     get_capital_gains,
@@ -63,10 +64,7 @@ from src.tools.yfinance_wrappers import (
     get_revenue_estimate,
     get_ticker_info,
 )
-
-# ── Tool Registry (populates on first import) ──────────────────────────────
-import src.tools.register_all  # noqa: F401  — side-effect: populates registry
-from src.tools.registry import registry as _tool_registry
+from src.utils.cache import in_equities_cache
 
 logger = logger_for(__name__)
 
@@ -174,9 +172,56 @@ class QueryTypeResult(BaseModel):
     query_type: Literal["specific_stocks_scope", "entire_portfolio_scope"]
 
 
-def build_portfolio_scope_message(task: str, llm) -> tuple[AIMessage, List[str]]:
-    """Classify scope, extract symbols when needed, return the scope AIMessage and symbol list."""
+def company_info_from_pinecone_matches(matches: List[dict]) -> List[dict]:
+    """Map Pinecone resolve rows to code-gen context rows (name + market/currency)."""
+    out: List[dict] = []
+    for m in matches:
+        sym = (m.get("symbol") or "").strip()
+        company = (m.get("company") or "").strip()
+        if not sym:
+            continue
+        market = (m.get("company_registered_in") or "IN").strip().upper()
+        if market not in {"US", "IN"}:
+            market = "IN"
+        out.append(
+            {
+                "symbol_name": sym,
+                "company_name": company,
+                "company_registered_in": market,
+                "currency": "USD" if market == "US" else "INR",
+            }
+        )
+    return out
+
+
+def merge_company_info(primary: List[dict], fallback: List[dict]) -> List[dict]:
+    """Merge company-info lists; *primary* wins on symbol conflicts (keeps market metadata)."""
+    by_symbol: dict[str, dict] = {}
+    for row in fallback:
+        sym = row.get("symbol_name")
+        if sym:
+            by_symbol[sym] = dict(row)
+    for row in primary:
+        sym = row.get("symbol_name")
+        if not sym:
+            continue
+        merged = {**by_symbol.get(sym, {}), **row}
+        # DB India rows often omit market; default INR/IN unless Pinecone said US.
+        market = (merged.get("company_registered_in") or "IN").strip().upper()
+        if market not in {"US", "IN"}:
+            market = "IN"
+        merged["company_registered_in"] = market
+        merged["currency"] = "USD" if market == "US" else "INR"
+        by_symbol[sym] = merged
+    return list(by_symbol.values())
+
+
+def build_portfolio_scope_message(
+    task: str, llm
+) -> tuple[AIMessage, List[str], List[dict]]:
+    """Classify scope, extract symbols when needed, return scope message, symbols, Pinecone company info."""
     extracted_symbols: List[str] = []
+    pinecone_company_info: List[dict] = []
     try:
         classifier_chain = SYMBOL_CLASSIFIER_PROMPT_WORKER | llm.with_structured_output(
             QueryTypeResult
@@ -189,7 +234,13 @@ def build_portfolio_scope_message(task: str, llm) -> tuple[AIMessage, List[str]]
             sym_result = symbol_chain.invoke({"user_query": task})
             from src.tools.get_symbol_name import get_equity_id_for_symbol
 
-            extracted_symbols = [r["symbol"] for r in get_equity_id_for_symbol(sym_result.symbol_names)]
+            matches = [
+                r
+                for r in get_equity_id_for_symbol(sym_result.symbol_names)
+                if r.get("symbol")
+            ]
+            extracted_symbols = [r["symbol"] for r in matches]
+            pinecone_company_info = company_info_from_pinecone_matches(matches)
             logger.info("financial_analysis_tool extracted symbols: %s", extracted_symbols)
     except Exception as exc:
         logger.warning("Symbol extraction failed in financial_analysis_tool: %s", exc)
@@ -202,7 +253,7 @@ def build_portfolio_scope_message(task: str, llm) -> tuple[AIMessage, List[str]]
         ),
         name="portfolio_symbol_extractor",
     )
-    return scope_msg, extracted_symbols
+    return scope_msg, extracted_symbols, pinecone_company_info
 
 
 async def fetch_company_names(symbols: List[str]) -> List[dict]:
@@ -222,6 +273,15 @@ async def fetch_company_names(symbols: List[str]) -> List[dict]:
         return await in_equities_cache.get_company_info_batch(symbols, session)
 
 
+async def resolve_company_info_for_symbols(
+    symbols: List[str],
+    pinecone_company_info: List[dict] | None = None,
+) -> List[dict]:
+    """DB company names first; fill gaps from Pinecone (needed for US tickers)."""
+    db_info = await fetch_company_names(symbols)
+    return merge_company_info(db_info, pinecone_company_info or [])
+
+
 def build_symbols_context(
     symbols: List[str],
     company_info: List[dict] | None = None,
@@ -229,21 +289,30 @@ def build_symbols_context(
     """Build the symbols context string for the code-generation prompt.
 
     When *company_info* is provided it enriches each symbol line with the full
-    company name so the LLM can output human-readable results.
+    company name, market, and currency so the LLM formats money correctly.
     """
     if not symbols:
         return "Scope: Analyze the entire portfolio (no specific symbol filter)."
 
     if company_info:
-        name_map = {row["symbol_name"]: row["company_name"] for row in company_info}
-        lines = [
-            f"- {sym} ({name_map[sym]})" if sym in name_map else f"- {sym}"
-            for sym in symbols
-        ]
+        info_map = {row["symbol_name"]: row for row in company_info if row.get("symbol_name")}
+        lines: list[str] = []
+        for sym in symbols:
+            row = info_map.get(sym)
+            if not row:
+                lines.append(f"- {sym}")
+                continue
+            name = row.get("company_name") or ""
+            market = (row.get("company_registered_in") or "IN").upper()
+            currency = row.get("currency") or ("USD" if market == "US" else "INR")
+            money = "$" if currency == "USD" else "₹"
+            label = f"{name} — {sym}" if name else sym
+            lines.append(f"- {label} [market={market}, currency={currency}, use {money}]")
         return (
-            "Focus only on these symbols (symbol — full company name):\n"
+            "Focus only on these symbols (name — symbol — market/currency):\n"
             + "\n".join(lines)
             + "\nAlways print the full company name alongside the symbol in output."
+            + "\nUse ₹ for INR/Indian stocks and $ for USD/US stocks — never mix them."
         )
 
     return f"Focus only on these symbols: {', '.join(symbols)}"

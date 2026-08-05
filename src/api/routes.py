@@ -8,6 +8,7 @@ from src.api.billing import router as billing_router
 from src.api.chat import router as chat_router
 from src.api.cron_jobs import router as cron_jobs_router
 from src.api.daily_contest import router as daily_contest_router
+from src.api.demo_us_stocks import router as demo_us_stocks_router
 from src.api.dev import router as dev_router
 from src.api.holdings import router as holdings_router
 from src.api.kiteconnect_integration import router as kite_router
@@ -26,6 +27,7 @@ api_router.include_router(billing_router)
 api_router.include_router(chat_router)
 api_router.include_router(cron_jobs_router)
 api_router.include_router(daily_contest_router)
+api_router.include_router(demo_us_stocks_router)
 api_router.include_router(dev_router)
 api_router.include_router(holdings_router)
 api_router.include_router(kite_router)

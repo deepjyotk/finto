@@ -4,7 +4,7 @@ from uuid import UUID
 from langchain_core.messages import BaseMessage
 from langgraph.graph import add_messages
 
-from src.core.enums import LLMModel
+from src.core.enums import ChatMode, LLMModel
 
 
 class AgentState(TypedDict):
@@ -27,6 +27,7 @@ class AgentContext(TypedDict, total=False):
 
     user_id: UUID
     broker_id: UUID | None
+    chat_mode: ChatMode
     orchestrator_model: LLMModel
     portfolio_model: LLMModel
     screener_model: LLMModel

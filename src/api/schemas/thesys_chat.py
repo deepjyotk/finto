@@ -5,7 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
-from src.core.enums import ChatMessageType, LLMModel
+from src.core.enums import ChatMessageType, ChatMode, LLMModel
 
 
 class C1Message(BaseModel):
@@ -22,6 +22,14 @@ class C1ChatRequest(BaseModel):
             "(same as HoldingsService.get_portfolio_df with broker_id=None)."
         ),
     )
+    chat_mode: ChatMode = Field(
+        default=ChatMode.OVERALL,
+        description=(
+            "UI chat mode. overall = normal orchestrator routing; "
+            "portfolio = force financial_analysis_tool; "
+            "screener = force screener_analysis_tool."
+        ),
+    )
     model_payload: LLMModel
 
     @field_validator("broker_id", mode="before")
@@ -33,6 +41,15 @@ class C1ChatRequest(BaseModel):
             s = v.strip()
             return s if s else None
         return str(v).strip() or None
+
+    @field_validator("chat_mode", mode="before")
+    @classmethod
+    def coerce_chat_mode(cls, v: Any) -> ChatMode:
+        if v is None or (isinstance(v, str) and not v.strip()):
+            return ChatMode.OVERALL
+        if isinstance(v, ChatMode):
+            return v
+        return ChatMode(str(v).strip().lower())
 
     @field_validator("model_payload", mode="before")
     @classmethod

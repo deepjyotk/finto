@@ -52,11 +52,10 @@ depends_on: Union[str, Sequence[str], None] = None
 # helpers
 # ---------------------------------------------------------------------------
 
+
 def _coalesce(camel: str, spaced: str) -> str:
     """SQL fragment: try CamelCase JSONB key first, fall back to spaced key."""
-    return (
-        f"COALESCE((data->>'{camel}')::numeric, (data->>'{spaced}')::numeric)"
-    )
+    return f"COALESCE((data->>'{camel}')::numeric, (data->>'{spaced}')::numeric)"
 
 
 def _stmt_normalized(col: str = "statement_type", mapping: dict | None = None) -> str:
@@ -70,9 +69,7 @@ def _stmt_normalized(col: str = "statement_type", mapping: dict | None = None) -
             "annual_cashflow": "annual",
             "quarterly_cashflow": "quarterly",
         }
-    cases = " ".join(
-        f"WHEN {col} = '{k}' THEN '{v}'" for k, v in mapping.items()
-    )
+    cases = " ".join(f"WHEN {col} = '{k}' THEN '{v}'" for k, v in mapping.items())
     return f"CASE {cases} END"
 
 
@@ -80,13 +77,14 @@ def _stmt_normalized(col: str = "statement_type", mapping: dict | None = None) -
 # upgrade
 # ---------------------------------------------------------------------------
 
+
 def upgrade() -> None:
     # ── 1. f_income_statements ────────────────────────────────────────────
     op.create_table(
         "f_income_statements",
         sa.Column("id", sa.BigInteger(), autoincrement=True, nullable=False),
         sa.Column("in_equity_id", postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column("statement_type", sa.Text(), nullable=False),   # 'annual' | 'quarterly'
+        sa.Column("statement_type", sa.Text(), nullable=False),  # 'annual' | 'quarterly'
         sa.Column("period", sa.Date(), nullable=False),
         # ── Income metrics ──────────────────────────────────────────────
         sa.Column("total_revenue", sa.Numeric(), nullable=True),
@@ -116,7 +114,9 @@ def upgrade() -> None:
             ondelete="RESTRICT",
         ),
         sa.UniqueConstraint(
-            "in_equity_id", "statement_type", "period",
+            "in_equity_id",
+            "statement_type",
+            "period",
             name="uq_income_equity_type_period",
         ),
     )
@@ -189,7 +189,9 @@ def upgrade() -> None:
             ondelete="RESTRICT",
         ),
         sa.UniqueConstraint(
-            "in_equity_id", "statement_type", "period",
+            "in_equity_id",
+            "statement_type",
+            "period",
             name="uq_balance_equity_type_period",
         ),
     )
@@ -265,7 +267,9 @@ def upgrade() -> None:
             ondelete="RESTRICT",
         ),
         sa.UniqueConstraint(
-            "in_equity_id", "statement_type", "period",
+            "in_equity_id",
+            "statement_type",
+            "period",
             name="uq_cashflow_equity_type_period",
         ),
     )
@@ -431,6 +435,7 @@ def upgrade() -> None:
 # downgrade
 # ---------------------------------------------------------------------------
 
+
 def downgrade() -> None:
     # Drop new typed tables (data loss — reload from CSV if needed)
     op.execute("DROP INDEX IF EXISTS ix_cashflow_operating_cash_flow_annual")
@@ -474,7 +479,9 @@ def downgrade() -> None:
             ondelete="RESTRICT",
         ),
         sa.UniqueConstraint(
-            "in_equity_id", "statement_type", "period",
+            "in_equity_id",
+            "statement_type",
+            "period",
             name="uq_fin_equity_type_period",
         ),
     )
@@ -483,6 +490,4 @@ def downgrade() -> None:
         "f_financial_statements",
         ["in_equity_id", "statement_type", "period"],
     )
-    op.execute(
-        "CREATE INDEX ix_fin_data_gin ON f_financial_statements USING gin(data)"
-    )
+    op.execute("CREATE INDEX ix_fin_data_gin ON f_financial_statements USING gin(data)")

@@ -12,9 +12,15 @@ class ChatMode(str, Enum):
     SCREENER = "screener"
 
 
+CHAT_MODE_LABELS: dict["ChatMode", str] = {
+    ChatMode.OVERALL: "Overall",
+    ChatMode.PORTFOLIO: "Financial Analysis",
+    ChatMode.SCREENER: "Screener",
+}
+
 CHAT_MODE_DESCRIPTIONS: dict["ChatMode", str] = {
     ChatMode.OVERALL: "Broad market and general finance context",
-    ChatMode.PORTFOLIO: "Your holdings, P&L, and portfolio analysis",
+    ChatMode.PORTFOLIO: "Holdings, stock analysis, statements, and yfinance metrics",
     ChatMode.SCREENER: "Find and filter stocks by criteria",
 }
 

@@ -1,0 +1,5 @@
+ERROR: sensor_timeout
+WARN: low_confidence
+ERROR: sensor_timeout
+ERROR: camera_failure
+WARN: low_confidence

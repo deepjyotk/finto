@@ -72,9 +72,7 @@ class _IntentOutput(BaseModel):
     intent: ScreenerIntentForm
 
 
-async def classify_screener_intent(
-    task: str, llm_factory: LLMFactory
-) -> ScreenerIntentForm:
+async def classify_screener_intent(task: str, llm_factory: LLMFactory) -> ScreenerIntentForm:
     """Classify a screener task string into a supported HITL form category.
 
     Uses a small LLM chain with structured output.  Falls back to ``"market_cap"``
@@ -86,9 +84,7 @@ async def classify_screener_intent(
         )
         llm = llm_factory(LLMModel.GPT4oMini)
         chain = _PROMPT_TEMPLATE | llm.with_structured_output(_IntentOutput)
-        result: _IntentOutput = await chain.ainvoke(
-            {"task": task, "categories": categories_text}
-        )
+        result: _IntentOutput = await chain.ainvoke({"task": task, "categories": categories_text})
         logger.info("Screener intent classified as %r for task: %.120s", result.intent, task)
         return result.intent
     except Exception as exc:

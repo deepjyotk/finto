@@ -147,9 +147,7 @@ _FIELD_GROUPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     (
         "Balance",
         "Leverage and financial strength",
-        (
-            "debt_to_equity_max",
-        ),
+        ("debt_to_equity_max",),
     ),
 )
 
@@ -229,7 +227,9 @@ def build_screener_hitl_a2ui_messages(
             )
 
     tabs: list[dict[str, str]] = []
-    for group_index, (group_title, group_caption, group_fields) in enumerate(_FIELD_GROUPS, start=1):
+    for group_index, (group_title, group_caption, group_fields) in enumerate(
+        _FIELD_GROUPS, start=1
+    ):
         visible_fields = [field for field in group_fields if field in enabled_set]
         if not visible_fields:
             continue
@@ -335,42 +335,222 @@ def build_screener_hitl_a2ui_messages(
 
 _CATEGORY_FIELD_SPECS: dict[str, _FieldSpec] = {
     # Valuation — shared 1-to-1 with _FIELD_SPECS
-    "pe_min": {"label": "P/E minimum", "input_type": "number", "help_text": "P/E lower bound.", "step": None, "placeholder": None},
-    "pe_max": {"label": "P/E maximum", "input_type": "number", "help_text": "P/E upper bound.", "step": None, "placeholder": None},
-    "peg_min": {"label": "PEG minimum", "input_type": "number", "help_text": "", "step": "0.1", "placeholder": None},
-    "peg_max": {"label": "PEG maximum", "input_type": "number", "help_text": "", "step": "0.1", "placeholder": None},
-    "pb_min": {"label": "P/B minimum", "input_type": "number", "help_text": "", "step": "0.1", "placeholder": None},
-    "pb_max": {"label": "P/B maximum", "input_type": "number", "help_text": "", "step": "0.1", "placeholder": None},
-    "ps_min": {"label": "P/S minimum", "input_type": "number", "help_text": "", "step": "0.1", "placeholder": None},
-    "ps_max": {"label": "P/S maximum", "input_type": "number", "help_text": "", "step": "0.1", "placeholder": None},
+    "pe_min": {
+        "label": "P/E minimum",
+        "input_type": "number",
+        "help_text": "P/E lower bound.",
+        "step": None,
+        "placeholder": None,
+    },
+    "pe_max": {
+        "label": "P/E maximum",
+        "input_type": "number",
+        "help_text": "P/E upper bound.",
+        "step": None,
+        "placeholder": None,
+    },
+    "peg_min": {
+        "label": "PEG minimum",
+        "input_type": "number",
+        "help_text": "",
+        "step": "0.1",
+        "placeholder": None,
+    },
+    "peg_max": {
+        "label": "PEG maximum",
+        "input_type": "number",
+        "help_text": "",
+        "step": "0.1",
+        "placeholder": None,
+    },
+    "pb_min": {
+        "label": "P/B minimum",
+        "input_type": "number",
+        "help_text": "",
+        "step": "0.1",
+        "placeholder": None,
+    },
+    "pb_max": {
+        "label": "P/B maximum",
+        "input_type": "number",
+        "help_text": "",
+        "step": "0.1",
+        "placeholder": None,
+    },
+    "ps_min": {
+        "label": "P/S minimum",
+        "input_type": "number",
+        "help_text": "",
+        "step": "0.1",
+        "placeholder": None,
+    },
+    "ps_max": {
+        "label": "P/S maximum",
+        "input_type": "number",
+        "help_text": "",
+        "step": "0.1",
+        "placeholder": None,
+    },
     # Profitability / quality
-    "roe_pct_min": {"label": "ROE minimum (%)", "input_type": "number", "help_text": "", "step": "0.1", "placeholder": None},
-    "roe_pct_max": {"label": "ROE maximum (%)", "input_type": "number", "help_text": "", "step": "0.1", "placeholder": None},
-    "roic_pct_min": {"label": "ROIC minimum (%)", "input_type": "number", "help_text": "", "step": "0.1", "placeholder": None},
-    "roic_pct_max": {"label": "ROIC maximum (%)", "input_type": "number", "help_text": "", "step": "0.1", "placeholder": None},
-    "operating_margin_pct_min": {"label": "Operating margin min (%)", "input_type": "text", "help_text": "Leave empty to disable.", "step": None, "placeholder": "optional"},
-    "operating_margin_pct_max": {"label": "Operating margin max (%)", "input_type": "number", "help_text": "", "step": "0.1", "placeholder": None},
+    "roe_pct_min": {
+        "label": "ROE minimum (%)",
+        "input_type": "number",
+        "help_text": "",
+        "step": "0.1",
+        "placeholder": None,
+    },
+    "roe_pct_max": {
+        "label": "ROE maximum (%)",
+        "input_type": "number",
+        "help_text": "",
+        "step": "0.1",
+        "placeholder": None,
+    },
+    "roic_pct_min": {
+        "label": "ROIC minimum (%)",
+        "input_type": "number",
+        "help_text": "",
+        "step": "0.1",
+        "placeholder": None,
+    },
+    "roic_pct_max": {
+        "label": "ROIC maximum (%)",
+        "input_type": "number",
+        "help_text": "",
+        "step": "0.1",
+        "placeholder": None,
+    },
+    "operating_margin_pct_min": {
+        "label": "Operating margin min (%)",
+        "input_type": "text",
+        "help_text": "Leave empty to disable.",
+        "step": None,
+        "placeholder": "optional",
+    },
+    "operating_margin_pct_max": {
+        "label": "Operating margin max (%)",
+        "input_type": "number",
+        "help_text": "",
+        "step": "0.1",
+        "placeholder": None,
+    },
     # Growth
-    "revenue_growth_pct_min": {"label": "Revenue growth min (%)", "input_type": "number", "help_text": "", "step": "0.1", "placeholder": None},
-    "revenue_growth_pct_max": {"label": "Revenue growth max (%)", "input_type": "number", "help_text": "", "step": "0.1", "placeholder": None},
+    "revenue_growth_pct_min": {
+        "label": "Revenue growth min (%)",
+        "input_type": "number",
+        "help_text": "",
+        "step": "0.1",
+        "placeholder": None,
+    },
+    "revenue_growth_pct_max": {
+        "label": "Revenue growth max (%)",
+        "input_type": "number",
+        "help_text": "",
+        "step": "0.1",
+        "placeholder": None,
+    },
     # Leverage / balance sheet
-    "debt_to_equity_min": {"label": "Debt/equity minimum", "input_type": "number", "help_text": "", "step": "0.01", "placeholder": None},
-    "debt_to_equity_max": {"label": "Debt/equity maximum", "input_type": "number", "help_text": "", "step": "0.01", "placeholder": None},
-    "interest_coverage_min": {"label": "Interest coverage min (×)", "input_type": "number", "help_text": "", "step": "0.1", "placeholder": None},
-    "interest_coverage_max": {"label": "Interest coverage max (×)", "input_type": "number", "help_text": "", "step": "0.1", "placeholder": None},
-    "current_ratio_min": {"label": "Current ratio minimum", "input_type": "number", "help_text": "", "step": "0.01", "placeholder": None},
-    "current_ratio_max": {"label": "Current ratio maximum", "input_type": "number", "help_text": "", "step": "0.01", "placeholder": None},
+    "debt_to_equity_min": {
+        "label": "Debt/equity minimum",
+        "input_type": "number",
+        "help_text": "",
+        "step": "0.01",
+        "placeholder": None,
+    },
+    "debt_to_equity_max": {
+        "label": "Debt/equity maximum",
+        "input_type": "number",
+        "help_text": "",
+        "step": "0.01",
+        "placeholder": None,
+    },
+    "interest_coverage_min": {
+        "label": "Interest coverage min (×)",
+        "input_type": "number",
+        "help_text": "",
+        "step": "0.1",
+        "placeholder": None,
+    },
+    "interest_coverage_max": {
+        "label": "Interest coverage max (×)",
+        "input_type": "number",
+        "help_text": "",
+        "step": "0.1",
+        "placeholder": None,
+    },
+    "current_ratio_min": {
+        "label": "Current ratio minimum",
+        "input_type": "number",
+        "help_text": "",
+        "step": "0.01",
+        "placeholder": None,
+    },
+    "current_ratio_max": {
+        "label": "Current ratio maximum",
+        "input_type": "number",
+        "help_text": "",
+        "step": "0.01",
+        "placeholder": None,
+    },
     # Dividend / income
-    "dividend_yield_pct_min": {"label": "Dividend yield min (%)", "input_type": "number", "help_text": "0 = no floor.", "step": "0.1", "placeholder": None},
-    "dividend_yield_pct_max": {"label": "Dividend yield max (%)", "input_type": "number", "help_text": "", "step": "0.1", "placeholder": None},
-    "payout_ratio_pct_min": {"label": "Payout ratio min (%)", "input_type": "number", "help_text": "", "step": "0.1", "placeholder": None},
-    "payout_ratio_pct_max": {"label": "Payout ratio max (%)", "input_type": "number", "help_text": "", "step": "0.1", "placeholder": None},
+    "dividend_yield_pct_min": {
+        "label": "Dividend yield min (%)",
+        "input_type": "number",
+        "help_text": "0 = no floor.",
+        "step": "0.1",
+        "placeholder": None,
+    },
+    "dividend_yield_pct_max": {
+        "label": "Dividend yield max (%)",
+        "input_type": "number",
+        "help_text": "",
+        "step": "0.1",
+        "placeholder": None,
+    },
+    "payout_ratio_pct_min": {
+        "label": "Payout ratio min (%)",
+        "input_type": "number",
+        "help_text": "",
+        "step": "0.1",
+        "placeholder": None,
+    },
+    "payout_ratio_pct_max": {
+        "label": "Payout ratio max (%)",
+        "input_type": "number",
+        "help_text": "",
+        "step": "0.1",
+        "placeholder": None,
+    },
     # Risk / volatility
-    "beta_min": {"label": "Beta minimum", "input_type": "number", "help_text": "", "step": "0.01", "placeholder": None},
-    "beta_max": {"label": "Beta maximum", "input_type": "number", "help_text": "", "step": "0.01", "placeholder": None},
+    "beta_min": {
+        "label": "Beta minimum",
+        "input_type": "number",
+        "help_text": "",
+        "step": "0.01",
+        "placeholder": None,
+    },
+    "beta_max": {
+        "label": "Beta maximum",
+        "input_type": "number",
+        "help_text": "",
+        "step": "0.01",
+        "placeholder": None,
+    },
     # Market cap (non–market_cap forms; Yahoo convention)
-    "market_cap_min": {"label": "Market cap min (USD)", "input_type": "number", "help_text": "", "step": "1", "placeholder": None},
-    "market_cap_max": {"label": "Market cap max (USD)", "input_type": "number", "help_text": "", "step": "1", "placeholder": None},
+    "market_cap_min": {
+        "label": "Market cap min (USD)",
+        "input_type": "number",
+        "help_text": "",
+        "step": "1",
+        "placeholder": None,
+    },
+    "market_cap_max": {
+        "label": "Market cap max (USD)",
+        "input_type": "number",
+        "help_text": "",
+        "step": "1",
+        "placeholder": None,
+    },
     # MarketCapForm
     "market_category": {
         "label": "Market cap category",
@@ -384,16 +564,70 @@ _CATEGORY_FIELD_SPECS: dict[str, _FieldSpec] = {
             ("Small cap", "small_cap"),
         ],
     },
-    "min_inr": {"label": "Market cap min (INR)", "input_type": "number", "help_text": "", "step": "1", "placeholder": None},
-    "max_inr": {"label": "Market cap max (INR)", "input_type": "number", "help_text": "", "step": "1", "placeholder": None},
+    "min_inr": {
+        "label": "Market cap min (INR)",
+        "input_type": "number",
+        "help_text": "",
+        "step": "1",
+        "placeholder": None,
+    },
+    "max_inr": {
+        "label": "Market cap max (INR)",
+        "input_type": "number",
+        "help_text": "",
+        "step": "1",
+        "placeholder": None,
+    },
     # Sector / geography / style
-    "sectors": {"label": "Sectors", "input_type": "text", "help_text": "Comma-separated sector names.", "step": None, "placeholder": "e.g. Technology, Healthcare"},
-    "industry": {"label": "Industry", "input_type": "text", "help_text": "", "step": None, "placeholder": "optional"},
-    "country": {"label": "Country", "input_type": "text", "help_text": "", "step": None, "placeholder": "e.g. US"},
-    "exchange": {"label": "Exchange", "input_type": "text", "help_text": "", "step": None, "placeholder": "optional"},
-    "market_region": {"label": "Market region", "input_type": "text", "help_text": "", "step": None, "placeholder": "e.g. domestic"},
-    "style": {"label": "Investment style", "input_type": "text", "help_text": "e.g. quality, momentum, blue-chip.", "step": None, "placeholder": "optional"},
-    "sensitivity_type": {"label": "Sensitivity type", "input_type": "text", "help_text": "e.g. defensive, cyclical.", "step": None, "placeholder": "optional"},
+    "sectors": {
+        "label": "Sectors",
+        "input_type": "text",
+        "help_text": "Comma-separated sector names.",
+        "step": None,
+        "placeholder": "e.g. Technology, Healthcare",
+    },
+    "industry": {
+        "label": "Industry",
+        "input_type": "text",
+        "help_text": "",
+        "step": None,
+        "placeholder": "optional",
+    },
+    "country": {
+        "label": "Country",
+        "input_type": "text",
+        "help_text": "",
+        "step": None,
+        "placeholder": "e.g. US",
+    },
+    "exchange": {
+        "label": "Exchange",
+        "input_type": "text",
+        "help_text": "",
+        "step": None,
+        "placeholder": "optional",
+    },
+    "market_region": {
+        "label": "Market region",
+        "input_type": "text",
+        "help_text": "",
+        "step": None,
+        "placeholder": "e.g. domestic",
+    },
+    "style": {
+        "label": "Investment style",
+        "input_type": "text",
+        "help_text": "e.g. quality, momentum, blue-chip.",
+        "step": None,
+        "placeholder": "optional",
+    },
+    "sensitivity_type": {
+        "label": "Sensitivity type",
+        "input_type": "text",
+        "help_text": "e.g. defensive, cyclical.",
+        "step": None,
+        "placeholder": "optional",
+    },
 }
 
 _META_FIELDS = frozenset({"category", "description"})
@@ -563,7 +797,12 @@ def build_category_form_a2ui_messages(
                 "variant": "primary",
                 "action": {"event": {"name": "submit_hitl_form", "context": action_context}},
             },
-            {"id": "submit_button_text", "component": "Text", "text": "Run screening", "variant": "body"},
+            {
+                "id": "submit_button_text",
+                "component": "Text",
+                "text": "Run screening",
+                "variant": "body",
+            },
         ]
     )
 

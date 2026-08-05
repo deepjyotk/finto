@@ -1,5 +1,5 @@
 # src/services/vector_embeddings.py
-from typing import Iterable, Tuple
+from typing import Any, Iterable, Mapping
 
 import pandas as pd
 from langchain_openai import OpenAIEmbeddings
@@ -37,33 +37,72 @@ def init_pinecone(index_name: str | None = None, dimension: int | None = None):
     return index, embeddings
 
 
+def _normalize_upsert_item(item: Any) -> tuple[str, str, str, str | None, str | None]:
+    """Normalize an upsert item into (vector_id, symbol, company, equity_id, company_registered_in).
+
+    Supported forms:
+      - (symbol, company)
+      - (symbol, company, equity_id)
+      - mapping with keys: symbol, company, optional equity_id / company_registered_in / id
+    """
+    if isinstance(item, Mapping):
+        symbol = str(item["symbol"]).strip().upper()
+        company = str(item["company"]).strip()
+        equity_id = item.get("equity_id")
+        company_registered_in = item.get("company_registered_in")
+        vector_id = str(item.get("id") or symbol).strip()
+        return (
+            vector_id,
+            symbol,
+            company,
+            str(equity_id) if equity_id else None,
+            str(company_registered_in) if company_registered_in else None,
+        )
+
+    symbol = str(item[0]).strip().upper()
+    company = str(item[1]).strip()
+    equity_id = str(item[2]) if len(item) > 2 and item[2] else None
+    company_registered_in = str(item[3]) if len(item) > 3 and item[3] else None
+    vector_id = str(item[4]).strip() if len(item) > 4 and item[4] else symbol
+    return vector_id, symbol, company, equity_id, company_registered_in
+
+
 def upsert_symbols_from_iterable(
     index,
     embeddings: OpenAIEmbeddings,
-    items: Iterable[Tuple],
+    items: Iterable[Any],
     batch_size: int = 64,
 ):
     """
-    Upsert symbol/company pairs (optionally with equity_id).
+    Upsert symbol/company pairs (optionally with equity_id / market / custom id).
 
-    items: iterable of 2-tuples (symbol, company_name)
-           OR 3-tuples (symbol, company_name, equity_id)
+    items: iterable of:
+      - 2-tuples (symbol, company_name)
+      - 3-tuples (symbol, company_name, equity_id)
+      - 4-tuples (symbol, company_name, equity_id, company_registered_in)
+      - 5-tuples (..., vector_id)
+      - dicts with keys symbol, company, optional equity_id, company_registered_in, id
 
-    Pinecone metadata stored: {symbol, company, equity_id (if provided)}
-    The vector id is the NSE symbol (e.g. "RELIANCE").
+    Pinecone metadata: {symbol, company, equity_id?, company_registered_in?}
+    Default vector id is the bare symbol (e.g. "RELIANCE"); US rows use "US:TSLA".
     """
-    ids = []
-    texts = []
-    metas = []
+    ids: list[str] = []
+    texts: list[str] = []
+    metas: list[dict] = []
     for item in items:
-        symbol, company = item[0], item[1]
-        equity_id = item[2] if len(item) > 2 else None
+        vector_id, symbol, company, equity_id, company_registered_in = _normalize_upsert_item(item)
+        if not symbol or not company:
+            continue
         embed_text = f"{symbol} {company}"
-        ids.append(symbol)
+        if company_registered_in == "US":
+            embed_text = f"{embed_text} US"
+        ids.append(vector_id)
         texts.append(embed_text)
         meta: dict = {"symbol": symbol, "company": company}
         if equity_id:
             meta["equity_id"] = str(equity_id)
+        if company_registered_in:
+            meta["company_registered_in"] = company_registered_in
         metas.append(meta)
         if len(ids) >= batch_size:
             vectors = embeddings.embed_documents(texts)
@@ -101,10 +140,10 @@ def upsert_from_portfolio_excel(
 def upsert_from_db(
     index,
     embeddings: OpenAIEmbeddings,
-    rows: list[Tuple[str, str, str]],
+    rows: list[tuple],
     batch_size: int = 64,
 ) -> None:
-    """Upsert (symbol, company_name, equity_id) triples sourced from in_equities DB table."""
+    """Upsert rows sourced from in_equities (symbol, company_name, equity_id[, company_registered_in])."""
     upsert_symbols_from_iterable(index, embeddings, rows, batch_size=batch_size)
 
 

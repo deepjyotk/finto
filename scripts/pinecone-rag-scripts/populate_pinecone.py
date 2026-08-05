@@ -4,11 +4,13 @@ Populate Pinecone with symbol embeddings sourced from the in_equities DB table.
 
 Each Pinecone document gets:
   - id:         SYMBOL (e.g. "RELIANCE")
-  - metadata:   {symbol, company, equity_id}  ← equity_id enables O(1) DB look-ups
+  - metadata:   {symbol, company, equity_id, company_registered_in: "IN"}
   - vector:     OpenAI embedding of "SYMBOL Company Name"
 
 Usage:
     python scripts/pinecone-rag-scripts/populate_pinecone.py
+
+Do NOT pass --wipe after loading US SEC tickers unless you re-run both India then US.
 """
 from __future__ import annotations
 
@@ -27,8 +29,8 @@ sys.path.insert(0, str(project_root))
 load_dotenv()
 
 
-async def _fetch_equities() -> list[tuple[str, str, str]]:
-    """Return [(symbol, company_name, equity_id_str), ...] from in_equities."""
+async def _fetch_equities() -> list[tuple[str, str, str, str]]:
+    """Return [(symbol, company_name, equity_id_str, company_registered_in), ...] from in_equities."""
     raw_url = os.environ["DATABASE_URL"]
     url = raw_url.replace("postgresql+asyncpg://", "postgresql://")
     conn = await asyncpg.connect(url)
@@ -36,7 +38,7 @@ async def _fetch_equities() -> list[tuple[str, str, str]]:
         rows = await conn.fetch(
             "SELECT id::text, symbol, company_name FROM in_equities ORDER BY symbol"
         )
-        return [(r["symbol"], r["company_name"], r["id"]) for r in rows]
+        return [(r["symbol"], r["company_name"], r["id"], "IN") for r in rows]
     finally:
         await conn.close()
 

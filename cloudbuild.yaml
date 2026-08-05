@@ -73,8 +73,15 @@ steps:
       - --set-secrets=SENDGRID_API_KEY=SENDGRID_API_KEY:latest
       - --set-secrets=SENDGRID_FROM_EMAIL=SENDGRID_FROM_EMAIL:latest
       - --set-secrets=SENDGRID_FROM_NAME=SENDGRID_FROM_NAME:latest
+      - --set-secrets=CLOUDFLARE_R2_ACCOUNT_ID=CLOUDFLARE_R2_ACCOUNT_ID:latest
+      - --set-secrets=CLOUDFLARE_R2_PUBLIC_DOMAIN=CLOUDFLARE_R2_PUBLIC_DOMAIN:latest
+      - --set-secrets=CLOUDFLARE_R2_ACCESS_KEY_ID=CLOUDFLARE_R2_ACCESS_KEY_ID:latest
+      - --set-secrets=CLOUDFLARE_R2_SECRET_ACCESS_KEY=CLOUDFLARE_R2_SECRET_ACCESS_KEY:latest
+      - --set-secrets=CLOUDFLARE_R2_BUCKET_NAME=CLOUDFLARE_R2_BUCKET_NAME:latest
       - --set-secrets=GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID:latest
       - --set-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY:latest
+      - --set-secrets=GCS_BUCKET_NAME=GCS_BUCKET_NAME:latest
+      - --set-secrets=GCS_PROJECT_ID=GCS_PROJECT_ID:latest
       - --set-secrets=ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest
       # Cookie settings for cross-origin requests (allows localhost:3000)
       # NOTE: For cross-origin (localhost:3000 → Cloud Run), browsers REQUIRE:

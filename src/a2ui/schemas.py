@@ -256,9 +256,7 @@ def make_error(message: str, code: str | None = None) -> ErrorEvent:
     return ErrorEvent(payload=ErrorPayload(message=message, code=code))
 
 
-def make_hitl_form(
-    *, thread_id: str, surface_id: str, task: str | None = None
-) -> HITLFormEvent:
+def make_hitl_form(*, thread_id: str, surface_id: str, task: str | None = None) -> HITLFormEvent:
     return HITLFormEvent(
         payload=HITLFormPayload(thread_id=thread_id, surface_id=surface_id, task=task)
     )

@@ -9,10 +9,13 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableLambda
 from langgraph.runtime import get_runtime
 
-from src.core.enums import LLMModel, Nodes
+from src.core.enums import ChatMode, LLMModel, Nodes
 from src.core.json_logging import logger_for
 from src.core.llm import LLMFactory
-from src.nodes.orchestrator_node.orchestrator_prompt import supervisor_prompt_template
+from src.nodes.orchestrator_node.orchestrator_prompt import (
+    chat_mode_override_text,
+    supervisor_prompt_template,
+)
 from src.schemas.agent_state import AgentContext, AgentState
 
 if TYPE_CHECKING:
@@ -72,14 +75,28 @@ class OrchestratorNode:
 
             orchestrator_model = context.get("orchestrator_model", LLMModel.GPT4oMini)
             llm = self._llm_factory(orchestrator_model)
-            llm_with_tools = llm.bind_tools(
-                [
+
+            chat_mode = context.get("chat_mode") or ChatMode.OVERALL
+            if isinstance(chat_mode, str):
+                try:
+                    chat_mode = ChatMode(chat_mode)
+                except ValueError:
+                    chat_mode = ChatMode.OVERALL
+
+            # Explicit UI modes: force the matching analysis tool; keep web_search available.
+            # Overall keeps the default full tool set and routing behavior.
+            if chat_mode == ChatMode.PORTFOLIO:
+                tools = [self._financial_analysis_tool, self._web_search_tool]
+            elif chat_mode == ChatMode.SCREENER:
+                tools = [self._screener_analysis_tool, self._web_search_tool]
+            else:
+                tools = [
                     self._financial_analysis_tool,
                     self._screener_analysis_tool,
                     self._web_search_tool,
-                ],
-                parallel_tool_calls=False,
-            )
+                ]
+
+            llm_with_tools = llm.bind_tools(tools, parallel_tool_calls=False)
 
             messages = state.get("messages", [])
             messages_for_llm = list(messages)
@@ -92,7 +109,12 @@ class OrchestratorNode:
                         break
 
             chain = prompt | llm_with_tools
-            ai_response = chain.invoke({"messages": messages_for_llm})
+            ai_response = chain.invoke(
+                {
+                    "messages": messages_for_llm,
+                    "chat_mode_override": chat_mode_override_text(chat_mode),
+                }
+            )
 
             new_state: AgentState = {
                 **state,

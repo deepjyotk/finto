@@ -1,0 +1,39 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "demo-us-stock-alert-processor"
+version = "0.1.0"
+description = "Spark Structured Streaming job for the US stocks data-engineering demo"
+readme = "README.md"
+# Deliberately 3.12, not the 3.13 the backend uses: PySpark's Python worker has
+# an unfixed socket-cleanup bug on 3.12/3.13 in every stable release, and 3.12
+# also matches the Databricks runtime this job deploys to.
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "pyspark==4.0.1",
+    "psycopg[binary]>=3.2.0", # Driver-side writes from foreachBatch (no JDBC jar needed)
+    "python-dotenv>=1.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "black>=25.9.0",
+    "flake8>=7.3.0",
+    "isort>=7.0.0",
+]
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.flake8]
+max-line-length = 100
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/demo_us_stock_alert_processor"]

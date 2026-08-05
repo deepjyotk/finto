@@ -1,4 +1,13 @@
-.PHONY: setup run-apis run-ui clean lint help render-graph run-evaluation-script create-dataset deploy-tag
+.PHONY: setup run-apis run-ui clean lint help render-graph run-evaluation-script create-dataset deploy-tag \
+	demo-us-stocks-infra-up demo-us-stocks-infra-down demo-us-stocks-topic demo-us-stocks-producer \
+	demo-us-stocks-spark demo-us-stocks-schema demo-us-stocks-psql
+
+# US stocks data-engineering demo
+DEMO_US_STOCKS_COMPOSE := docker-compose.demo-us-stocks.yml
+DEMO_US_STOCKS_TOPIC ?= demo-market-prices
+DEMO_US_STOCKS_PARTITIONS ?= 3
+TIMESCALE_USER ?= arthik
+TIMESCALE_DB ?= arthik_timeseries
 
 # Detect operating system
 ifeq ($(OS),Windows_NT)
@@ -22,6 +31,15 @@ help:
 	@echo "  make run-evaluation-script dataset_name=<name> - Run LangSmith evaluation on specified dataset"
 	@echo "  make create-dataset dataset_name=<name> - Create LangSmith dataset from JSON file"
 	@echo "  make deploy-tag - Validate .env vs update-secrets.sh + cloudbuild.yaml, then bump patch semver tag on GitHub (gh)"
+	@echo ""
+	@echo "US stocks data-engineering demo:"
+	@echo "  make demo-us-stocks-infra-up   - Start local Redpanda + Console + TimescaleDB (docker)"
+	@echo "  make demo-us-stocks-topic      - Create the $(DEMO_US_STOCKS_TOPIC) topic"
+	@echo "  make demo-us-stocks-schema     - (Re)apply timescale/schema.sql to a running TimescaleDB"
+	@echo "  make demo-us-stocks-psql       - Open a psql shell on the demo TimescaleDB"
+	@echo "  make demo-us-stocks-producer   - Stream Alpaca (or simulated) prices into Redpanda"
+	@echo "  make demo-us-stocks-spark      - Run the Spark Structured Streaming alert processor"
+	@echo "  make demo-us-stocks-infra-down - Stop the demo services and delete their volumes"
 
 setup:
 	@echo "🔧 Setting up project for $(DETECTED_OS)..."
@@ -41,6 +59,44 @@ run-apis:
 	@echo "🚀 Starting FastAPI backend on http://localhost:8000..."
 	@uv run uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
 
+
+demo-us-stocks-infra-up:
+	@echo "🐳 Starting Redpanda and TimescaleDB for the US stocks demo..."
+	@docker compose -f $(DEMO_US_STOCKS_COMPOSE) up -d --wait
+	@echo "✅ Redpanda ready on localhost:19092 — Console at http://localhost:8090"
+	@echo "✅ TimescaleDB ready on localhost:5433/$(TIMESCALE_DB)"
+
+demo-us-stocks-topic:
+	@echo "📇 Creating topic $(DEMO_US_STOCKS_TOPIC) ($(DEMO_US_STOCKS_PARTITIONS) partitions)..."
+	@docker compose -f $(DEMO_US_STOCKS_COMPOSE) exec -T redpanda \
+		rpk topic create $(DEMO_US_STOCKS_TOPIC) -p $(DEMO_US_STOCKS_PARTITIONS) || true
+	@docker compose -f $(DEMO_US_STOCKS_COMPOSE) exec -T redpanda rpk topic list
+
+# The compose file applies this on first boot; this target is for a volume that
+# already exists. Every statement is idempotent, so re-running is safe.
+# Deliberately not --single-transaction: continuous aggregates cannot be
+# created inside a transaction block.
+demo-us-stocks-schema:
+	@echo "🗃️  Applying timescale/schema.sql to $(TIMESCALE_DB)..."
+	@docker compose -f $(DEMO_US_STOCKS_COMPOSE) exec -T timescaledb \
+		psql -v ON_ERROR_STOP=1 -U $(TIMESCALE_USER) -d $(TIMESCALE_DB) -q < timescale/schema.sql
+	@echo "✅ Schema applied"
+
+demo-us-stocks-psql:
+	@docker compose -f $(DEMO_US_STOCKS_COMPOSE) exec timescaledb \
+		psql -U $(TIMESCALE_USER) -d $(TIMESCALE_DB)
+
+demo-us-stocks-producer:
+	@echo "📈 Publishing US stock prices to $(DEMO_US_STOCKS_TOPIC)..."
+	@uv run python -m src.demo_us_stocks_data_engineering
+
+demo-us-stocks-spark:
+	@echo "⚡ Running demo_us_stock_alert_processor..."
+	@$(MAKE) -C spark-jobs/demo_us_stock_alert_processor run
+
+demo-us-stocks-infra-down:
+	@echo "🧹 Stopping Redpanda and removing its volume..."
+	@docker compose -f $(DEMO_US_STOCKS_COMPOSE) down -v
 
 docker-build-and-run:
 	@echo "🐳 Building Docker image..."

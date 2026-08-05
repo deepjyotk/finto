@@ -1,0 +1,82 @@
+# Local Redpanda + TimescaleDB for the US stocks data-engineering demo.
+#
+# Kept in a separate compose file so the demo can be started and stopped
+# without touching the main `docker-compose.yml` API service.
+#
+#   make demo-us-stocks-infra-up      # start Redpanda + Console + TimescaleDB
+#   make demo-us-stocks-topic         # create demo-market-prices
+#   make demo-us-stocks-infra-down    # stop and remove volumes
+#
+# Two Redpanda listeners are configured: `internal` (redpanda:9092) for other
+# containers and `external` (localhost:19092) for the producer and Spark job
+# running on the host. TimescaleDB is published on host port 5433 so it cannot
+# collide with a local PostgreSQL install.
+
+name: finto-demo-us-stocks
+
+services:
+  redpanda:
+    image: redpandadata/redpanda:v25.1.10
+    container_name: finto-demo-redpanda
+    command:
+      - redpanda
+      - start
+      - --kafka-addr=internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr=internal://redpanda:9092,external://localhost:19092
+      - --rpc-addr=redpanda:33145
+      - --advertise-rpc-addr=redpanda:33145
+      - --schema-registry-addr=internal://0.0.0.0:8081,external://0.0.0.0:18081
+      - --mode=dev-container
+      - --smp=1
+      - --default-log-level=info
+    ports:
+      - "19092:19092"
+      - "18081:18081"
+      - "19644:9644"
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health --exit-when-healthy | grep -q 'Healthy:.*true'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  redpanda-console:
+    image: redpandadata/console:v3.9.0
+    container_name: finto-demo-redpanda-console
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    environment:
+      # Console v3 reads its config from CONFIG_FILEPATH or these env vars.
+      KAFKA_BROKERS: redpanda:9092
+      SCHEMAREGISTRY_ENABLED: "true"
+      SCHEMAREGISTRY_URLS: http://redpanda:8081
+    ports:
+      - "8090:8080"
+
+  timescaledb:
+    image: timescale/timescaledb:2.29.0-pg17
+    container_name: finto-demo-timescaledb
+    environment:
+      POSTGRES_USER: ${TIMESCALE_USER:-arthik}
+      POSTGRES_PASSWORD: ${TIMESCALE_PASSWORD:-arthik}
+      POSTGRES_DB: ${TIMESCALE_DB:-arthik_timeseries}
+    ports:
+      - "${TIMESCALE_PORT:-5433}:5432"
+    volumes:
+      - timescaledb-data:/var/lib/postgresql/data
+      # Applied only when the volume is empty. `make timescale-schema` runs the
+      # same file against an existing database.
+      - ./timescale/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${TIMESCALE_USER:-arthik} -d ${TIMESCALE_DB:-arthik_timeseries}
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  redpanda-data:
+  timescaledb-data:

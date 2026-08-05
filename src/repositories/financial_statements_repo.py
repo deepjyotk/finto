@@ -25,90 +25,79 @@ from sqlalchemy.ext.asyncio import AsyncSession
 # ---------------------------------------------------------------------------
 
 _INCOME_DISPLAY: dict[str, str] = {
-    "total_revenue":    "Total Revenue",
-    "cost_of_revenue":  "Cost of Revenue",
-    "gross_profit":     "Gross Profit",
+    "total_revenue": "Total Revenue",
+    "cost_of_revenue": "Cost of Revenue",
+    "gross_profit": "Gross Profit",
     "operating_expense": "Operating Expense",
     "operating_income": "Operating Income",
-    "ebitda":           "EBITDA",
+    "ebitda": "EBITDA",
     "interest_expense": "Interest Expense",
-    "tax_provision":    "Tax Provision",
-    "pretax_income":    "Pretax Income",
-    "net_income":       "Net Income",
-    "basic_eps":        "Basic EPS",
-    "diluted_eps":      "Diluted EPS",
-    "total_expenses":   "Total Expenses",
+    "tax_provision": "Tax Provision",
+    "pretax_income": "Pretax Income",
+    "net_income": "Net Income",
+    "basic_eps": "Basic EPS",
+    "diluted_eps": "Diluted EPS",
+    "total_expenses": "Total Expenses",
 }
 
 _BALANCE_DISPLAY: dict[str, str] = {
-    "total_assets":               "Total Assets",
-    "current_assets":             "Current Assets",
-    "cash_and_cash_equivalents":  "Cash And Cash Equivalents",
-    "accounts_receivable":        "Accounts Receivable",
-    "inventory":                  "Inventory",
-    "net_ppe":                    "Net PPE",
-    "total_non_current_assets":   "Total Non Current Assets",
-    "goodwill":                   "Goodwill",
-    "total_liabilities":          "Total Liabilities Net Minority Interest",
-    "current_liabilities":        "Current Liabilities",
-    "current_debt":               "Current Debt",
-    "accounts_payable":           "Accounts Payable",
-    "long_term_debt":             "Long Term Debt",
-    "total_debt":                 "Total Debt",
-    "stockholders_equity":        "Stockholders Equity",
-    "common_stock_equity":        "Common Stock Equity",
-    "retained_earnings":          "Retained Earnings",
-    "working_capital":            "Working Capital",
-    "net_debt":                   "Net Debt",
+    "total_assets": "Total Assets",
+    "current_assets": "Current Assets",
+    "cash_and_cash_equivalents": "Cash And Cash Equivalents",
+    "accounts_receivable": "Accounts Receivable",
+    "inventory": "Inventory",
+    "net_ppe": "Net PPE",
+    "total_non_current_assets": "Total Non Current Assets",
+    "goodwill": "Goodwill",
+    "total_liabilities": "Total Liabilities Net Minority Interest",
+    "current_liabilities": "Current Liabilities",
+    "current_debt": "Current Debt",
+    "accounts_payable": "Accounts Payable",
+    "long_term_debt": "Long Term Debt",
+    "total_debt": "Total Debt",
+    "stockholders_equity": "Stockholders Equity",
+    "common_stock_equity": "Common Stock Equity",
+    "retained_earnings": "Retained Earnings",
+    "working_capital": "Working Capital",
+    "net_debt": "Net Debt",
 }
 
 _CASHFLOW_DISPLAY: dict[str, str] = {
-    "operating_cash_flow":            "Operating Cash Flow",
+    "operating_cash_flow": "Operating Cash Flow",
     "net_income_from_continuing_ops": "Net Income From Continuing Operations",
-    "depreciation_and_amortization":  "Depreciation And Amortization",
-    "change_in_working_capital":      "Change In Working Capital",
-    "change_in_receivables":          "Change In Receivables",
-    "change_in_inventory":            "Change In Inventory",
-    "change_in_payable":              "Change In Payable",
-    "investing_cash_flow":            "Investing Cash Flow",
-    "capital_expenditure":            "Capital Expenditure",
-    "capital_expenditure_reported":   "Capital Expenditure Reported",
-    "purchase_of_ppe":                "Purchase Of PPE",
-    "sale_of_ppe":                    "Sale Of PPE",
-    "purchase_of_investment":         "Purchase Of Investment",
-    "sale_of_investment":             "Sale Of Investment",
-    "financing_cash_flow":            "Financing Cash Flow",
-    "net_issuance_payments_of_debt":  "Net Issuance Payments Of Debt",
-    "long_term_debt_issuance":        "Long Term Debt Issuance",
-    "long_term_debt_payments":        "Long Term Debt Payments",
-    "common_stock_issuance":          "Common Stock Issuance",
-    "cash_dividends_paid":            "Cash Dividends Paid",
-    "free_cash_flow":                 "Free Cash Flow",
-    "changes_in_cash":                "Changes In Cash",
-    "end_cash_position":              "End Cash Position",
+    "depreciation_and_amortization": "Depreciation And Amortization",
+    "change_in_working_capital": "Change In Working Capital",
+    "change_in_receivables": "Change In Receivables",
+    "change_in_inventory": "Change In Inventory",
+    "change_in_payable": "Change In Payable",
+    "investing_cash_flow": "Investing Cash Flow",
+    "capital_expenditure": "Capital Expenditure",
+    "capital_expenditure_reported": "Capital Expenditure Reported",
+    "purchase_of_ppe": "Purchase Of PPE",
+    "sale_of_ppe": "Sale Of PPE",
+    "purchase_of_investment": "Purchase Of Investment",
+    "sale_of_investment": "Sale Of Investment",
+    "financing_cash_flow": "Financing Cash Flow",
+    "net_issuance_payments_of_debt": "Net Issuance Payments Of Debt",
+    "long_term_debt_issuance": "Long Term Debt Issuance",
+    "long_term_debt_payments": "Long Term Debt Payments",
+    "common_stock_issuance": "Common Stock Issuance",
+    "cash_dividends_paid": "Cash Dividends Paid",
+    "free_cash_flow": "Free Cash Flow",
+    "changes_in_cash": "Changes In Cash",
+    "end_cash_position": "End Cash Position",
 }
 
 # Maps display name → (table, column) — used by get_metric_trend()
-_METRIC_REGISTRY: dict[str, tuple[str, str]] = {
-    display: ("f_income_statements", col)
-    for col, display in _INCOME_DISPLAY.items()
-} | {
-    display: ("f_balance_sheets", col)
-    for col, display in _BALANCE_DISPLAY.items()
-} | {
-    display: ("f_cash_flows", col)
-    for col, display in _CASHFLOW_DISPLAY.items()
-}
+_METRIC_REGISTRY: dict[str, tuple[str, str]] = (
+    {display: ("f_income_statements", col) for col, display in _INCOME_DISPLAY.items()}
+    | {display: ("f_balance_sheets", col) for col, display in _BALANCE_DISPLAY.items()}
+    | {display: ("f_cash_flows", col) for col, display in _CASHFLOW_DISPLAY.items()}
+)
 # Also register snake_case keys for convenience
-_METRIC_REGISTRY.update({
-    col: ("f_income_statements", col) for col in _INCOME_DISPLAY
-})
-_METRIC_REGISTRY.update({
-    col: ("f_balance_sheets", col) for col in _BALANCE_DISPLAY
-})
-_METRIC_REGISTRY.update({
-    col: ("f_cash_flows", col) for col in _CASHFLOW_DISPLAY
-})
+_METRIC_REGISTRY.update({col: ("f_income_statements", col) for col in _INCOME_DISPLAY})
+_METRIC_REGISTRY.update({col: ("f_balance_sheets", col) for col in _BALANCE_DISPLAY})
+_METRIC_REGISTRY.update({col: ("f_cash_flows", col) for col in _CASHFLOW_DISPLAY})
 
 
 def _row_to_dict(row, display_map: dict[str, str]) -> dict:
@@ -261,5 +250,6 @@ class FinancialStatementsRepo:
             ),
             {"stype": statement_type, "since": since, "syms": symbols},
         )
-        return [{"symbol_ns": r.symbol_ns, "period": r.period, "value": float(r.value)} for r in result]
-
+        return [
+            {"symbol_ns": r.symbol_ns, "period": r.period, "value": float(r.value)} for r in result
+        ]

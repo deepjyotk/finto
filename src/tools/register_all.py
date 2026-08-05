@@ -5,12 +5,31 @@ Import this module once at startup (e.g., in financial_analysis_utils.py)
 to populate ``registry`` before prompt building.
 """
 
+# ── Existing: portfolio_metrics.py ──────────────────────────────────────────
+from src.tools.portfolio_metrics import (
+    cagr,
+    calculate_all_metrics,
+    current_ratio,
+    debt_to_equity_ratio,
+    dividend_yield,
+    downside_deviation,
+    portfolio_return,
+    profit_margin,
+    roe,
+    roi,
+    sharpe_ratio,
+    sortino_ratio,
+    win_rate,
+)
 from src.tools.registry import (
     DIVIDEND,
+    EARNINGS_EST,
     EFFICIENCY,
+    FINANCIAL_STMT,
     GROWTH,
     LEVERAGE,
     LIQUIDITY,
+    OWNERSHIP,
     PORTFOLIO_CALC,
     PRICE_DATA,
     PROFITABILITY,
@@ -18,27 +37,7 @@ from src.tools.registry import (
     SCREENING,
     TRADING,
     VALUATION,
-    FINANCIAL_STMT,
-    EARNINGS_EST,
-    OWNERSHIP,
     registry,
-)
-
-# ── Existing: portfolio_metrics.py ──────────────────────────────────────────
-from src.tools.portfolio_metrics import (
-    roi,
-    roe,
-    sharpe_ratio,
-    sortino_ratio,
-    cagr,
-    dividend_yield,
-    debt_to_equity_ratio,
-    current_ratio,
-    profit_margin,
-    win_rate,
-    portfolio_return,
-    downside_deviation,
-    calculate_all_metrics,
 )
 
 registry.register(roi, {PROFITABILITY, PORTFOLIO_CALC})
@@ -58,9 +57,9 @@ registry.register(calculate_all_metrics, {PORTFOLIO_CALC})
 # ── Existing: portfolio_risk.py ─────────────────────────────────────────────
 from src.tools.portfolio_risk import (
     download_prices,
-    portfolio_volatility,
     max_drawdown,
     max_drawdown_asset,
+    portfolio_volatility,
 )
 
 registry.register(download_prices, {PRICE_DATA, RISK})
@@ -108,14 +107,14 @@ if hasattr(yfinance_wrappers, "get_last_close_prices_batch"):
 
 # ── NEW: valuation_metrics.py ───────────────────────────────────────────────
 from src.tools.valuation_metrics import (
-    pe_ratio,
+    earnings_yield,
+    ev_to_ebitda,
     forward_pe,
     pb_ratio,
-    ps_ratio,
+    pe_ratio,
     peg_ratio,
-    ev_to_ebitda,
-    earnings_yield,
     price_to_fcf,
+    ps_ratio,
 )
 
 registry.register_many(
@@ -134,14 +133,14 @@ registry.register_many(
 
 # ── NEW: profitability_efficiency_metrics.py ────────────────────────────────
 from src.tools.profitability_efficiency_metrics import (
-    roa,
-    gross_margin,
-    operating_margin,
-    ebitda_margin,
     asset_turnover,
-    inventory_turnover,
-    receivable_turnover,
     dupont_roe,
+    ebitda_margin,
+    gross_margin,
+    inventory_turnover,
+    operating_margin,
+    receivable_turnover,
+    roa,
 )
 
 registry.register_many([roa, gross_margin, operating_margin, ebitda_margin], {PROFITABILITY})
@@ -150,15 +149,15 @@ registry.register(dupont_roe, {PROFITABILITY, EFFICIENCY})
 
 # ── NEW: risk_metrics.py ────────────────────────────────────────────────────
 from src.tools.risk_metrics import (
-    beta,
     alpha,
-    treynor_ratio,
-    information_ratio,
-    value_at_risk_historical,
+    beta,
     calmar_ratio,
+    information_ratio,
+    interest_coverage_ratio,
     omega_ratio,
     quick_ratio,
-    interest_coverage_ratio,
+    treynor_ratio,
+    value_at_risk_historical,
 )
 
 registry.register_many(
@@ -178,8 +177,8 @@ registry.register(interest_coverage_ratio, {LEVERAGE})
 
 # ── NEW: dividend_metrics.py ────────────────────────────────────────────────
 from src.tools.dividend_metrics import (
-    dividend_payout_ratio,
     dividend_growth_rate,
+    dividend_payout_ratio,
     retention_ratio,
     sustainable_growth_rate,
 )

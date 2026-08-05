@@ -92,9 +92,43 @@ Example usage for getting net income from income statement:
 
 ## Earnings & Estimates:
 {yf_earnings_and_estimates_function_with_doc_string}
+CRITICAL — these helpers return COLUMN-ORIENTED dicts (yfinance as_dict), NOT period→row maps.
+Top-level keys are metric/column names (avg, low, growth, stockTrend, …). Never iterate
+result["earnings_estimate"].items() treating keys as periods — that prints all N/A.
+Correct pattern for earnings/revenue estimates and growth estimates:
+    result = get_earnings_estimate("TSLA")
+    est = pd.DataFrame(result["earnings_estimate"])  # index=periods (0q,+1q,0y,+1y), columns=metrics
+    for period, row in est.iterrows():
+        avg = row.get("avg")
+        growth = row.get("growth")
+        print("  " + str(period) + ": Avg EPS=" + str(avg) + ", Growth=" + str(growth))
+
+    growth_result = get_growth_estimates("TSLA")
+    g = pd.DataFrame(growth_result["growth_estimates"])  # columns: stockTrend, indexTrend
+    for period, row in g.iterrows():
+        st = row.get("stockTrend")
+        it = row.get("indexTrend")
+        st_pct = ("%.2f%%" % (float(st) * 100)) if st is not None and not pd.isna(st) else "N/A"
+        it_pct = ("%.2f%%" % (float(it) * 100)) if it is not None and not pd.isna(it) else "N/A"
+        print("  " + str(period) + ": Stock Trend=" + st_pct + ", Index Trend=" + it_pct)
 
 ## Ownership & Insider Activity:
 {yf_ownership_and_insider_activity_function_with_doc_string}
+CRITICAL — institutional/mutualfund/insider payloads are also COLUMN-ORIENTED:
+keys like Holder, Shares, Value, Insider, Transaction — NOT a list of row dicts.
+Never iterate .items() as holder names, and never expect Name/Title/Date keys on insider rows.
+Correct pattern:
+    inst = get_institutional_holders("TSLA")
+    holders = pd.DataFrame(inst["institutional_holders"])
+    for _, row in holders.iterrows():
+        print("  " + str(row.get("Holder")) + ": Shares=" + str(row.get("Shares")) + ", Value=" + str(row.get("Value")))
+
+    insider = get_insider_transactions("TSLA")
+    txs = pd.DataFrame(insider["insider_transactions"])
+    for _, row in txs.head(5).iterrows():
+        print("  " + str(row.get("Start Date")) + ": " + str(row.get("Insider"))
+              + " (" + str(row.get("Position")) + ") - " + str(row.get("Transaction"))
+              + ", Shares=" + str(row.get("Shares")) + ", Value=" + str(row.get("Value")))
 
 ## Comprehensive Ticker Info:
 {ticker_info_function_with_doc_string}

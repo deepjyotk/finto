@@ -23,6 +23,12 @@ SCREENER:
 BOTH:
   get_balance_sheet, get_income_statement, get_cash_flow,
   get_financial_metric, get_ticker_price, get_last_close_price, get_ticker_info
+
+SHAPE NOTE (critical for generated code):
+  Estimate / ownership / insider helpers return yfinance as_dict=True payloads:
+  COLUMN-ORIENTED dicts (column name -> {row_key: value}), NOT a list of row dicts.
+  Always convert with pd.DataFrame(payload) before iterating rows. Never treat top-level
+  keys (avg, Holder, Shares, …) as periods or holder names.
 """
 
 import os
@@ -648,7 +654,12 @@ def get_earnings_estimate(symbol_name: str) -> dict:
         symbol_name: Stock ticker symbol
 
     Returns:
-        {"symbol": t, "earnings_estimate": {...}} with columns: avg, low, high, yearAgoEps, numberOfAnalysts, growth
+        {"symbol": t, "earnings_estimate": {...}}. COLUMN-ORIENTED (yfinance as_dict):
+        top-level keys are metrics (avg, low, high, yearAgoEps, numberOfAnalysts, growth);
+        each value is {period: number} for periods like 0q, +1q, 0y, +1y.
+        Do NOT iterate .items() as if keys were periods. Parse with:
+        est = pd.DataFrame(result["earnings_estimate"]); then for period, row in est.iterrows():
+        use float(row["avg"]), row.get("growth"), etc.
     """
     try:
         if not symbol_name:
@@ -672,7 +683,11 @@ def get_revenue_estimate(symbol_name: str) -> dict:
         symbol_name: Stock ticker symbol
 
     Returns:
-        {"symbol": t, "revenue_estimate": {...}}
+        {"symbol": t, "revenue_estimate": {...}}. COLUMN-ORIENTED (yfinance as_dict):
+        top-level keys are metrics (avg, low, high, numberOfAnalysts, yearAgoRevenue, growth);
+        each value is {period: number} for 0q, +1q, 0y, +1y.
+        Do NOT iterate .items() as if keys were periods. Parse with:
+        rev = pd.DataFrame(result["revenue_estimate"]); then for period, row in rev.iterrows(): ...
     """
     try:
         if not symbol_name:
@@ -697,7 +712,10 @@ def get_earnings_history(symbol_name: str) -> dict:
         symbol_name: Stock ticker symbol
 
     Returns:
-        {"symbol": t, "earnings_history": {...}} with columns: epsActual, epsEstimate, epsDifference, surprisePercent
+        {"symbol": t, "earnings_history": {...}}. COLUMN-ORIENTED (yfinance as_dict):
+        top-level keys are metrics (epsActual, epsEstimate, epsDifference, surprisePercent);
+        each value maps date-string -> value. Parse with:
+        hist = pd.DataFrame(result["earnings_history"]); iterate hist.iterrows().
     """
     try:
         if not symbol_name:
@@ -731,7 +749,9 @@ def get_eps_trend(symbol_name: str) -> dict:
         symbol_name: Stock ticker symbol
 
     Returns:
-        {"symbol": t, "eps_trend": {...}} with columns: current, 7daysAgo, 30daysAgo, 60daysAgo, 90daysAgo
+        {"symbol": t, "eps_trend": {...}}. COLUMN-ORIENTED (yfinance as_dict):
+        top-level keys are lookback columns (current, 7daysAgo, 30daysAgo, 60daysAgo, 90daysAgo);
+        values map period -> estimate. Parse with: trend = pd.DataFrame(result["eps_trend"]).
     """
     try:
         if not symbol_name:
@@ -759,7 +779,9 @@ def get_eps_revisions(symbol_name: str) -> dict:
         symbol_name: Stock ticker symbol
 
     Returns:
-        {"symbol": t, "eps_revisions": {...}}
+        {"symbol": t, "eps_revisions": {...}}. COLUMN-ORIENTED (yfinance as_dict):
+        top-level keys are revision metrics; values map period -> value.
+        Parse with: rev = pd.DataFrame(result["eps_revisions"]); iterate rev.iterrows().
     """
     try:
         if not symbol_name:
@@ -783,7 +805,10 @@ def get_growth_estimates(symbol_name: str) -> dict:
         symbol_name: Stock ticker symbol
 
     Returns:
-        {"symbol": t, "growth_estimates": {...}} with columns: stockTrend, indexTrend
+        {"symbol": t, "growth_estimates": {...}}. COLUMN-ORIENTED (yfinance as_dict):
+        top-level keys are stockTrend and indexTrend; each maps period (0q, +1q, 0y, +1y, LTG) -> float|None.
+        Parse with: g = pd.DataFrame(result["growth_estimates"]); then for period, row in g.iterrows():
+        use row["stockTrend"], row["indexTrend"] (values are decimals, e.g. 0.0785 = 7.85%).
     """
     try:
         if not symbol_name:
@@ -819,7 +844,10 @@ def get_major_holders(symbol_name: str) -> dict:
         symbol_name: Stock ticker symbol
 
     Returns:
-        {"symbol": t, "major_holders": {...}}
+        {"symbol": t, "major_holders": {...}}. COLUMN-ORIENTED (yfinance as_dict):
+        typically {"Value": {"insidersPercentHeld": ..., "institutionsPercentHeld": ...,
+        "institutionsFloatPercentHeld": ..., "institutionsCount": ...}}.
+        Read via result["major_holders"].get("Value", {}) or pd.DataFrame(result["major_holders"]).
     """
     try:
         if not symbol_name:
@@ -843,7 +871,11 @@ def get_institutional_holders(symbol_name: str) -> dict:
         symbol_name: Stock ticker symbol
 
     Returns:
-        {"symbol": t, "institutional_holders": {...}}
+        {"symbol": t, "institutional_holders": {...}}. COLUMN-ORIENTED (yfinance as_dict):
+        top-level keys are columns (Date Reported, Holder, pctHeld, Shares, Value, pctChange);
+        each value is {row_index: cell}. Do NOT iterate .items() treating keys as holder names.
+        Parse with: holders = pd.DataFrame(result["institutional_holders"]);
+        then for _, row in holders.iterrows(): use row["Holder"], row["Shares"], row["Value"].
     """
     try:
         if not symbol_name:
@@ -867,7 +899,9 @@ def get_mutualfund_holders(symbol_name: str) -> dict:
         symbol_name: Stock ticker symbol
 
     Returns:
-        {"symbol": t, "mutualfund_holders": {...}}
+        {"symbol": t, "mutualfund_holders": {...}}. COLUMN-ORIENTED (yfinance as_dict):
+        top-level keys are columns (Holder, Shares, Value, …); values are {row_index: cell}.
+        Parse with: mf = pd.DataFrame(result["mutualfund_holders"]); iterate mf.iterrows().
     """
     try:
         if not symbol_name:
@@ -891,7 +925,9 @@ def get_insider_purchases(symbol_name: str) -> dict:
         symbol_name: Stock ticker symbol
 
     Returns:
-        {"symbol": t, "insider_purchases": {...}}
+        {"symbol": t, "insider_purchases": {...}}. COLUMN-ORIENTED (yfinance as_dict):
+        top-level keys are table columns; values are {row_index: cell}.
+        Parse with: purchases = pd.DataFrame(result["insider_purchases"]); iterate purchases.iterrows().
     """
     try:
         if not symbol_name:
@@ -915,7 +951,12 @@ def get_insider_transactions(symbol_name: str) -> dict:
         symbol_name: Stock ticker symbol
 
     Returns:
-        {"symbol": t, "insider_transactions": {...}}
+        {"symbol": t, "insider_transactions": {...}}. COLUMN-ORIENTED (yfinance as_dict):
+        top-level keys are columns (Shares, Value, Insider, Position, Transaction, Start Date, Ownership, …);
+        each value is {row_index: cell}. Do NOT treat the dict as one transaction or read Name/Title/Date keys.
+        Parse with: txs = pd.DataFrame(result["insider_transactions"]);
+        then for _, row in txs.head(5).iterrows(): use row["Insider"], row["Position"],
+        row["Transaction"], row["Start Date"], row["Shares"], row.get("Value").
     """
     try:
         if not symbol_name:

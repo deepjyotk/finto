@@ -1,5 +1,6 @@
 """Final response generation node that turns execution output into a user-facing answer."""
 
+import json
 from typing import List
 
 from langchain_core.messages import (
@@ -14,6 +15,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableLambda
 from langgraph.runtime import get_runtime
 
+from src.a2ui.v0_9 import parse_llm_surface_document
 from src.core.enums import LLMModel
 from src.core.json_logging import logger_for
 from src.core.llm import LLMFactory, ThesysChatOpenAI
@@ -21,6 +23,45 @@ from src.core.settings import cloudflare_r2_settings, thesys_settings
 from src.schemas.agent_state import AgentContext, AgentState
 
 logger = logger_for(__name__)
+
+_A2UI_MAX_ATTEMPTS = 2
+_A2UI_FALLBACK_DOCUMENT = json.dumps(
+    {
+        "messages": [
+            {
+                "version": "v0.9",
+                "createSurface": {
+                    "surfaceId": "main",
+                    "catalogId": "https://explainly.ai/catalogs/finance-chat-v1.json",
+                    "sendDataModel": False,
+                },
+            },
+            {
+                "version": "v0.9",
+                "updateComponents": {
+                    "surfaceId": "main",
+                    "components": [
+                        {
+                            "id": "root",
+                            "component": "Column",
+                            "children": ["err"],
+                        },
+                        {
+                            "id": "err",
+                            "component": "InfoBox",
+                            "text": (
+                                "The UI response could not be generated as valid JSON. "
+                                "Please try the question again."
+                            ),
+                            "variant": "error",
+                        },
+                    ],
+                },
+            },
+        ]
+    },
+    ensure_ascii=False,
+)
 
 
 class FinalResponseGenerationNode:
@@ -287,6 +328,10 @@ Whenever a company must be identified in the UI, apply the following rules:
    where `symbol` and `company_name` are relative paths in the collection scope.
 
 ─── RULES ───
+• JSON COMPLETENESS (CRITICAL): Output one COMPLETE, parseable JSON object. Never truncate mid-array/object.
+  Forbidden: ``//`` comments, ``/* */``, ellipsis placeholders (``...``), ``truncated for brevity``,
+  ``more rows available``, trailing commas, NDJSON, multiple top-level objects, or markdown fences.
+  If a table is large, include at most the top 10 complete rows (still valid JSON) — never cut a row in half.
 • FIDELITY: Present the execution data as-is. Do not rewrite, reinterpret, round, or "improve" answers. Keep compact suffixes like K/M/B/T unchanged (e.g. keep ``1M`` as ``1M`` — never expand to ``1,000,000``).
 • Use official A2UI v0.9 messages: `createSurface`, `updateComponents`, and optionally `updateDataModel`.
 • Use surfaceId "main" and catalogId "https://explainly.ai/catalogs/finance-chat-v1.json".
@@ -350,6 +395,81 @@ Output ONLY the JSON object:"""
     def __init__(self, llm_factory: LLMFactory):
         self._llm_factory = llm_factory
 
+    @staticmethod
+    def _message_text(response: object) -> str:
+        content = getattr(response, "content", response)
+        if isinstance(content, list):
+            parts: list[str] = []
+            for block in content:
+                if isinstance(block, str):
+                    parts.append(block)
+                elif isinstance(block, dict) and isinstance(block.get("text"), str):
+                    parts.append(block["text"])
+                else:
+                    text = getattr(block, "text", None)
+                    if isinstance(text, str):
+                        parts.append(text)
+            return "".join(parts)
+        return str(content or "")
+
+    @staticmethod
+    def _validated_a2ui_json(raw: str) -> str | None:
+        """Return a canonical ``{\"messages\": [...]}`` JSON string, or None if invalid."""
+        messages, _persisted = parse_llm_surface_document(raw)
+        if not messages:
+            return None
+        return json.dumps({"messages": messages}, ensure_ascii=False)
+
+    def _generate_a2ui_json(
+        self,
+        *,
+        llm,
+        user_request: str,
+        execution_result: str,
+        logo_cdn_base: str,
+    ) -> str:
+        """Generate A2UI JSON; retry once if the model returns invalid/partial JSON."""
+        prompt_messages = self._PROMPT_TEMPLATE_A2UI.format_messages(
+            user_request=user_request,
+            execution_result=execution_result,
+            logo_cdn_base=logo_cdn_base,
+        )
+        last_raw = ""
+        for attempt in range(1, _A2UI_MAX_ATTEMPTS + 1):
+            if attempt == 1:
+                ai_response = llm.invoke(prompt_messages)
+            else:
+                repair_messages = [
+                    *prompt_messages,
+                    AIMessage(content=last_raw),
+                    HumanMessage(
+                        content=(
+                            "Your previous output was NOT valid complete JSON "
+                            "(parse failed or document truncated). "
+                            "Return ONLY one complete A2UI JSON object with a top-level "
+                            '"messages" array. No markdown, no // comments, no ellipsis, '
+                            "no truncated arrays. If a list is long, keep at most 10 full rows."
+                        )
+                    ),
+                ]
+                ai_response = llm.invoke(repair_messages)
+
+            last_raw = self._message_text(ai_response)
+            validated = self._validated_a2ui_json(last_raw)
+            if validated is not None:
+                if attempt > 1:
+                    logger.info("A2UI JSON validated after repair attempt %s", attempt)
+                return validated
+
+            logger.warning(
+                "A2UI JSON invalid on attempt %s (len=%s)",
+                attempt,
+                len(last_raw),
+            )
+
+        logger.error("A2UI JSON still invalid after %s attempts; using fallback UI", _A2UI_MAX_ATTEMPTS)
+        return _A2UI_FALLBACK_DOCUMENT
+
     def get_runnable_sequence(self):
         """Return runnable that produces the final user-facing response."""
 
@@ -366,6 +486,10 @@ Output ONLY the JSON object:"""
                 prompt_template = self._PROMPT_TEMPLATE_THESYS
             else:
                 llm = self._llm_factory(model)
+                # Avoid streaming partial tokens into the A2UI client; we only emit
+                # validated complete JSON via final_rendered_ui_answer / a2ui_message.
+                if hasattr(llm, "model_copy"):
+                    llm = llm.model_copy(update={"disable_streaming": True})
                 prompt_template = self._PROMPT_TEMPLATE_A2UI
 
             user_request = (state.get("user_request") or "").strip() or "No user request provided."
@@ -390,11 +514,6 @@ Output ONLY the JSON object:"""
                     "done": True,
                 }
 
-            chain = prompt_template | llm
-            invoke_kwargs: dict = {
-                "user_request": user_request,
-                "execution_result": execution_result,
-            }
             if prompt_template is self._PROMPT_TEMPLATE_A2UI:
                 cdn = (
                     cloudflare_r2_settings.public_domain
@@ -402,11 +521,22 @@ Output ONLY the JSON object:"""
                 ).rstrip("/")
                 if not cdn.startswith("http"):
                     cdn = f"https://{cdn}"
-                invoke_kwargs["logo_cdn_base"] = cdn
-            ai_response = chain.invoke(invoke_kwargs)
-            final_rendered_ui_answer = (
-                ai_response.content if hasattr(ai_response, "content") else str(ai_response)
-            )
+                final_rendered_ui_answer = self._generate_a2ui_json(
+                    llm=llm,
+                    user_request=user_request,
+                    execution_result=execution_result,
+                    logo_cdn_base=cdn,
+                )
+            else:
+                chain = prompt_template | llm
+                ai_response = chain.invoke(
+                    {
+                        "user_request": user_request,
+                        "execution_result": execution_result,
+                    }
+                )
+                final_rendered_ui_answer = self._message_text(ai_response)
+
             ai_msg = AIMessage(content=final_rendered_ui_answer, name="final_response_generation")
 
             history_message_length = context.get("history_message_length")

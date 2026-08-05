@@ -9,7 +9,24 @@ from src.a2ui.catalog import A2UI_FINANCE_CHAT_CATALOG_ID, A2UI_MAIN_SURFACE_ID
 
 
 def _strip_code_fences(raw: str) -> str:
-    return raw.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+    text = raw.strip()
+    if text.startswith("```"):
+        # Drop opening fence (optional language tag) and closing fence.
+        first_nl = text.find("\n")
+        if first_nl != -1:
+            text = text[first_nl + 1 :]
+        text = text.removesuffix("```").strip()
+    return text
+
+
+def _extract_json_object(raw: str) -> str:
+    """Best-effort extract of the outermost JSON object from model output."""
+    text = _strip_code_fences(raw)
+    start = text.find("{")
+    end = text.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        return text
+    return text[start : end + 1]
 
 
 def build_surface_messages(
@@ -149,7 +166,7 @@ def parse_llm_surface_document(raw: str) -> tuple[list[dict[str, Any]], str]:
     """
 
     try:
-        parsed = json.loads(_strip_code_fences(raw))
+        parsed = json.loads(_extract_json_object(raw))
     except Exception:
         return [], raw
 

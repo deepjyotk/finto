@@ -271,8 +271,19 @@ class A2UIChatService:
                 logger.info(f"[A2UI] HITL interrupt emitted for session {thread_id}")
                 return
 
-            raw_final_content = "".join(final_content_parts)
+            # Prefer validated graph state over streamed token chunks (chunks can be
+            # partial/invalid JSON; final_response_generation stores complete JSON).
+            state_values = (snapshot.values if snapshot else None) or {}
+            raw_final_content = (
+                state_values.get("final_rendered_ui_answer")
+                or "".join(final_content_parts)
+                or ""
+            )
             surface_messages, persisted_content = parse_llm_surface_document(raw_final_content)
+            if not surface_messages and final_content_parts:
+                surface_messages, persisted_content = parse_llm_surface_document(
+                    "".join(final_content_parts)
+                )
             for message in surface_messages:
                 yield make_a2ui_message(message)
             yield make_message_complete(persisted_content)
@@ -373,8 +384,17 @@ class A2UIChatService:
                 }
             )
 
-            raw_final_content = "".join(final_content_parts)
+            state_values = (snapshot.values if snapshot else None) or {}
+            raw_final_content = (
+                state_values.get("final_rendered_ui_answer")
+                or "".join(final_content_parts)
+                or ""
+            )
             surface_messages, persisted_content = parse_llm_surface_document(raw_final_content)
+            if not surface_messages and final_content_parts:
+                surface_messages, persisted_content = parse_llm_surface_document(
+                    "".join(final_content_parts)
+                )
             for message in surface_messages:
                 yield make_a2ui_message(message)
             yield make_message_complete(persisted_content)
